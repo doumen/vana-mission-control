@@ -1,0 +1,16 @@
+{
+  "contract_id": "vana.mission",
+  "contract_version": "3.0",
+  "meta": {
+    "source": "manual-entry"
+  },
+  "tour": {
+    "origin_key": "tour:india-vrindavan-2026",
+    "slug": "vrindavan-kartik-2026",
+    "title": "Vrindavan Kartik Parikrama 2026",
+    "theme": "india",
+    "dates_label": "Outubro – Novembro 2026",
+    "is_current": false,
+    "post_status": "draft"
+  }
+}

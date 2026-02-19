@@ -1,0 +1,317 @@
+<?php
+/**
+ * Template: Single Vana Visit (Completo com Astra, Timeline e Check-in)
+ */
+if (!defined('ABSPATH')) exit;
+
+$lang = Vana_Utils::lang_from_request();
+$visit_id = get_the_ID();
+
+get_header();
+
+// ==========================================
+// 1. ASTRA WRAPPERS (Início)
+// ==========================================
+do_action('astra_primary_content_top');
+?>
+<div id="primary" class="content-area primary">
+  <?php do_action('astra_primary_content_before'); ?>
+  <main id="main" class="site-main">
+    <?php do_action('astra_content_before'); ?>
+
+<style>
+/* CSS UNIFICADO */
+.vana-wrap{max-width:1100px;margin:0 auto;padding:24px 16px; font-family:'Questrial',sans-serif;}
+.vana-hero h1{margin:0 0 8px;font-size:2.5rem; font-family:'Syne',sans-serif; color:#ffd700;}
+.vana-hero p{margin:0 0 18px;opacity:.85;}
+.vana-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
+@media (max-width: 900px){.vana-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width: 560px){.vana-grid{grid-template-columns:1fr;}}
+.vana-card{border:1px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.04); transition: transform 0.2s;}
+.vana-card:hover{transform: translateY(-5px);}
+.vana-card button{all:unset;display:block;cursor:pointer; width:100%; text-align:left;}
+.vana-card__media{position:relative;background:#111;}
+.vana-card__img{width:100%;height:220px;object-fit:cover;display:block;}
+.vana-card__placeholder{height:220px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f8fafc,#eef2f7);position:relative;overflow:hidden;}
+.vana-card__placeholder::before{content:"";position:absolute;inset:-20px;opacity:.18;background-repeat:no-repeat;background-position:center;background-size:180px 180px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cpath fill='%230b5fff' d='M100 28c-8 16-10 30-10 44 0 14 2 28 10 44 8-16 10-30 10-44 0-14-2-28-10-44z'/%3E%3Cpath fill='%230b5fff' d='M60 52c2 18 8 32 18 44 10 12 22 22 40 30-2-18-8-32-18-44-10-12-22-22-40-30z'/%3E%3Cpath fill='%230b5fff' d='M140 52c-18 8-30 18-40 30-10 12-16 26-18 44 18-8 30-18 40-30 10-12 16-26 18-44z'/%3E%3Cpath fill='%230b5fff' d='M44 98c10 14 22 24 36 30 14 6 30 8 50 4-10-14-22-24-36-30-14-6-30-8-50-4z'/%3E%3Cpath fill='%230b5fff' d='M156 98c-20-4-36-2-50 4-14 6-26 16-36 30 20 4 36 2 50-4 14-6 26-16 36-30z'/%3E%3Cpath fill='%230b5fff' d='M70 154c14-2 26-8 36-18 10-10 18-22 24-40-14 2-26 8-36 18-10 10-18 22-24 40z'/%3E%3Cpath fill='%230b5fff' d='M130 154c-6-18-14-30-24-40-10-10-22-16-36-18 6 18 14 30 24 40 10 10 22 16 36 18z'/%3E%3C/svg%3E");}
+.vana-card__body{padding:12px 12px 14px; color:#333;}
+.vana-card__name{margin:0 0 6px;font-weight:700; font-family:'Syne',sans-serif; font-size:1.1rem;}
+.vana-card__msg{margin:0;opacity:.9;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.vana-card__meta{margin-top:10px;font-size:.86rem;opacity:.7;display:flex;justify-content:space-between;gap:8px;}
+.vana-card--video .vana-card__media::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(0,0,0,.25), rgba(0,0,0,0) 55%);}
+.vana-card--video .vana-card__media::before{content:"";position:absolute;left:50%;top:50%;width:54px;height:54px;transform:translate(-50%,-50%);pointer-events:none;border-radius:999px;background:rgba(0,0,0,.72) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='54' height='54' viewBox='0 0 54 54'%3E%3Cpath d='M22 17 L22 37 L38 27 Z' fill='%23ffffff'/%3E%3C/svg%3E") center/54px 54px no-repeat;box-shadow:0 10px 24px rgba(0,0,0,.25);}
+.vana-modal[aria-hidden="true"]{display:none;}
+.vana-modal{position:fixed;inset:0;z-index:9999;}
+.vana-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.85);}
+.vana-modal__dialog{position:relative;max-width:920px;margin:6vh auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 18px 55px rgba(0,0,0,.35);}
+@media (max-width: 980px){.vana-modal__dialog{margin:0;max-width:none;border-radius:0;min-height:100vh;}}
+.vana-modal__close{position:absolute;top:10px;right:10px;z-index:2;background:rgba(0,0,0,.65);color:#fff;border:0;border-radius:12px;padding:8px 10px;cursor:pointer;}
+.vana-modal__media{background:#111;}
+.vana-modal__img{width:100%;max-height:60vh;object-fit:contain;display:block;}
+.vana-embed{width:100%;aspect-ratio:16/9;background:#111;}
+.vana-embed iframe{width:100%;height:100%;display:block;border:0;}
+.vana-embed-fallback{width:100%;aspect-ratio:16/9;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;}
+.vana-embed-fallback__title{margin:0 0 8px;font-weight:700;}
+.vana-embed-fallback__hint{margin:0 0 12px;opacity:.85;}
+.vana-modal__body{padding:20px; color:#333;}
+.vana-modal__kicker{margin:0 0 6px;opacity:.7;font-size:.92rem;text-transform:uppercase;}
+.vana-modal__title{margin:0 0 10px; font-family:'Syne',sans-serif; font-size:1.5rem;}
+.vana-modal__message{margin:0 0 12px;white-space:pre-wrap;}
+.vana-help{margin-top:8px;font-size:.92rem;line-height:1.25;}
+.vana-help--ok{color:#0f7a2a;}
+.vana-help--warn{color:#8a5a00;}
+.vana-help--err{color:#a40000;}
+</style>
+
+    <div class="vana-wrap">
+      <?php
+      // TIMELINE DA VISITA
+      $raw_data = get_post_meta($visit_id, '_vana_visit_timeline_json', true);
+      $data = json_decode((string)$raw_data, true);
+      $title = Vana_Utils::pick_i18n($data['title'] ?? get_the_title(), $lang);
+      $desc  = Vana_Utils::pick_i18n($data['description'] ?? '', $lang);
+      ?>
+      <header class="vana-hero" style="text-align:center; padding: 40px 0; background: linear-gradient(135deg, #111, #1a1a1a); color: #fff; border-radius: 16px; margin-bottom: 40px;">
+        <span style="background: #ffd700; color: #000; padding: 4px 12px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase;">
+            <?php echo $lang === 'en' ? 'Mission Diary' : 'Diário da Missão'; ?>
+        </span>
+        <h1><?php echo esc_html($title); ?></h1>
+        <?php if ($desc): ?><p style="opacity: 0.8; max-width: 700px; margin: 0 auto;"><?php echo esc_html($desc); ?></p><?php endif; ?>
+      </header>
+
+      <?php if ($data && isset($data['days'])): ?>
+        <div class="vana-timeline">
+          <?php foreach ($data['days'] as $day): ?>
+            <h2 style="font-family:'Syne', sans-serif; color:#d4af37; border-bottom:1px solid #eee; padding-bottom:10px; margin-top:40px;">
+                <?php echo esc_html(Vana_Utils::pick_i18n($day['label'] ?? '', $lang)); ?>
+            </h2>
+            <div class="vana-grid" style="margin-top:20px;">
+              <?php foreach ($day['events'] as $event): ?>
+                <article class="vana-card">
+                  <?php if (!empty($event['video_id'])): ?>
+                    <div style="position:relative; padding-bottom:56.25%; height:0; background:#000;">
+                      <iframe src="https://www.youtube.com/embed/<?php echo esc_attr($event['video_id']); ?>?rel=0" style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;" allowfullscreen></iframe>
+                    </div>
+                  <?php endif; ?>
+                  <div style="padding:16px;">
+                    <h3 style="font-size:1.1rem; margin:0 0 8px; font-family:'Syne',sans-serif; color:#333;"><?php echo esc_html(Vana_Utils::pick_i18n($event['title'] ?? '', $lang)); ?></h3>
+                    <?php if (!empty($event['description'])): ?>
+                      <p style="font-size:0.9rem; color:#666; margin:0;"><?php echo esc_html(Vana_Utils::pick_i18n($event['description'], $lang)); ?></p>
+                    <?php endif; ?>
+                  </div>
+                </article>
+              <?php endforeach; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+
+      <section style="margin-top: 60px; padding-top: 40px; border-top: 2px solid #f5f5f5;">
+        <h2 style="font-family:'Syne', sans-serif; font-size: 1.8rem; margin:0 0 15px; color:#111;">✨ <?php echo esc_html(Vana_Utils::t('offerings_title', $lang)); ?></h2>
+        <p style="opacity:.8;margin-top:10px;"><?php echo esc_html(Vana_Utils::t('share_prompt', $lang)); ?></p>
+
+        <?php
+        $submissions = new WP_Query([
+            'post_type'      => 'vana_submission',
+            'post_status'    => 'publish',
+            'posts_per_page' => 48,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'meta_query'     => [['key' => '_visit_id', 'value' => $visit_id]]
+        ]);
+        
+        function vana_format_date_local($ts): string { return $ts ? wp_date('d/m/Y', (int)$ts) : ''; }
+        ?>
+
+        <div class="vana-grid" style="margin-top:20px;">
+          <?php if ($submissions->have_posts()): ?>
+            <?php while ($submissions->have_posts()): $submissions->the_post();
+              $sid = get_the_ID();
+              $name = Vana_Utils::normalize_display_name((string)get_post_meta($sid, '_sender_display_name', true), $lang);
+              $msg = wp_strip_all_tags((string)get_post_meta($sid, '_message', true));
+              $image = esc_url((string)get_post_meta($sid, '_image_url', true));
+              $external = esc_url((string)get_post_meta($sid, '_external_url', true));
+              $is_video = $external ? Vana_Utils::is_video_url($external) : false;
+              $ts = (int)get_post_meta($sid, '_submitted_at', true);
+              $date = $ts ? vana_format_date_local($ts) : '';
+              $kicker = $is_video ? Vana_Utils::t('video_label', $lang) : Vana_Utils::t('photo_label', $lang);
+            ?>
+              <article class="vana-card <?php echo $is_video ? 'vana-card--video' : ''; ?>">
+                <button type="button" data-vana-modal-open="1" data-id="<?php echo esc_attr($sid); ?>" data-kicker="<?php echo esc_attr($kicker); ?>" data-name="<?php echo esc_attr($name); ?>" data-date="<?php echo esc_attr($date); ?>" data-message="<?php echo esc_attr($msg); ?>" data-image="<?php echo esc_attr($image); ?>" data-external-url="<?php echo esc_attr($external); ?>">
+                  <div class="vana-card__media">
+                    <?php if ($image): ?><img class="vana-card__img" src="<?php echo $image; ?>" alt=""><?php else: ?><div class="vana-card__placeholder" aria-hidden="true"></div><?php endif; ?>
+                  </div>
+                  <div class="vana-card__body">
+                    <p class="vana-card__name"><?php echo esc_html($name); ?></p>
+                    <?php if ($msg): ?><p class="vana-card__msg"><?php echo esc_html($msg); ?></p><?php endif; ?>
+                    <div class="vana-card__meta"><span><?php echo esc_html($kicker); ?></span><span><?php echo esc_html($date); ?></span></div>
+                  </div>
+                </button>
+              </article>
+            <?php endwhile; wp_reset_postdata(); ?>
+          <?php else: ?>
+            <p style="grid-column: 1/-1; text-align:center; padding: 40px; border: 1px dashed #ccc; border-radius: 8px; color: #666;">Ainda não há oferendas. Seja o primeiro a partilhar!</p>
+          <?php endif; ?>
+        </div>
+
+        <?php $checkin_nonce = wp_create_nonce('wp_rest'); ?>
+        <div id="form-oferenda" style="background:#1a1a1a;padding:30px;border-radius:12px;margin-top:40px;border:1px solid #333;color:#fff;">
+          <h3 style="color:#ffd700; font-family:'Syne',sans-serif; margin-top:0;">Enviar Oferenda</h3>
+          <form id="vanaCheckinForm" enctype="multipart/form-data">
+            <input type="hidden" name="visit_id" value="<?php echo esc_attr($visit_id); ?>">
+            <input type="text" name="website" style="display:none" tabindex="-1" autocomplete="off">
+            <div style="margin-bottom:15px;">
+              <label style="display:block;margin-bottom:5px;">Seu Nome (Opcional)</label>
+              <input type="text" name="sender_name" style="width:100%;padding:10px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;">
+            </div>
+            <div style="margin-bottom:15px;">
+              <label style="display:block;margin-bottom:5px;">Mensagem (Opcional)</label>
+              <textarea name="message" rows="3" style="width:100%;padding:10px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;"></textarea>
+            </div>
+            <div style="margin-bottom:15px;">
+              <label style="display:block;margin-bottom:5px;">Foto (Máx 5MB)</label>
+              <input type="file" name="image" accept="image/png,image/jpeg,image/webp" style="width:100%;color:#fff;">
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="display:block;margin-bottom:5px;">Link de Vídeo (Drive ou YouTube)</label>
+              <input type="url" id="external_url" name="external_url" style="width:100%;padding:10px;border-radius:6px;border:1px solid #444;background:#222;color:#fff;" placeholder="https://...">
+              <div id="urlFeedback" class="vana-help" style="margin-top:6px;"></div>
+            </div>
+            <label style="display:flex;gap:10px;margin:14px 0;font-size:13px;align-items:flex-start;">
+              <input type="checkbox" name="consent_publish" value="1" required style="margin-top:3px;">
+              <span>Autorizo a publicação no site e redes da missão.</span>
+            </label>
+            <button type="submit" id="btnSubmitCheckin" style="background:#ffd700;color:#000;border:none;padding:12px 24px;border-radius:6px;font-weight:700;cursor:pointer;width:100%;font-size:1.05rem;">
+              Enviar Oferenda
+            </button>
+            <div id="checkinResponse" style="margin-top:15px;font-weight:700;text-align:center;"></div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <div class="vana-modal" id="vanaSubmissionModal" aria-hidden="true">
+      <div class="vana-modal__backdrop" data-vana-modal-close="1"></div>
+      <div class="vana-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="vanaModalTitle">
+        <button type="button" class="vana-modal__close" data-vana-modal-close="1">Fechar</button>
+        <div class="vana-modal__media" id="vanaModalMedia"></div>
+        <div class="vana-modal__body">
+          <p class="vana-modal__kicker" id="vanaModalKicker"></p>
+          <h3 class="vana-modal__title" id="vanaModalTitle"></h3>
+          <p class="vana-modal__message" id="vanaModalMessage"></p>
+          <div style="margin-top:10px;">
+            <a id="vanaModalExternalLink" href="#" target="_blank" rel="noopener" style="display:none; background:#ffd700; color:#000; padding:8px 16px; border-radius:6px; text-decoration:none; font-weight:bold;">Abrir Vídeo Original</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<script>
+// LÓGICA DO MODAL
+(function(){
+  const modal = document.getElementById('vanaSubmissionModal');
+  if (!modal) return;
+  const mediaEl = document.getElementById('vanaModalMedia');
+  const kickerEl = document.getElementById('vanaModalKicker');
+  const titleEl = document.getElementById('vanaModalTitle');
+  const messageEl = document.getElementById('vanaModalMessage');
+  const externalLinkEl = document.getElementById('vanaModalExternalLink');
+  
+  function renderMedia(data){
+    const ext = data.externalUrl || '';
+    if(ext.includes('youtu')){
+      const ytid = ext.split('/').pop().split('?')[0].replace('watch','').replace('v=','');
+      mediaEl.innerHTML = `<div class="vana-embed"><iframe src="https://www.youtube.com/embed/${ytid}?autoplay=1" frameborder="0" allowfullscreen></iframe></div>`;
+    } else if(ext.includes('drive')){
+      const dId = ext.match(/d\/([a-zA-Z0-9_-]+)/);
+      if(dId && dId[1]){
+        mediaEl.innerHTML = `<div class="vana-embed"><iframe src="https://drive.google.com/file/d/${dId[1]}/preview" allow="autoplay"></iframe></div>`;
+      } else {
+        mediaEl.innerHTML = `<div class="vana-embed-fallback"><p>Vídeo do Drive</p><a href="${ext}" target="_blank" style="color:#ffd700;">Abrir no Drive</a></div>`;
+      }
+    } else if(data.image) {
+      mediaEl.innerHTML = `<img class="vana-modal__img" src="${data.image}">`;
+    } else {
+      mediaEl.innerHTML = `<div style="padding:40px; text-align:center; color:#fff;">Sem mídia anexa</div>`;
+    }
+  }
+
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-vana-modal-open]');
+    if(btn){
+      renderMedia(btn.dataset);
+      kickerEl.textContent = btn.dataset.kicker;
+      titleEl.textContent = btn.dataset.name;
+      messageEl.textContent = btn.dataset.message;
+      if(btn.dataset.externalUrl){
+          externalLinkEl.href = btn.dataset.externalUrl;
+          externalLinkEl.style.display = 'inline-block';
+      } else {
+          externalLinkEl.style.display = 'none';
+      }
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    if(e.target.closest('[data-vana-modal-close]')){
+      modal.setAttribute('aria-hidden', 'true');
+      mediaEl.innerHTML = '';
+    }
+  });
+})();
+
+// LÓGICA DO FORMULÁRIO + VALIDADOR
+(function(){
+  const input = document.getElementById('external_url');
+  const feedback = document.getElementById('urlFeedback');
+  
+  function validate(){
+    if(!input || !feedback) return {ok:true};
+    const val = input.value.trim();
+    if(!val){ feedback.innerHTML = 'Cole aqui o link do Google Drive ou YouTube.'; feedback.className = 'vana-help'; return {ok:true}; }
+    if(!val.startsWith('https://')){ feedback.innerHTML = 'Deve começar com https://'; feedback.className = 'vana-help vana-help--err'; return {ok:false}; }
+    if(val.includes('/folders/')){ feedback.innerHTML = 'Link de pasta não permitido. Use link do arquivo.'; feedback.className = 'vana-help vana-help--err'; return {ok:false}; }
+    feedback.innerHTML = 'Link válido!'; feedback.className = 'vana-help vana-help--ok'; return {ok:true};
+  }
+  
+  if(input) input.addEventListener('input', validate);
+
+  document.getElementById('vanaCheckinForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    if(!validate().ok) return;
+
+    const btn = document.getElementById('btnSubmitCheckin');
+    const out = document.getElementById('checkinResponse');
+    btn.disabled = true; btn.textContent = 'Enviando...'; out.textContent = '';
+
+    try {
+      const res = await fetch('/wp-json/vana/v1/checkin', {
+        method: 'POST', body: new FormData(this),
+        headers: { 'X-WP-Nonce': '<?php echo esc_js($checkin_nonce); ?>' }
+      });
+      const json = await res.json();
+      if(json && json.success){
+        out.style.color = '#4caf50'; out.textContent = json.message; this.reset();
+      } else {
+        out.style.color = '#f44336'; out.textContent = json.message || 'Erro.';
+      }
+    } catch(err){
+      out.style.color = '#f44336'; out.textContent = 'Erro de conexão.';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enviar Oferenda';
+    }
+  });
+})();
+</script>
+
+    <?php
+    // ==========================================
+    // 4. ASTRA WRAPPERS (Fim)
+    // ==========================================
+    do_action('astra_content_after');
+    ?>
+  </main>
+  <?php do_action('astra_primary_content_after'); ?>
+</div>
+<?php
+do_action('astra_primary_content_bottom');
+get_footer();
+?>

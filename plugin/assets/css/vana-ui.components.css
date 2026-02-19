@@ -1,0 +1,57 @@
+.vana-container{
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.vana-text-muted{ color: var(--vana-muted); }
+
+.vana-card{
+  border: 2px solid var(--vana-border);
+  border-radius: var(--vana-radius);
+  background: #fff;
+  padding: var(--vana-6);
+  box-shadow: var(--vana-shadow);
+}
+
+.vana-card--gold{
+  border-color: var(--vana-gold-deep);
+  background: linear-gradient(135deg, rgba(253,216,13,0.10), rgba(74,163,255,0.04));
+}
+
+.vana-btn{
+  display: inline-block;
+  text-decoration: none;
+  padding: .75rem 1.25rem;
+  border-radius: .75rem;
+  border: 2px solid var(--vana-border);
+  color: var(--vana-text);
+}
+
+.vana-btn--primary{
+  border-color: var(--vana-gold-deep);
+  background: var(--vana-gold);
+  font-weight: 700;
+}
+.vana-breadcrumbs ol {
+    display: flex;
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--vana-6) 0;
+    font-size: 0.875rem;
+}
+
+.vana-breadcrumbs li:not(:last-child)::after {
+    content: '›';
+    margin-left: 0.5rem;
+    color: var(--vana-muted);
+}
+
+.vana-breadcrumbs a {
+    color: var(--vana-gold-deep);
+    text-decoration: none;
+}
+
+.vana-breadcrumbs a:hover {
+    text-decoration: underline;
+}

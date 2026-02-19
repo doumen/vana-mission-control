@@ -1,0 +1,32 @@
+:root{
+  --vana-1: .25rem;
+  --vana-2: .5rem;
+  --vana-3: .75rem;
+  --vana-4: 1rem;
+  --vana-5: 1.5rem;
+  --vana-6: 2rem;
+  --vana-7: 2.5rem;
+  --vana-8: 3rem;
+  --vana-9: 3.5rem;
+  --vana-10: 4rem;
+
+  --vana-text: #1A202C;
+  --vana-muted: #4A5568;
+  --vana-border: #E2E8F0;
+
+  --vana-gold: #FDD80D;
+  --vana-gold-deep: #D4AF37;
+  --vana-blue: #4AA3FF;
+
+  --vana-radius: 1rem;
+  --vana-shadow: 0 8px 24px rgba(0,0,0,.08);
+}
+
+.vana-ui{
+  color: var(--vana-text);
+  font-family: "Questrial", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+.vana-ui h1, .vana-ui h2, .vana-ui h3{
+  font-family: "Syne", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}

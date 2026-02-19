@@ -1,0 +1,76 @@
+{
+  "kind": "visit",
+  "origin_key": "visit:india_2026:vrindavan_01",
+  "parent_origin_key": "tour:india_2026",
+  "title": "Dia 1 - A Chegada a Vṛndāvana",
+  "slug_suggestion": "dia-1-vrindavan",
+  "data": {
+    "schema_version": "3.1",
+    "location_meta": {
+      "city_ref": "Śrī Vṛndāvana Dhāma, IN",
+      "lat": 27.5706,
+      "lng": 77.6911
+    },
+    "days": [
+      {
+        "date_local": "2026-02-18",
+        "hero": {
+          "title_pt": "Hari-kathā em Rūpa Sanātana Gauḍīya Maṭha",
+          "title_en": "Hari-kathā at Rūpa Sanātana Gauḍīya Maṭha",
+          "description_pt": "A primeira aula da Tour, estabelecendo o humor do Parikramā.",
+          "description_en": "The first class of the Tour, establishing the mood of the Parikramā.",
+          "provider": "youtube",
+          "video_id": "dQw4w9WgXcQ",
+          "location": {
+            "name": "Rūpa Sanātana Gauḍīya Maṭha",
+            "lat": 27.5815,
+            "lng": 77.6997
+          },
+          "segments": [
+            { "time_local": "00:00", "title_pt": "Kīrtana Inicial", "title_en": "Opening Kīrtana" },
+            { "time_local": "15:20", "title_pt": "Glórias de Rūpa Gosvāmī", "title_en": "Glories of Rūpa Gosvāmī" }
+          ]
+        },
+        "vod": [
+          {
+            "title_pt": "Darśana Rápido na Rua",
+            "title_en": "Quick Street Darśana",
+            "provider": "facebook",
+            "url": "https://www.facebook.com/watch/?v=123456789",
+            "location": {
+              "name": "Ruas de Seva Kunja",
+              "lat": 27.5845,
+              "lng": 77.7022
+            }
+          }
+        ],
+        "schedule": [
+          {
+            "time_local": "05:30",
+            "title_pt": "Maṅgala-ārati",
+            "title_en": "Maṅgala-ārati",
+            "status": "done"
+          },
+          {
+            "time_local": "17:00",
+            "title_pt": "Hari-kathā",
+            "title_en": "Hari-kathā",
+            "status": "live"
+          }
+        ],
+        "galleries": [
+          {
+            "items": [
+              {
+                "thumb_url": "https://picsum.photos/300/300?random=5",
+                "full_url": "https://picsum.photos/1200/800?random=5",
+                "caption_pt": "A beleza do Dhāma",
+                "caption_en": "The beauty of the Dhāma"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

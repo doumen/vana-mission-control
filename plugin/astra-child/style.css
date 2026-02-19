@@ -1,0 +1,143 @@
+/*
+Theme Name: Astra Child
+Template: astra
+Version: 1.0.0
+*/
+/* MOMENTOS DA SANGHA — Mural Devocional Elegante */
+.vana-sangha-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 25px;
+  margin-top: 30px;
+}
+
+.vana-moment {
+  background: #fff;
+  border: 1px solid var(--vana-line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vana-moment:hover {
+  transform: translateY(-6px);
+  border-color: var(--vana-gold);
+  box-shadow: 0 14px 30px rgba(255, 217, 6, 0.12);
+}
+
+.vana-moment-btn {
+  all: unset;
+  display: block;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.vana-moment-btn:focus-visible {
+  outline: 3px solid var(--vana-gold);
+  outline-offset: 4px;
+  border-radius: 18px;
+}
+
+.vana-moment-inner { padding: 22px 22px 10px; }
+
+.vana-moment-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.vana-moment-avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--vana-hero-gradient);
+  border: 1px solid var(--vana-line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--vana-text);
+  font-weight: 900;
+  font-family: 'Syne', sans-serif;
+  flex-shrink: 0;
+}
+
+.vana-moment-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 900;
+  color: var(--vana-text);
+  font-size: 1.1rem;
+}
+
+.vana-moment-text {
+  position: relative;
+  background: var(--vana-bg-soft);
+  border: 1px solid var(--vana-line);
+  border-radius: 16px;
+  padding: 16px;
+  color: #334155;
+  line-height: 1.6;
+  font-size: 1.05rem;
+  font-style: italic;
+  margin: 0 0 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* O triângulo do balão de fala (Speech Bubble) */
+.vana-moment-text:after {
+  content: "";
+  position: absolute;
+  top: -8px; left: 20px;
+  width: 14px; height: 14px;
+  background: var(--vana-bg-soft);
+  border-left: 1px solid var(--vana-line);
+  border-top: 1px solid var(--vana-line);
+  transform: rotate(45deg);
+}
+
+.vana-moment-media {
+  margin: 0 22px 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 6px solid #fff;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+}
+
+.vana-moment-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.vana-moment-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 22px 20px;
+  color: var(--vana-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.vana-moment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid var(--vana-line);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--vana-muted);
+}
+
+.vana-moment-badge .dashicons {
+  font-size: 14px;
+  width: 14px; height: 14px;
+  color: var(--vana-gold);
+}

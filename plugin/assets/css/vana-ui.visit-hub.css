@@ -1,0 +1,441 @@
+/* * VANA MISSION CONTROL - VISIT HUB CSS
+ * Identidade Visual: Inspirada no site oficial (Clean, Light, Gold)
+ * Escopo: .vana-visit .vana-ui
+ */
+
+/* 1. RESET E TIPOGRAFIA DE ESCOPO */
+.vana-visit.vana-ui {
+    color: var(--vana-text, #1A202C);
+    font-family: 'Questrial', sans-serif !important;
+    line-height: 1.6;
+}
+
+.vana-visit.vana-ui h1, 
+.vana-visit.vana-ui h2, 
+.vana-visit.vana-ui h3 {
+    font-family: 'Syne', sans-serif !important;
+    font-weight: 700 !important;
+    color: var(--vana-text, #1A202C);
+}
+
+.vana-visit .vana-muted {
+    color: var(--vana-muted, #4A5568);
+}
+
+/* 2. NAVEGAÇÃO GLOBAL (CHIPS TOURS) */
+.vana-global {
+    margin-bottom: var(--vana-6, 2rem);
+    padding-bottom: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+}
+
+.vana-global__row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.vana-chip {
+    display: inline-flex;
+    background: var(--vana-gold, #FDD80D);
+    color: #111 !important;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none !important;
+    border: 1px solid var(--vana-gold-deep, #D4AF37);
+    transition: all 0.2s ease;
+}
+
+.vana-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(253, 216, 13, 0.3);
+}
+
+.vana-chip--ghost {
+    background: transparent;
+    border: 1px solid var(--vana-border, #E2E8F0);
+    color: var(--vana-muted, #4A5568) !important;
+}
+
+/* 3. HEADER LOCAL E GAVETA (DRAWER) */
+.vana-local { margin-bottom: 2rem; }
+.vana-local__title { margin: 0 0 5px 0; font-size: 2.2rem; }
+.vana-local__updated { font-size: 12px; color: var(--vana-muted); margin-bottom: 15px; }
+
+.vana-drawer {
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid var(--vana-border);
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.vana-drawer__summary {
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+}
+
+.vana-drawer__summary::-webkit-details-marker { display: none; }
+
+.vana-route {
+    list-style: none;
+    padding: 10px 0 0 0;
+    margin: 10px 0 0 0;
+    border-top: 1px solid #eee;
+}
+
+.vana-route__item a { display: block; padding: 6px 0; color: var(--vana-text); text-decoration: none; }
+.vana-route__item.is-active a { color: var(--vana-gold-deep); font-weight: 700; }
+
+/* 4. PALCO (STAGE/HERO) - CLEAN STYLE */
+.vana-visit .vana-hero {
+    position: relative;
+    background-color: #FFFFFF !important;
+    background-image: none !important;
+    border-radius: var(--vana-radius, 14px);
+    overflow: hidden;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--vana-shadow, 0 8px 24px rgba(0,0,0,.08));
+    border: 1px solid var(--vana-border, #E2E8F0);
+    margin-bottom: var(--vana-6, 2rem);
+}
+
+.vana-visit .vana-hero iframe,
+.vana-visit .vana-hero video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: 0;
+    display: block;
+    border-radius: var(--vana-radius, 14px);
+}
+
+/* Botão Play Dourado Oficial */
+.vana-visit .vana-hero__btn {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--vana-gold, #FDD80D) !important;
+    color: #1A202C !important;
+    border: 1px solid var(--vana-gold-deep, #D4AF37) !important;
+    padding: 12px 28px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif !important;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 12px rgba(253, 216, 13, 0.3) !important;
+}
+
+.vana-visit .vana-hero__btn:hover {
+    transform: translateY(-2px);
+    background: var(--vana-gold-deep, #D4AF37) !important;
+}
+
+/* 5. SELETOR DE DIAS (TABS) */
+.vana-days { 
+    margin-bottom: var(--vana-6, 2rem); 
+    border-bottom: 2px solid var(--vana-border, #E2E8F0); 
+}
+
+.vana-days__row { 
+    display: flex; 
+    gap: 20px; 
+    overflow-x: auto; 
+}
+
+.vana-day {
+    padding: 10px 4px;
+    color: var(--vana-muted, #4A5568) !important;
+    text-decoration: none !important;
+    font-weight: 700;
+    font-size: 14px;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px; 
+    transition: all 0.2s ease;
+}
+
+.vana-day.is-active, .vana-day:hover {
+    color: var(--vana-gold-deep, #D4AF37) !important;
+    border-bottom-color: var(--vana-gold-deep, #D4AF37) !important;
+}
+
+/* 6. VOD E SEGMENTOS */
+.vana-visit .vana-vod__btn {
+    width: 100%;
+    text-align: left;
+    padding: 12px;
+    border-radius: 12px;
+    border: 2px solid var(--vana-border, #E2E8F0);
+    background: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--vana-text);
+}
+
+.vana-visit .vana-vod__btn:hover { border-color: var(--vana-gold-deep); }
+
+.vana-visit .vana-segments { 
+    margin-top: 8px; 
+    display: grid; 
+    gap: 6px; 
+    padding-left: 1rem;
+}
+
+.vana-visit .vana-segment__btn {
+    text-align: left;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px dashed #ccc;
+    background: #fdfdfd;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--vana-text);
+}
+
+.vana-visit .vana-segment__btn:hover { 
+    background: #fff; 
+    border-color: var(--vana-gold-deep); 
+}
+
+/* 7. GALERIA DE FOTOS (GRID) */
+.vana-visit .vana-photo-grid { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px; 
+}
+
+@media (min-width: 720px) { 
+    .vana-visit .vana-photo-grid { grid-template-columns: repeat(6, 1fr); } 
+}
+
+.vana-visit .vana-photo {
+    padding: 0; border: 0; background: transparent; 
+    cursor: pointer; border-radius: 8px; overflow: hidden;
+    aspect-ratio: 1/1;
+}
+
+.vana-visit .vana-photo img {
+    display: block; width: 100%; height: 100%; object-fit: cover; 
+    transition: transform 0.3s ease;
+}
+
+.vana-visit .vana-photo:hover img { transform: scale(1.08); }
+
+/* 8. FEED DE MOMENTOS (SUBMISSIONS) */
+.vana-feed { 
+    margin-top: 3rem; 
+    padding-top: 2rem; 
+    border-top: 2px solid var(--vana-border); 
+}
+
+.vana-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+    gap: 1.5rem; 
+}
+
+.vana-visit .vana-submission__media-btn {
+    padding: 0; border: 0; background: transparent; width: 100%; 
+    cursor: pointer; display: block; overflow: hidden; border-radius: 12px;
+}
+
+.vana-visit .vana-submission__media-btn img {
+    transition: all 0.3s ease; width: 100%; height: auto; display: block;
+}
+
+.vana-visit .vana-submission__media-btn:hover img { transform: scale(1.03); opacity: 0.9; }
+
+/* 9. LIGHTBOX (NETFLIX FEEL) */
+.vana-visit-lightbox { position: fixed; inset: 0; z-index: 999999; }
+.vana-visit-lightbox[hidden] { display: none; }
+.vana-visit-lightbox__backdrop { 
+    position: absolute; inset: 0; background: rgba(0,0,0,0.85); 
+}
+
+.vana-visit-lightbox__panel {
+    position: relative; max-width: 1000px; width: calc(100% - 20px); 
+    margin: 5vh auto; background: #000; border-radius: 16px; 
+    overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+}
+
+.vana-visit-lightbox__close {
+    position: absolute; top: 15px; right: 15px; border: 0; 
+    background: rgba(255,255,255,0.2); color: #fff; width: 40px; height: 40px; 
+    border-radius: 50%; cursor: pointer; z-index: 100;
+}
+
+.vana-visit-lightbox__img { 
+    display: block; width: 100%; height: auto; max-height: 80vh; 
+    object-fit: contain; 
+}
+
+.vana-visit-lightbox__cap { 
+    padding: 15px; color: #fff; text-align: center; 
+    background: #000; font-size: 0.95rem; font-family: 'Questrial', sans-serif;
+}
+/* Botões de Navegação do Viewer */
+.vana-visit-lightbox .vana-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    font-size: 32px;
+    cursor: pointer;
+    z-index: 1000002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.vana-visit-lightbox .vana-nav-btn:hover {
+    background: var(--vana-gold, #FDD80D);
+    color: #111;
+    border-color: var(--vana-gold-deep);
+}
+
+.vana-visit-lightbox .vana-prev { left: 20px; }
+.vana-visit-lightbox .vana-next { right: 20px; }
+
+/* Esconder setas quando houver apenas 1 imagem (controlado via JS) */
+.vana-visit-lightbox .vana-nav-btn[hidden] { display: none; }
+
+/* Mobile: Setas menores e mais transparentes */
+@media (max-width: 768px) {
+    .vana-visit-lightbox .vana-nav-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 24px;
+        background: rgba(0, 0, 0, 0.5);
+    }
+    .vana-visit-lightbox .vana-prev { left: 10px; }
+    .vana-visit-lightbox .vana-next { right: 10px; }
+}
+
+/* ==========================================
+   CSS DA PROGRAMAÇÃO & ESTADOS HÍBRIDOS
+   ========================================== */
+
+/* Layout do Item */
+.vana-schedule-item {
+    display: flex;
+    gap: 15px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--vana-border, #E2E8F0);
+    align-items: flex-start;
+    transition: all 0.3s ease;
+}
+.vana-schedule-item:last-child { border-bottom: none; }
+
+.vana-schedule-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Badges Base - Versão Refinada Premium */
+.vana-badge {
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    cursor: help; /* Indica que tem Tooltip (title) */
+}
+
+/* 1. Programado */
+.vana-schedule-item.is-scheduled { opacity: 1; }
+.vana-badge--scheduled {
+    background: #F1F5F9;
+    color: #334155;
+}
+
+/* 2. Confirmado */
+.vana-schedule-item.is-confirmed { opacity: 1; }
+.vana-badge--confirmed {
+    background: #ECFDF5;
+    color: #0F766E;
+}
+
+/* 3. Cancelado */
+.vana-schedule-item.is-canceled {
+    opacity: 0.55;
+}
+.vana-schedule-item.is-canceled .vana-schedule-title {
+    text-decoration: line-through;
+    text-decoration-color: #cbd5e1;
+}
+.vana-badge--canceled {
+    background: #FEF2F2;
+    color: #B91C1C;
+}
+
+/* 4. Concluído (Done) */
+.vana-schedule-item.is-done {
+    opacity: 0.45;
+}
+.vana-schedule-item.is-done .vana-schedule-title {
+    text-decoration: line-through;
+    text-decoration-color: #cbd5e1;
+}
+.vana-badge--done {
+    color: #94A3B8;
+    background: transparent;
+    padding: 0;
+    font-size: 15px;
+    cursor: default;
+}
+
+/* 5. Ao Vivo (Live) */
+.vana-schedule-item.is-live {
+    background: rgba(253, 216, 13, 0.05);
+    border-radius: 12px;
+    padding: 16px 12px;
+    margin-left: -12px;
+    width: calc(100% + 24px);
+    border-bottom: none;
+}
+.vana-schedule-item.is-live .vana-time-user { color: var(--vana-gold-deep, #D4AF37) !important; }
+.vana-schedule-item.is-live .vana-schedule-title { color: #000 !important; }
+
+.vana-badge--live {
+    background: var(--vana-gold, #FDD80D);
+    color: #111827;
+    box-shadow: 0 2px 10px rgba(253, 216, 13, 0.35);
+    cursor: default;
+}
+
+/* Ponto Pulsante do Ao Vivo */
+.vana-pulse {
+    width: 6px;
+    height: 6px;
+    background: #ef4444; /* Vermelho Red-500 Tailwind */
+    border-radius: 50%;
+    animation: vana-pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes vana-pulse-ring {
+    0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}

@@ -1,0 +1,72 @@
+/* Vana UI Hierarchy - Tours */
+
+.vana-tours-archive { padding: var(--vana-8, 3rem) 0; }
+
+.vana-archive-header {
+  text-align: center;
+  margin-bottom: var(--vana-10, 4rem);
+}
+
+.vana-current-tour { margin-bottom: var(--vana-10, 4rem); }
+
+.vana-badge--current{
+  background: linear-gradient(135deg, #FDD80D, #E6C60C);
+  color: #1A202C;
+  border: 2px solid #D4AF37;
+  font-weight: 700;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  display: inline-block;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(253,216,13,0.3);
+}
+
+.vana-grid--tours{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--vana-6, 2rem);
+}
+
+.vana-tour-single { padding: var(--vana-8, 3rem) 0; }
+
+.vana-hero{
+  text-align: center;
+  padding: var(--vana-10, 4rem) var(--vana-6, 2rem);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(253,216,13,0.08), rgba(74,163,255,0.05));
+  border: 2px solid var(--vana-border, #E2E8F0);
+  margin-bottom: var(--vana-8, 3rem);
+}
+
+.vana-hero--current{
+  border-color: #FDD80D;
+  box-shadow: 0 8px 24px rgba(253,216,13,0.2);
+}
+
+.vana-hero__title{
+  margin-bottom: var(--vana-4, 1.5rem);
+  font-size: 2.5rem;
+}
+
+.vana-hero__dates{
+  color: #D4AF37;
+  font-weight: 600;
+  font-size: 1.125rem;
+  margin-bottom: var(--vana-6, 2rem);
+}
+
+.vana-tour-content{
+  max-width: 800px;
+  margin: 0 auto var(--vana-10, 4rem);
+}
+
+.vana-section-title{
+  border-bottom: 3px solid #FDD80D;
+  padding-bottom: var(--vana-3, 1rem);
+  margin-bottom: var(--vana-6, 2rem);
+}
+
+@media (max-width: 768px){
+  .vana-hero{ padding: var(--vana-6, 2rem) var(--vana-4, 1.5rem); }
+  .vana-grid--tours{ grid-template-columns: 1fr; }
+}

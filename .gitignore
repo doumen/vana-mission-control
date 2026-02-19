@@ -1,0 +1,5 @@
+.env
+*.pyc
+.zip
+*.txt
+fontes_vana-mission-control-final.txt
