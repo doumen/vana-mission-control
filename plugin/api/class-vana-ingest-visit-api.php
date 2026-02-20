@@ -22,7 +22,7 @@ final class Vana_Ingest_Visit_API {
 
             // Guardrail: 3MB
             if (strlen($raw) > 3 * 1024 * 1024) {
-                return Vana_Utils::api_response(false, null, 'Payload excede 3MB', 413);
+                return Vana_Utils::api_response(false, 'Payload excede 3MB', 413, null);
             }
 
             $payload = json_decode($raw, true);
@@ -82,3 +82,4 @@ final class Vana_Ingest_Visit_API {
         }
     }
 }
+
