@@ -44,12 +44,16 @@ final class Vana_Ingest_Visit {
         $updated_at  = sanitize_text_field((string)($data['updated_at'] ?? ''));
         $incoming_ts = $updated_at !== '' ? strtotime($updated_at) : false;
         if ($updated_at !== '' && !$incoming_ts) {
-            Vana_Utils::log('VISIT_UPDATED_AT_INVALID', 'warning', [
-                'origin_key' => $origin_key,
-                'updated_at' => $updated_at,
+            Vana_Utils::log([
+                'code'    => 'VISIT_UPDATED_AT_INVALID',
+                'level'   => 'warning',
+                'context' => [
+                    'origin_key' => $origin_key,
+                    'updated_at' => $updated_at,
+                ],
             ]);
         }
-
+		
         // Lock por origin_key
         $lock_key = 'vana_lock_visit_' . md5($origin_key);
         if (get_transient($lock_key)) {
@@ -120,7 +124,7 @@ final class Vana_Ingest_Visit {
 
             update_post_meta($visit_id, '_vana_origin_key', $origin_key);
             update_post_meta($visit_id, '_vana_parent_tour_origin_key', $parent_key);
-            update_post_meta($visit_id, '_vana_timeline_schema_version', $schema_versio);
+            update_post_meta($visit_id, '_vana_timeline_schema_version', $schema_version);
             update_post_meta($visit_id, '_vana_timeline_updated_at', $updated_at);
             update_post_meta($visit_id, '_vana_visit_timeline_json', $timeline_json);
             // ==========================================
@@ -130,13 +134,17 @@ final class Vana_Ingest_Visit {
                 $derived = Vana_Visit_Materializer::derive_from_timeline_json($timeline_json);
                 Vana_Visit_Materializer::apply_to_post((int) $visit_id, $derived);
             } catch (Throwable $e) {
-                if (class_exists('Vana_Utils')) {
-                    Vana_Utils::log('VISIT_MATERIALIZE_ERROR', 'error', [
-                        'visit_id'   => (int) $visit_id,
-                        'origin_key' => $origin_key,
-                        'msg'        => $e->getMessage(),
-                    ]);
-                }
+				if (class_exists('Vana_Utils')) {
+					Vana_Utils::log([				
+						'code'    => 'VISIT_MATERIALIZE_ERROR',
+						'level'   => 'error',
+						'context' => [
+							'visit_id'   => (int) $visit_id,
+							'origin_key' => $origin_key,
+							'msg'        => $e->getMessage(),
+						   ],
+					   ]);
+				}
             }
             delete_transient('vana_chronological_sequence');
             update_post_meta($visit_id, '_vana_timeline_hash', $hash);

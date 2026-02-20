@@ -96,6 +96,8 @@ final class Vana_Visit_CPT {
             '_vana_timeline_hash',
             '_vana_start_date', // <--- ADICIONE ESTE
             '_vana_tz',         // <--- ADICIONE ESTE            
+            '_vana_youtube_id',
+            '_vana_hero_fb_url',
         ];
 
         foreach ($small_string_meta as $key) {
