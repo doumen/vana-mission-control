@@ -43,16 +43,16 @@ final class Vana_Ingest_Visit {
 
         $updated_at  = sanitize_text_field((string)($data['updated_at'] ?? ''));
         $incoming_ts = $updated_at !== '' ? strtotime($updated_at) : false;
-        if ($updated_at !== '' && !$incoming_ts) {
-            Vana_Utils::log([
-                'code'    => 'VISIT_UPDATED_AT_INVALID',
-                'level'   => 'warning',
-                'context' => [
-                    'origin_key' => $origin_key,
-                    'updated_at' => $updated_at,
-                ],
-            ]);
-        }
+		if ($updated_at !== '' && !$incoming_ts) {
+			Vana_Utils::log([
+				'code'    => 'VISIT_UPDATED_AT_INVALID',
+				'level'   => 'warning',
+				'context' => [
+					'origin_key' => $origin_key,
+					'updated_at' => $updated_at,
+				],
+			]);
+		}
 		
         // Lock por origin_key
         $lock_key = 'vana_lock_visit_' . md5($origin_key);
@@ -142,8 +142,8 @@ final class Vana_Ingest_Visit {
 							'visit_id'   => (int) $visit_id,
 							'origin_key' => $origin_key,
 							'msg'        => $e->getMessage(),
-						   ],
-					   ]);
+						],
+					]);
 				}
             }
             delete_transient('vana_chronological_sequence');
