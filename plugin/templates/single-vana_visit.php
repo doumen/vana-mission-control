@@ -296,53 +296,57 @@ do_action('astra_primary_content_top');
           $stage_loc_name = (string)($stage_loc['name'] ?? '');
           $stage_lat = (string)($stage_loc['lat'] ?? '');
           $stage_lng = (string)($stage_loc['lng'] ?? '');
-		  if (!function_exists('vana_drive_file_id')) {	
-			function vana_drive_file_id(string $url): string {
-		      if (!$url) return '';
-			  if (preg_match('~\/d\/([a-zA-Z0-9_-]+)~', $url, $m)) return $m[1];
-			    return '';
-			  }
-		  }
-          if (!function_exists('vana_stage_resolve_media')) {
-            function vana_stage_resolve_media(array $item): array {
-              $provider = strtolower((string)($item['provider'] ?? ''));
-              $video_id = (string)($item['video_id'] ?? '');
-              $url      = (string)($item['url'] ?? '');
-		 
-              if ($provider === 'facebook' && $url === '' && $video_id !== '' && preg_match('~^https?://~i', $video_id)) {
-                $url = $video_id;
-              }
-              if (($provider === 'instagram' || $provider === 'drive') && $url === '' && $video_id !== '' && preg_match('~^https?://~i', $video_id)) {
-                $url = $video_id;
-              }
-              if ($provider === 'youtube' && $video_id !== '' && !preg_match('/^[A-Za-z0-9_-]{11}$/', $video_id)) {
-                if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i', $video_id, $m)) {
-                  $video_id = $m[1];
-                }
-              }
-		 
-              return ['provider' => $provider, 'video_id' => $video_id, 'url' => $url];
-            }
+        if (!function_exists('vana_drive_file_id')) {
+          function vana_drive_file_id(string $url): string
+          {
+            if (!$url)
+              return '';
+            if (preg_match('~\/d\/([a-zA-Z0-9_-]+)~', $url, $m))
+              return $m[1];
+            return '';
           }
+        }
+        if (!function_exists('vana_stage_resolve_media')) {
+          function vana_stage_resolve_media(array $item): array
+          {
+            $provider = strtolower((string) ($item['provider'] ?? ''));
+            $video_id = (string) ($item['video_id'] ?? '');
+            $url = (string) ($item['url'] ?? '');
+
+            if ($provider === 'facebook' && $url === '' && $video_id !== '' && preg_match('~^https?://~i', $video_id)) {
+              $url = $video_id;
+            }
+            if (($provider === 'instagram' || $provider === 'drive') && $url === '' && $video_id !== '' && preg_match('~^https?://~i', $video_id)) {
+              $url = $video_id;
+            }
+            if ($provider === 'youtube' && $video_id !== '' && !preg_match('/^[A-Za-z0-9_-]{11}$/', $video_id)) {
+              if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i', $video_id, $m)) {
+                $video_id = $m[1];
+              }
+            }
+
+            return ['provider' => $provider, 'video_id' => $video_id, 'url' => $url];
+          }
+        }
         ?>    
         <div class="vana-stage">
 			<?php
-			$has_live = false;
-			if (!empty($schedule)) {
-				foreach ($schedule as $it) {
-					if (is_array($it) && (($it['status'] ?? '') === 'live')) {
-						$has_live = true;
-						break;
-					}
-				}
-			}
+        $has_live = false;
+        if (!empty($schedule)) {
+          foreach ($schedule as $it) {
+            if (is_array($it) && (($it['status'] ?? '') === 'live')) {
+              $has_live = true;
+              break;
+            }
+          }
+        }
 
-			$resolved = vana_stage_resolve_media($stage_item);
-			$stage_provider = (string) ($resolved['provider'] ?? $stage_provider);
-			$stage_video_id = (string) ($resolved['video_id'] ?? $stage_video_id);
-			$stage_url      = (string) ($resolved['url'] ?? $stage_url);
-				
-			?>
+      $resolved = vana_stage_resolve_media($stage_item);
+      $stage_provider = (string) ($resolved['provider'] ?? $stage_provider);
+      $stage_video_id = (string) ($resolved['video_id'] ?? $stage_video_id);
+      $stage_url = (string) ($resolved['url'] ?? $stage_url);
+
+      ?>
 
          <div class="vana-stage-video">
            <?php if ($stage_provider === 'youtube' && $stage_video_id): ?>
