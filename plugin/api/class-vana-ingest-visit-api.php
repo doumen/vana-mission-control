@@ -28,7 +28,7 @@ final class Vana_Ingest_Visit_API {
             $payload = json_decode($raw, true);
             if (!is_array($payload)) {
                 $err = function_exists('json_last_error_msg') ? json_last_error_msg() : 'json decode error';
-                return Vana_Utils::api_response(false, ['errors' => [$err]], 'JSON malformado', 400);
+                return Vana_Utils::api_response(false, 'JSON malformado', 400, ['errors' => [$err]]);
             }
 
             // Envelope (barreira sanitária)
@@ -40,9 +40,9 @@ final class Vana_Ingest_Visit_API {
             if ($kind !== 'visit' || $origin_key === '' || $parent_key === '' || !is_array($data)) {
                 return Vana_Utils::api_response(
                     false,
-                    ['errors' => ['Envelope exige kind=visit, origin_key, parent_origin_key e data(object)']],
                     'Envelope inválido',
-                    422
+                    422,
+                    ['errors' => ['Envelope exige kind=visit, origin_key, parent_origin_key e data(object)']]
                 );
             }
 
@@ -50,35 +50,39 @@ final class Vana_Ingest_Visit_API {
             if (strpos($origin_key, 'visit:') !== 0) {
                 return Vana_Utils::api_response(
                     false,
-                    ['errors' => ['origin_key deve começar com "visit:"']],
                     'Envelope inválido',
-                    422
+                    422,
+                    ['errors' => ['origin_key deve começar com "visit:"']]
                 );
             }
             if (strpos($parent_key, 'tour:') !== 0) {
                 return Vana_Utils::api_response(
                     false,
-                    ['errors' => ['parent_origin_key deve começar com "tour:"']],
                     'Envelope inválido',
-                    422
+                    422,
+                    ['errors' => ['parent_origin_key deve começar com "tour:"']]
                 );
             }
 
             $handler = plugin_dir_path(__FILE__) . 'handlers/class-vana-ingest-visit.php';
             if (!file_exists($handler)) {
-                return Vana_Utils::api_response(false, null, 'Handler ingest-visit ausente no servidor', 500);
+                return Vana_Utils::api_response(false, 'Handler ingest-visit ausente no servidor', 500, null);
             }
 
             require_once $handler;
             return Vana_Ingest_Visit::upsert($payload);
 
         } catch (Throwable $e) {
-            Vana_Utils::log('INTERNAL_ERROR ingest-visit', 'error', [
-                'msg'  => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+            Vana_Utils::log([
+                'code'    => 'INTERNAL_ERROR ingest-visit',
+                'level'   => 'error',
+                'context' => [
+                    'msg'  => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                ],
             ]);
-            return Vana_Utils::api_response(false, null, 'Erro interno no processamento', 500);
+            return Vana_Utils::api_response(false, 'Erro interno no processamento', 500, null);
         }
     }
 }
