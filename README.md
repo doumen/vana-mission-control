@@ -256,35 +256,6 @@ Ao desinstalar o plugin via WordPress Admin, as seguintes ações ocorrem **auto
 
 ---
 
-## 🤝 Contribuindo
-
-Este plugin é parte da infraestrutura da missão **Vana Madhuryam**. Para contribuir:
-
-1. Reporte bugs e sugestões via os canais oficiais da missão.
-2. Siga o padrão de código PSR-12 e os guardrails de segurança já estabelecidos.
-3. Toda nova rota REST deve usar `Vana_HMAC` para autenticação ou justificar explicitamente o acesso público.
-4. Mantenha o `schema_version` atualizado em `class-vana-ingest-visit.php` ao modificar o schema de Visits.
-
----
-
-## 🔗 Links Oficiais
-
-| Canal | URL |
-|-------|-----|
-| YouTube | [@vanamadhuryamofficial](https://www.youtube.com/@vanamadhuryamofficial) |
-| Facebook | [vanamadhuryamofficial](https://www.facebook.com/vanamadhuryamofficial) |
-| Instagram | [@vanamadhuryamofficial](https://www.instagram.com/vanamadhuryamofficial/) |
-| Site | [vanamadhuryam.org](https://vanamadhuryam.org) |
-
-# 📖 README.md — Seções Completas: Trator + Bot
-
-Aqui estão as seções para adicionar ao README existente, Marcel:
-
----
-
-````markdown
----
-
 ## 🚜 Trator (Ingest Client Python)
 
 O **Trator** é o cliente Python responsável por serializar, assinar e enviar
@@ -729,5 +700,25 @@ python smoke_live_update.py \
 - [ ] `python smoke_live_update.py` respondendo `HTTP 200` ✅
 - [ ] `/setcontext` executado com Visit ID e data corretos
 - [ ] `/ops` exibindo o painel de controle no grupo ✅
-````
+
+---
+## 🤝 Contribuindo
+
+Este plugin é parte da infraestrutura da missão **Vana Madhuryam**. Para contribuir:
+
+1. Reporte bugs e sugestões via os canais oficiais da missão.
+2. Siga o padrão de código PSR-12 e os guardrails de segurança já estabelecidos.
+3. Toda nova rota REST deve usar `Vana_HMAC` para autenticação ou justificar explicitamente o acesso público.
+4. Mantenha o `schema_version` atualizado em `class-vana-ingest-visit.php` ao modificar o schema de Visits.
+
+---
+
+## 🔗 Links Oficiais
+
+| Canal | URL |
+|-------|-----|
+| YouTube | [@vanamadhuryamofficial](https://www.youtube.com/@vanamadhuryamofficial) |
+| Facebook | [vanamadhuryamofficial](https://www.facebook.com/vanamadhuryamofficial) |
+| Instagram | [@vanamadhuryamofficial](https://www.instagram.com/vanamadhuryamofficial/) |
+| Site | [vanamadhuryam.org](https://vanamadhuryam.org) |
 
