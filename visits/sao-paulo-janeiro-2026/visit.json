@@ -1,0 +1,10 @@
+{
+  "visit_id": "sao-paulo-janeiro-2026",
+  "title_pt": "São Paulo &#8211; Janeiro 2026.",
+  "title_en": "",
+  "timezone": "America/Sao_Paulo",
+  "schema_version": "3.1",
+  "updated_at": "2026-02-27T03:27:51.546716+00:00",
+  "days": [],
+  "_note": "Gerado por sync_visit_to_github.py — preencher days"
+}
