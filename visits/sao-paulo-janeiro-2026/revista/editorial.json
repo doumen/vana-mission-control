@@ -36,7 +36,11 @@
       "order": 2,
       "type": "sangha_voices",
       "locked": false,
-      "content": {}
+      "content": {
+        "editorial_note_pt": "",
+        "editorial_note_en": "",
+        "submission_refs": []
+      }
     }
   ],
   "audit": [
