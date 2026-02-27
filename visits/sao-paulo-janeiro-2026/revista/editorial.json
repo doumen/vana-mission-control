@@ -25,19 +25,17 @@
   "blocks": [
     {
       "order": 1,
+      "type": "gurudeva_photos",
+      "locked": false,
+      "content": {}
+    },
+    {
+      "order": 2,
       "type": "opening",
       "locked": false,
       "content": {
         "text_pt": "azasxaxfasexewcwe",
         "text_en": "eeewdewdweweewrerwre"
-      }
-    },
-    {
-      "order": 2,
-      "type": "gurudeva_photos",
-      "locked": false,
-      "content": {
-        "photos": []
       }
     }
   ],
