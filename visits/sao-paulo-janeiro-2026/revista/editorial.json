@@ -24,14 +24,6 @@
   "stats": {},
   "blocks": [
     {
-      "order": 1,
-      "type": "gurudeva_photos",
-      "locked": false,
-      "content": {
-        "photos": []
-      }
-    },
-    {
       "order": 2,
       "type": "opening",
       "locked": false,
@@ -67,6 +59,13 @@
       "action": "block_added",
       "by": "Krsna Das",
       "at": "2026-02-27T03:38:12.198355+00:00",
+      "note": null,
+      "block": "gurudeva_photos"
+    },
+    {
+      "action": "block_removed",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:38:39.446474+00:00",
       "note": null,
       "block": "gurudeva_photos"
     }
