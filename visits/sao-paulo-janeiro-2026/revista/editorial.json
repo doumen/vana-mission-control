@@ -31,6 +31,12 @@
         "text_pt": "azasxaxfasexewcwe",
         "text_en": "eeewdewdweweewrerwre"
       }
+    },
+    {
+      "order": 2,
+      "type": "gurudeva_photos",
+      "locked": false,
+      "content": {}
     }
   ],
   "audit": [
@@ -54,6 +60,13 @@
       "at": "2026-02-27T03:37:35.393160+00:00",
       "note": null,
       "block": "opening"
+    },
+    {
+      "action": "block_added",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:38:12.198355+00:00",
+      "note": null,
+      "block": "gurudeva_photos"
     }
   ]
 }
