@@ -3,11 +3,11 @@
   "visit_ref": "sao-paulo-janeiro-2026",
   "state": "edicao",
   "meta": {
-    "title_pt": null,
-    "title_en": null,
-    "preview_pt": null,
-    "preview_en": null,
-    "cover_photo_ref": null,
+    "title_pt": "wqsqwsqwsew",
+    "title_en": "qswewsweqswqew",
+    "preview_pt": "qwswqswdw",
+    "preview_en": "qwswqswesw",
+    "cover_photo_ref": "sxasdxsaxaxax",
     "started_at": "2026-02-27T03:28:44.405646+00:00",
     "published_at": null,
     "editor": "Krsna Das",
@@ -31,6 +31,12 @@
       "note": null,
       "from": "coleta",
       "to": "edicao"
+    },
+    {
+      "action": "meta_updated",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:37:24.246512+00:00",
+      "note": null
     }
   ]
 }
