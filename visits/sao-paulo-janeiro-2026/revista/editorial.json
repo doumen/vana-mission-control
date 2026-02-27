@@ -27,7 +27,10 @@
       "order": 1,
       "type": "opening",
       "locked": false,
-      "content": {}
+      "content": {
+        "text_pt": "",
+        "text_en": ""
+      }
     }
   ],
   "audit": [
