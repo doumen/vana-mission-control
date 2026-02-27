@@ -22,7 +22,14 @@
   },
   "exports": {},
   "stats": {},
-  "blocks": [],
+  "blocks": [
+    {
+      "order": 1,
+      "type": "opening",
+      "locked": false,
+      "content": {}
+    }
+  ],
   "audit": [
     {
       "action": "state_changed",
@@ -37,6 +44,13 @@
       "by": "Krsna Das",
       "at": "2026-02-27T03:37:24.246512+00:00",
       "note": null
+    },
+    {
+      "action": "block_added",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:37:35.393160+00:00",
+      "note": null,
+      "block": "opening"
     }
   ]
 }
