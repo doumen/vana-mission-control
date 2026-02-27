@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "visit_ref": "sao-paulo-janeiro-2026",
+  "state": "edicao",
+  "meta": {
+    "title_pt": null,
+    "title_en": null,
+    "preview_pt": null,
+    "preview_en": null,
+    "cover_photo_ref": null,
+    "started_at": "2026-02-27T03:28:44.405646+00:00",
+    "published_at": null,
+    "editor": "Krsna Das",
+    "supervisor": null
+  },
+  "coleta": {
+    "opened_at": "2026-02-27T03:28:17.766345+00:00",
+    "paused": false,
+    "paused_at": null,
+    "paused_by": null,
+    "notify_list": []
+  },
+  "exports": {},
+  "stats": {},
+  "blocks": [],
+  "audit": [
+    {
+      "action": "state_changed",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:28:44.405646+00:00",
+      "note": null,
+      "from": "coleta",
+      "to": "edicao"
+    }
+  ]
+}
