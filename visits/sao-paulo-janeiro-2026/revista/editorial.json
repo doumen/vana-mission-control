@@ -36,7 +36,9 @@
       "order": 2,
       "type": "gurudeva_photos",
       "locked": false,
-      "content": {}
+      "content": {
+        "photos": []
+      }
     }
   ],
   "audit": [
