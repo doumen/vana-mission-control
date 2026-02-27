@@ -31,6 +31,12 @@
         "text_pt": "azasxaxfasexewcwe",
         "text_en": "eeewdewdweweewrerwre"
       }
+    },
+    {
+      "order": 2,
+      "type": "sangha_voices",
+      "locked": false,
+      "content": {}
     }
   ],
   "audit": [
@@ -68,6 +74,13 @@
       "at": "2026-02-27T03:38:39.446474+00:00",
       "note": null,
       "block": "gurudeva_photos"
+    },
+    {
+      "action": "block_added",
+      "by": "Krsna Das",
+      "at": "2026-02-27T03:38:45.229636+00:00",
+      "note": null,
+      "block": "sangha_voices"
     }
   ]
 }
