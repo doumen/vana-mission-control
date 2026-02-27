@@ -27,7 +27,9 @@
       "order": 1,
       "type": "gurudeva_photos",
       "locked": false,
-      "content": {}
+      "content": {
+        "photos": []
+      }
     },
     {
       "order": 2,
