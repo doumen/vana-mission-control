@@ -1,0 +1,13 @@
+Conectando em 149.62.37.117:65002...
+Conexao OK.
+
+Enviando test-phase2.php para /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/test-phase2.php...
+Upload OK.
+
+Executando: wp eval-file test-phase2.php
+============================================================
+
+Parse error: syntax error, unexpected token "\" in /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/vana-mission-control.php on line 302
+Error: Há um erro crítico no seu site.Saiba mais sobre a como resolver problemas do WordPress. Há um erro crítico no seu site.
+
+============================================================

@@ -1,0 +1,337 @@
+<?php
+/**
+ * Service Worker Registrar
+ * Arquivo: includes/class-vana-sw-registrar.php
+ *
+ * Responsabilidades:
+ *   1. Servir vana-sw.js na raiz do domínio (via rewrite rule)
+ *   2. Injetar script de registro do SW nas páginas vana_visit
+ *   3. Gerenciar Push Subscription (salvar em user meta)
+ *   4. REST endpoint para envio de push (/vana/v1/push/send)
+ */
+defined('ABSPATH') || exit;
+
+final class Vana_SW_Registrar {
+
+    private const SW_QUERY_VAR = 'vana_sw';
+    private const PUSH_META    = '_vana_push_subscription';
+
+    public static function init(): void {
+        // Serve o arquivo SW na raiz
+        add_filter('query_vars',       [__CLASS__, 'register_query_var']);
+        add_action('template_redirect',[__CLASS__, 'maybe_serve_sw'], 1);
+
+        // Injeta script de registro nas páginas da visita
+        add_action('wp_footer',        [__CLASS__, 'inject_sw_registration'], 99);
+
+        // REST: salvar subscription push
+        add_action('rest_api_init',    [__CLASS__, 'register_push_routes']);
+    }
+
+    // ── Query Var ─────────────────────────────────────────────────
+
+    public static function register_query_var(array $vars): array {
+        $vars[] = self::SW_QUERY_VAR;
+        return $vars;
+    }
+
+    // ── Serve vana-sw.js na raiz ──────────────────────────────────
+
+    public static function maybe_serve_sw(): void {
+        if (!get_query_var(self::SW_QUERY_VAR)) return;
+
+        $sw_file = VANA_MC_PATH . 'assets/js/vana-sw.js';
+
+        if (!file_exists($sw_file)) {
+            status_header(404);
+            exit('Service Worker not found.');
+        }
+
+        header('Content-Type: application/javascript; charset=utf-8');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Service-Worker-Allowed: /');   // scope máximo
+        readfile($sw_file);
+        exit;
+    }
+
+    // ── Injeta registro do SW no footer ──────────────────────────
+
+    public static function inject_sw_registration(): void {
+        // Só em páginas vana_visit
+        if (!is_singular('vana_visit')) return;
+
+        $sw_url      = esc_url(add_query_arg('vana_sw', '1', home_url('/')));
+        $visit_data  = $GLOBALS['_vana_visit'] ?? [];
+        $origin_key  = esc_js((string) ($visit_data['origin_key'] ?? ''));
+        $seal_url    = esc_js((string) ($visit_data['seal_url']   ?? ''));
+        $lang        = esc_js((string) ($visit_data['lang']       ?? 'pt'));
+
+        // VAPID public key — necessária para Push API
+        $vapid_pub   = defined('VANA_VAPID_PUBLIC_KEY')
+                        ? esc_js(VANA_VAPID_PUBLIC_KEY)
+                        : '';
+
+        $push_url    = esc_js(rest_url('vana/v1/push/subscribe'));
+        $nonce       = esc_js(wp_create_nonce('vana_push_subscribe'));
+        ?>
+        <script>
+        /* ── Vana PWA Bootstrap ─────────────────────────────── */
+        (function () {
+          'use strict';
+
+          if (!('serviceWorker' in navigator)) return;
+
+          var SW_URL   = '<?php echo $sw_url; ?>';
+          var VISIT_ID = '<?php echo $origin_key; ?>';
+          var LANG     = '<?php echo $lang; ?>';
+          var VAPID    = '<?php echo $vapid_pub; ?>';
+
+          /* ── 1. Registro do Service Worker ────────────────── */
+          navigator.serviceWorker.register(SW_URL, { scope: '/' })
+            .then(function (reg) {
+              console.log('[Vana PWA] SW registrado. Scope:', reg.scope);
+
+              /* ── 1.1 Detecta atualização disponível ──────── */
+              reg.addEventListener('updatefound', function () {
+                var newWorker = reg.installing;
+                if (!newWorker) return;
+
+                newWorker.addEventListener('statechange', function () {
+                  if (
+                    newWorker.state === 'installed' &&
+                    navigator.serviceWorker.controller
+                  ) {
+                    showUpdateBanner(reg);
+                  }
+                });
+              });
+
+              /* ── 1.2 Push Notifications ───────────────────── */
+              if (VAPID && 'PushManager' in window) {
+                requestPushPermission(reg);
+              }
+
+            })
+            .catch(function (err) {
+              console.warn('[Vana PWA] Falha no registro do SW:', err);
+            });
+
+          /* ── 2. Comunicação bidirecional ──────────────────── */
+          navigator.serviceWorker.addEventListener('message', function (event) {
+            var msg = event.data || {};
+
+            switch (msg.type) {
+
+              // SW atualizou o timeline em background
+              case 'TIMELINE_UPDATED':
+                console.log('[Vana PWA] Timeline atualizado:', msg.url);
+                dispatchEvent(new CustomEvent('vana:timeline:updated', {
+                  detail: { url: msg.url, ts: msg.ts }
+                }));
+                break;
+
+              // SW confirmou purge
+              case 'PURGE_ACK':
+                console.log('[Vana PWA] Cache purgado:', msg.visit_id);
+                break;
+
+              // Versão do SW
+              case 'SW_VERSION':
+                console.log('[Vana PWA] SW version:', msg.version);
+                break;
+            }
+          });
+
+          /* ── 3. Banner de atualização disponível ─────────── */
+          function showUpdateBanner(reg) {
+            var banner = document.createElement('div');
+            banner.id  = 'vana-update-banner';
+            banner.setAttribute('role', 'alert');
+            banner.style.cssText = [
+              'position:fixed', 'bottom:80px', 'left:50%',
+              'transform:translateX(-50%)',
+              'background:#1e293b', 'color:#f1f5f9',
+              'padding:14px 20px', 'border-radius:12px',
+              'display:flex', 'gap:12px', 'align-items:center',
+              'box-shadow:0 8px 32px rgba(0,0,0,.4)',
+              'z-index:9990', 'max-width:90vw',
+              'border:1px solid rgba(255,217,6,.3)',
+              'font-family:sans-serif', 'font-size:.875rem',
+            ].join(';');
+
+            banner.innerHTML = [
+              '<span>',
+                LANG === 'en'
+                  ? '✨ New version available'
+                  : '✨ Nova versão disponível',
+              '</span>',
+              '<button id="vana-update-btn" style="',
+                'background:#FFD906;color:#0f172a;border:none;',
+                'padding:6px 16px;border-radius:999px;',
+                'font-weight:700;cursor:pointer;font-size:.85rem;',
+              '">',
+                LANG === 'en' ? 'Update' : 'Atualizar',
+              '</button>',
+            ].join('');
+
+            document.body.appendChild(banner);
+
+            document.getElementById('vana-update-btn')
+              .addEventListener('click', function () {
+                if (reg.waiting) {
+                  reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+                banner.remove();
+                location.reload();
+              });
+          }
+
+          /* ── 4. Push Notifications ────────────────────────── */
+          function requestPushPermission(reg) {
+            Notification.requestPermission()
+              .then(function (permission) {
+                if (permission !== 'granted') return;
+                return reg.pushManager.subscribe({
+                  userVisibleOnly      : true,
+                  applicationServerKey : urlBase64ToUint8Array(VAPID),
+                });
+              })
+              .then(function (subscription) {
+                if (!subscription) return;
+                sendSubscriptionToServer(subscription);
+              })
+              .catch(function (err) {
+                console.warn('[Vana PWA] Push subscription falhou:', err);
+              });
+          }
+
+          function sendSubscriptionToServer(subscription) {
+            fetch('<?php echo $push_url; ?>', {
+              method  : 'POST',
+              headers : {
+                'Content-Type' : 'application/json',
+                'X-WP-Nonce'   : '<?php echo $nonce; ?>',
+              },
+              body: JSON.stringify({
+                subscription : subscription.toJSON(),
+                visit_id     : VISIT_ID,
+                lang         : LANG,
+              }),
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              if (data.success) {
+                console.log('[Vana PWA] Push subscription salva.');
+              }
+            })
+            .catch(function (err) {
+              console.warn('[Vana PWA] Falha ao salvar push subscription:', err);
+            });
+          }
+
+          /* ── 5. Utilitário VAPID ──────────────────────────── */
+          function urlBase64ToUint8Array(base64String) {
+            var padding = '='.repeat((4 - base64String.length % 4) % 4);
+            var base64  = (base64String + padding)
+              .replace(/-/g, '+').replace(/_/g, '/');
+            var raw     = atob(base64);
+            var output  = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; ++i) {
+              output[i] = raw.charCodeAt(i);
+            }
+            return output;
+          }
+
+        }());
+        </script>
+        <?php
+    }
+
+    // ── REST: Push Subscribe / Send ───────────────────────────────
+
+    public static function register_push_routes(): void {
+
+        // Salva subscription (autenticado por nonce WP)
+        register_rest_route('vana/v1', '/push/subscribe', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [__CLASS__, 'handle_push_subscribe'],
+            'permission_callback' => static function (): bool {
+                return is_user_logged_in();
+            },
+        ]);
+
+        // Envia push (admin only — via HMAC do Trator)
+        register_rest_route('vana/v1', '/push/send', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [__CLASS__, 'handle_push_send'],
+            'permission_callback' => '__return_true',   // HMAC no handler
+        ]);
+    }
+
+    public static function handle_push_subscribe(
+        WP_REST_Request $request
+    ): WP_REST_Response {
+
+        $body = $request->get_json_params();
+        if (empty($body['subscription'])) {
+            return new WP_REST_Response(['success' => false], 400);
+        }
+
+        $user_id      = get_current_user_id();
+        $subscription = $body['subscription'];
+        $visit_id     = sanitize_text_field((string) ($body['visit_id'] ?? ''));
+        $lang         = sanitize_text_field((string) ($body['lang']     ?? 'pt'));
+
+        // Salva em user meta (indexed por endpoint URL)
+        $endpoint = sanitize_text_field((string) ($subscription['endpoint'] ?? ''));
+        if (!$endpoint) {
+            return new WP_REST_Response(['success' => false, 'code' => 'no_endpoint'], 400);
+        }
+
+        $stored = [
+            'subscription' => $subscription,
+            'visit_id'     => $visit_id,
+            'lang'         => $lang,
+            'updated_at'   => (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+                                ->format('Y-m-d\TH:i:s\Z'),
+        ];
+
+        update_user_meta($user_id, self::PUSH_META . '_' . md5($endpoint), $stored);
+
+        return new WP_REST_Response(['success' => true], 200);
+    }
+
+    public static function handle_push_send(
+        WP_REST_Request $request
+    ): WP_REST_Response {
+
+        // Valida HMAC (reutiliza o mesmo segredo do Materializer)
+        $secret = defined('VANA_INGEST_SECRET') ? VANA_INGEST_SECRET : '';
+        if ($secret === '') {
+            return new WP_REST_Response(['success' => false, 'code' => 'no_secret'], 500);
+        }
+
+        $sig_raw = $_SERVER['HTTP_X_VANA_SIGNATURE']
+                   ?? $request->get_header('x_vana_signature')
+                   ?? '';
+
+        if (strpos($sig_raw, 'sha256=') !== 0) {
+            return new WP_REST_Response(['success' => false, 'code' => 'no_sig'], 401);
+        }
+
+        $provided = substr($sig_raw, 7);
+        $computed = hash_hmac('sha256', $request->get_body(), $secret);
+
+        if (!hash_equals($computed, $provided)) {
+            return new WP_REST_Response(['success' => false, 'code' => 'sig_fail'], 403);
+        }
+
+        $body = $request->get_json_params();
+
+        // Hook para integração com biblioteca Web Push (Minishlink/WebPush)
+        do_action('vana_push_send', $body);
+
+        return new WP_REST_Response(['success' => true, 'queued' => true], 200);
+    }
+}
+

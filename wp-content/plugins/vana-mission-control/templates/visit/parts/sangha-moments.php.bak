@@ -1,0 +1,573 @@
+<?php
+/**
+ * Partial: Sangha Moments
+ * Arquivo: templates/visit/parts/sangha-moments.php
+ * Version: 2.0.0
+ *
+ * Fonte: CPT vana_submission (post_status = publish)
+ * Formulário: shortcode [vana_oferenda_form] → REST POST /vana/v1/checkin
+ *
+ * Variáveis esperadas do _bootstrap.php:
+ *   $lang, $visit_id, $active_day_date
+ */
+defined('ABSPATH') || exit;
+
+// ── i18n ──────────────────────────────────────────────────────
+$lbl_section  = vana_t('sangha.section', $lang);
+$lbl_subtitle = vana_t('sangha.subtitle', $lang);
+$lbl_anon     = vana_t('sangha.anon', $lang);
+$lbl_silent   = vana_t('sangha.silent', $lang);
+$lbl_open_orig= vana_t('sangha.open_link', $lang);
+$lbl_photo_b  = vana_t('sangha.badge.photo', $lang);
+$lbl_video_b  = vana_t('sangha.badge.video', $lang);
+$lbl_msg_b    = vana_t('sangha.badge.message', $lang);
+
+// ── Query: submissions aprovadas desta visita ─────────────────
+$submissions = new WP_Query([
+    'post_type'      => 'vana_submission',
+    'post_status'    => 'publish',
+    'posts_per_page' => 48,
+    'meta_query'     => [[
+        'key'     => '_visit_id',
+        'value'   => $visit_id,
+        'compare' => '=',
+        'type'    => 'NUMERIC',
+    ]],
+]);
+
+if (!function_exists('_vana_fmt_date')) {
+    function _vana_fmt_date(int $ts): string {
+        return $ts ? wp_date('d/m/Y', $ts) : '';
+    }
+}
+?>
+
+<!-- ============================================================
+     SEÇÃO SANGHA
+     ============================================================ -->
+<section
+  id="vana-section-sangha"
+  class="vana-section vana-section--sangha"
+  aria-labelledby="vana-sangha-heading"
+  style="padding-top:8px;"
+>
+
+  <!-- Cabeçalho -->
+  <h2 class="vana-section-title" id="vana-sangha-heading">
+    <span class="dashicons dashicons-heart"
+          aria-hidden="true"
+          style="font-size:1.6rem;width:auto;height:auto;
+                 color:var(--vana-pink);margin-right:8px;
+                 vertical-align:middle;"></span>
+    <?php echo esc_html($lbl_section); ?>
+  </h2>
+  <p style="color:var(--vana-muted);font-size:1.05rem;margin:-10px 0 28px;">
+    <?php echo esc_html($lbl_subtitle); ?>
+  </p>
+
+  <!-- ══════════════════════════════════════════════════════════
+       WALL de momentos aprovados
+       ══════════════════════════════════════════════════════════ -->
+  <?php if ($submissions->have_posts()): ?>
+  <div class="vana-sangha-wall" role="list">
+
+    <?php while ($submissions->have_posts()): $submissions->the_post();
+      $sid       = get_the_ID();
+      $name_raw  = (string) get_post_meta($sid, '_sender_display_name', true);
+      $name      = trim($name_raw) !== '' ? trim($name_raw) : $lbl_anon;
+      $msg       = wp_strip_all_tags((string) get_post_meta($sid, '_message', true));
+      $ts        = (int) get_post_meta($sid, '_submitted_at', true);
+      $pub_city  = (string) get_post_meta($sid, '_vana_public_user_city', true);
+      $date_label= $ts ? _vana_fmt_date($ts) : '';
+
+      // ── Lê _media_items (schema v2) com fallback para v1 ──
+      $media_items = [];
+      $raw_items   = get_post_meta($sid, '_media_items', true);
+
+      if (!empty($raw_items)) {
+          // Schema v2 — array serializado pelo Vana_Submission_CPT
+          $media_items = is_array($raw_items)
+              ? $raw_items
+              : (json_decode($raw_items, true) ?? []);
+      } else {
+          // Fallback v1 — metas legadas
+          $img_v1 = esc_url((string) get_post_meta($sid, '_image_url',    true));
+          $ext_v1 = (string)          get_post_meta($sid, '_external_url', true);
+          if ($img_v1)  $media_items[] = ['type' => 'image', 'url' => $img_v1,  'r2_key' => ''];
+          if ($ext_v1)  $media_items[] = ['type' => 'video', 'url' => $ext_v1,  'r2_key' => ''];
+      }
+
+      // ── Primeiro item de mídia para o card ──
+      $first_image = '';
+      $first_ext   = '';
+      foreach ($media_items as $item) {
+          if ($item['type'] === 'image' && $first_image === '') {
+              $first_image = esc_url($item['url']);
+          }
+          if ($item['type'] === 'video' && $first_ext === '') {
+              $first_ext = $item['url'];
+          }
+      }
+
+      // ── Thumb de vídeo ──
+      $video_thumb   = '';
+      $provider_type = '';
+      if ($first_ext !== '') {
+          if (preg_match(
+              '%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i',
+              $first_ext, $ym
+          )) {
+              $video_thumb   = "https://img.youtube.com/vi/{$ym[1]}/hqdefault.jpg";
+              $provider_type = 'youtube';
+          } elseif (strpos($first_ext, 'drive.google.com') !== false) {
+              if (preg_match('~\/d\/([a-zA-Z0-9_-]+)~', $first_ext, $dm)) {
+                  $video_thumb = "https://drive.google.com/thumbnail?id={$dm[1]}&sz=w400";
+              }
+              $provider_type = 'drive';
+          } elseif (
+              strpos($first_ext, 'facebook.com') !== false ||
+              strpos($first_ext, 'fb.watch')     !== false
+          ) {
+              $video_thumb   = 'FB_VIDEO';
+              $provider_type = 'facebook';
+          }
+      }
+
+      $is_text_only = (!$first_image && !$video_thumb);
+      $moment_class = 'vana-moment' . ($is_text_only ? ' vana-moment--text-only' : '');
+      $initial      = mb_strtoupper(mb_substr($name, 0, 1));
+      $kicker       = vana_t('sangha.kicker', $lang);
+      if ($first_ext !== '') {
+          $badge_label = $lbl_video_b;
+          $badge_icon  = 'dashicons-video-alt3';
+      } elseif ($first_image !== '') {
+          $badge_label = $lbl_photo_b;
+          $badge_icon  = 'dashicons-format-image';
+      } else {
+          $badge_label = $lbl_msg_b;
+          $badge_icon  = 'dashicons-format-quote';
+      }
+
+      // ── Serializa media_items para o modal ──
+      $media_json = esc_attr(wp_json_encode($media_items));
+    ?>
+
+    <article class="<?php echo esc_attr($moment_class); ?>" role="listitem">
+      <button
+        type="button"
+        class="vana-moment-btn"
+        data-vana-modal-open="1"
+        data-vana-sangha-item="1"
+        data-kicker="<?php echo esc_attr($kicker); ?>"
+        data-title="<?php echo esc_attr($name); ?>"
+        data-message="<?php echo esc_attr($msg); ?>"
+        data-image="<?php echo esc_attr($first_image); ?>"
+        data-external-url="<?php echo esc_attr($first_ext); ?>"
+        data-media-items="<?php echo $media_json; ?>"
+        aria-label="<?php echo esc_attr($kicker . ' — ' . $name); ?>"
+      >
+        <div class="vana-moment-inner">
+          <div class="vana-moment-user">
+            <div class="vana-moment-avatar" aria-hidden="true">
+              <?php echo esc_html($initial); ?>
+            </div>
+            <div class="vana-moment-name"><?php echo esc_html($name); ?></div>
+          </div>
+          <?php if ($msg): ?>
+            <div class="vana-moment-text"><?php echo esc_html($msg); ?></div>
+          <?php endif; ?>
+        </div>
+
+        <?php if ($first_image): ?>
+          <div class="vana-moment-media">
+            <img src="<?php echo $first_image; ?>"
+                 alt="<?php echo esc_attr(vana_t('sangha.photo_alt', $lang)); ?>"
+                 loading="lazy">
+          </div>
+
+        <?php elseif ($video_thumb): ?>
+          <div class="vana-moment-media"
+               style="position:relative;background:#f1f5f9;border-radius:12px;
+                      overflow:hidden;aspect-ratio:16/9;display:flex;
+                      align-items:center;justify-content:center;">
+            <?php if ($video_thumb === 'FB_VIDEO'): ?>
+              <div style="position:absolute;inset:0;background:#1877F2;
+                          display:flex;align-items:center;justify-content:center;
+                          flex-direction:column;color:#fff;">
+                <span class="dashicons dashicons-facebook-alt"
+                      style="font-size:40px;width:40px;height:40px;"></span>
+                <small style="font-weight:bold;margin-top:5px;">Facebook Video</small>
+              </div>
+            <?php else: ?>
+              <img src="<?php echo esc_url($video_thumb); ?>"
+                   alt="Video"
+                   style="width:100%;height:100%;object-fit:cover;opacity:.8;"
+                   loading="lazy">
+              <div style="position:absolute;top:50%;left:50%;
+                          transform:translate(-50%,-50%);
+                          color:#fff;font-size:40px;
+                          text-shadow:0 2px 10px rgba(0,0,0,.3);"
+                   aria-hidden="true">
+                <span class="dashicons dashicons-controls-play"></span>
+              </div>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
+
+        <div class="vana-moment-footer">
+          <span class="vana-moment-badge">
+            <span class="dashicons <?php echo esc_attr($badge_icon); ?>"
+                  aria-hidden="true"></span>
+            <?php echo esc_html($badge_label); ?>
+          </span>
+          <?php if ($pub_city): ?>
+            <span style="display:flex;align-items:center;gap:5px;
+                         color:var(--vana-muted);font-size:.8rem;font-weight:800;">
+              <span class="dashicons dashicons-location"
+                    style="font-size:14px;color:var(--vana-pink);"
+                    aria-hidden="true"></span>
+              <?php echo esc_html($pub_city); ?>
+            </span>
+          <?php else: ?>
+            <span style="color:var(--vana-muted);font-size:.8rem;">
+              <?php echo esc_html($date_label); ?>
+            </span>
+          <?php endif; ?>
+        </div>
+      </button>
+    </article>
+
+    <?php endwhile; wp_reset_postdata(); ?>
+  </div><!-- /.vana-sangha-wall -->
+  <?php endif; // have_posts ?>
+
+  <!-- ══════════════════════════════════════════════════════════
+       FORMULÁRIO — shortcode v2
+       Substitui o <form id="vanaCheckinForm"> legado
+       ══════════════════════════════════════════════════════════ -->
+  <div id="form-oferenda" style="margin-top:40px;">
+    <?php
+    echo do_shortcode(
+        sprintf(
+            '[vana_oferenda_form visit_id="%d" lang="%s"]',
+            (int) $visit_id,
+            esc_attr($lang)
+        )
+    );
+    ?>
+  </div>
+
+</section>
+
+<!-- ============================================================
+     MODAL — Sangha (compartilhado com gallery.php)
+     ============================================================ -->
+<?php if (!defined('VANA_MODAL_RENDERED')): define('VANA_MODAL_RENDERED', true); ?>
+<div class="vana-modal" id="vanaSubmissionModal"
+     aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="vana-modal__backdrop" data-vana-modal-close="1"></div>
+  <div class="vana-modal__dialog">
+    <button type="button" class="vana-modal__close"
+            data-vana-modal-close="1"
+            aria-label="<?php echo esc_attr(vana_t('sangha.aria.close', $lang)); ?>">
+      ×
+    </button>
+    <button type="button" class="vana-modal__nav vana-modal__nav--prev"
+            id="vanaModalPrev" style="display:none;"
+            aria-label="<?php echo esc_attr(vana_t('sangha.aria.prev', $lang)); ?>">
+      ‹
+    </button>
+    <button type="button" class="vana-modal__nav vana-modal__nav--next"
+            id="vanaModalNext" style="display:none;"
+            aria-label="<?php echo esc_attr(vana_t('sangha.aria.next', $lang)); ?>">
+      ›
+    </button>
+
+    <!-- v2: suporte a múltiplas fotos no modal via data-media-items -->
+    <div class="vana-modal__media"  id="vanaModalMedia"></div>
+    <div class="vana-modal__body">
+      <p id="vanaModalKicker"
+         style="color:var(--vana-orange);font-weight:800;
+                font-size:.82rem;margin:0 0 4px;text-transform:uppercase;"></p>
+      <h3 id="vanaModalTitle"
+          style="color:var(--vana-text);margin:0 0 10px;
+                 font-family:'Syne',sans-serif;"></h3>
+      <div id="vanaModalMessage"
+           style="color:var(--vana-muted);line-height:1.6;font-size:1.05rem;"></div>
+      <div style="margin-top:18px;">
+        <a id="vanaModalExternalLink" href="#" target="_blank"
+           rel="noopener noreferrer"
+           style="display:none;background:var(--vana-blue);color:#fff;
+                  padding:10px 20px;border-radius:6px;
+                  text-decoration:none;font-weight:700;">
+          <?php echo esc_html($lbl_open_orig); ?>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<!-- ============================================================
+     JS — Modal apenas (submit removido → oferenda-form.js)
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ── Utilitários ──────────────────────────────────────────── */
+  function parseYTId(url) {
+    try {
+      var u = new URL(url);
+      if (u.hostname.includes('youtu.be'))
+        return u.pathname.replace('/', '');
+      var v = u.searchParams.get('v');
+      if (v) return v;
+      var m = u.pathname.match(/\/shorts\/([^\/]+)/);
+      return (m && m[1]) ? m[1] : '';
+    } catch (e) { return ''; }
+  }
+/* ── Render de um item de mídia individual ────────────────── */
+function renderMediaItem(item, idx, total) {
+  if (item.type === 'image') {
+    return '<div class="vana-media-container" style="background:#000;'
+         + 'display:flex;align-items:center;justify-content:center;">'
+         + '<img src="' + item.url + '" alt="Foto ' + (idx + 1) + '" loading="lazy"'
+         + ' style="max-width:100%;max-height:70vh;object-fit:contain;">'
+         + '</div>';
+  }
+
+  var url = item.url || '';
+
+  // YouTube
+  var ytid = parseYTId(url);
+  if (ytid) {
+    // Só autoplay no primeiro item
+    var autoplay = idx === 0 ? '?autoplay=1' : '?autoplay=0';
+    return '<div class="vana-embed">'
+         + '<iframe src="https://www.youtube.com/embed/' + ytid + autoplay
+         + '" allowfullscreen allow="autoplay;encrypted-media;"></iframe></div>';
+  }
+
+  // Facebook
+  if (url.includes('facebook.com') || url.includes('fb.watch')) {
+    return '<div class="vana-embed">'
+         + '<iframe src="https://www.facebook.com/plugins/video.php?href='
+         + encodeURIComponent(url) + '&show_text=0&width=1200"'
+         + ' scrolling="no" allowfullscreen allow="autoplay;encrypted-media;"></iframe></div>';
+  }
+
+  // Google Drive
+  var dm = url.match(/d\/([a-zA-Z0-9_-]+)/);
+  if (dm) {
+    return '<div class="vana-embed">'
+         + '<iframe src="https://drive.google.com/file/d/' + dm[1]
+         + '/preview" allow="autoplay"></iframe></div>';
+  }
+
+  // Fallback link
+  return '<div style="padding:40px;text-align:center;">'
+       + '<a href="' + url + '" target="_blank" rel="noopener noreferrer"'
+       + ' style="color:var(--vana-gold);font-weight:700;">Abrir link →</a></div>';
+}
+
+/* ── Navega para slide N ──────────────────────────────────── */
+function goToSlide(mediaEl, idx) {
+  mediaEl.querySelectorAll('.vana-modal-gallery__item').forEach(function(el, i) {
+    el.classList.toggle('is-active', i === idx);
+  });
+  mediaEl.querySelectorAll('.vana-modal-gallery__dot').forEach(function(d, i) {
+    d.classList.toggle('is-active', i === idx);
+  });
+}
+
+  /* ── Render modal — suporta múltiplos media_items (v2) ────── */
+function renderSangha(data) {
+  var mediaEl = document.getElementById('vanaModalMedia');
+  var msgEl   = document.getElementById('vanaModalMessage');
+  if (!mediaEl || !msgEl) return;
+
+  var ext     = (data.externalUrl || '').trim();
+  var image   = (data.image       || '').trim();
+  var msg     = (data.message     || '').trim();
+
+  // Parse media_items v2
+  var mediaItems = [];
+  try { mediaItems = JSON.parse(data.mediaItems || '[]'); } catch (e) {}
+
+  // Separa por tipo
+  var images = mediaItems.filter(function(i) { return i.type === 'image'; });
+  var videos = mediaItems.filter(function(i) { return i.type === 'video'; });
+
+  // Se não há media_items mas tem campos legados v1, converte
+  if (mediaItems.length === 0) {
+    if (image) images = [{ type: 'image', url: image }];
+    if (ext)   videos = [{ type: 'video', url: ext   }];
+  }
+
+  var allMedia = videos.concat(images); // vídeos primeiro
+  mediaEl.innerHTML = '';
+  msgEl.innerHTML   = '';
+
+  // ── Sem nenhuma mídia ──────────────────────────────────────
+  if (allMedia.length === 0) {
+    mediaEl.innerHTML =
+      '<div style="padding:60px;text-align:center;width:100%;">'
+      + '<span class="dashicons dashicons-format-quote"'
+      + ' style="font-size:4rem;color:var(--vana-gold);opacity:.5;"></span></div>';
+
+  // ── Mídia única ────────────────────────────────────────────
+  } else if (allMedia.length === 1) {
+    mediaEl.innerHTML = renderMediaItem(allMedia[0], 0, 1);
+
+  // ── Múltiplas mídias — carrossel unificado ─────────────────
+  } else {
+    var html = '<div class="vana-modal-gallery">';
+    allMedia.forEach(function(item, i) {
+      html += '<div class="vana-modal-gallery__item' + (i === 0 ? ' is-active' : '') + '">'
+            + renderMediaItem(item, i, allMedia.length)
+            + '</div>';
+    });
+    html += '</div>';
+
+    // Dots
+    html += '<div class="vana-modal-gallery__dots">';
+    allMedia.forEach(function(item, i) {
+      var icon = item.type === 'video' ? '▶' : '●';
+      html += '<button type="button" class="vana-modal-gallery__dot'
+            + (i === 0 ? ' is-active' : '') + '" data-idx="' + i + '">'
+            + icon + '</button>';
+    });
+    html += '</div>';
+
+    mediaEl.innerHTML = html;
+
+    // Bind dots
+    mediaEl.querySelectorAll('.vana-modal-gallery__dot').forEach(function(dot) {
+      dot.addEventListener('click', function() {
+        goToSlide(mediaEl, parseInt(this.dataset.idx, 10));
+      });
+    });
+
+    // Swipe mobile
+    (function() {
+      var gallery = mediaEl.querySelector('.vana-modal-gallery');
+      if (!gallery) return;
+      var startX = 0;
+      gallery.addEventListener('touchstart', function(e) {
+        startX = e.touches[0].clientX;
+      }, { passive: true });
+      gallery.addEventListener('touchend', function(e) {
+        var diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) < 40) return;
+        var items = mediaEl.querySelectorAll('.vana-modal-gallery__item');
+        var cur   = Array.from(items).findIndex(function(el) {
+          return el.classList.contains('is-active');
+        });
+        var next = diff > 0
+          ? Math.min(cur + 1, items.length - 1)
+          : Math.max(cur - 1, 0);
+        if (next !== cur) goToSlide(mediaEl, next);
+      }, { passive: true });
+    }());
+  }
+
+  // ── Corpo: texto ───────────────────────────────────────────
+  var body = '';
+  if (msg) {
+    body += '<div style="white-space:pre-wrap;font-size:1.05rem;'
+          + 'line-height:1.6;color:var(--vana-text);">' + msg + '</div>';
+  }
+  if (!msg && allMedia.length === 0) {
+    body += '<div style="text-align:center;font-style:italic;'
+          + 'color:var(--vana-muted);padding:20px 0;">'
+          + '<?php echo esc_js($lbl_silent); ?></div>';
+  }
+  msgEl.innerHTML = body;
+
+  document.getElementById('vanaModalKicker').textContent =
+    data.kicker || '<?php echo esc_js($lang === "en" ? "Sangha Realization" : "Relato da Sangha"); ?>';
+  document.getElementById('vanaModalTitle').textContent =
+    data.title || '<?php echo esc_js($lbl_anon); ?>';
+
+  // Link externo — usa o primeiro vídeo, se houver
+  var linkEl    = document.getElementById('vanaModalExternalLink');
+  var firstVidUrl = videos.length > 0 ? (videos[0].url || '') : '';
+  if (firstVidUrl) {
+    var ytid2  = parseYTId(firstVidUrl);
+    var isFB2  = firstVidUrl.includes('facebook.com') || firstVidUrl.includes('fb.watch');
+    var isDrv2 = firstVidUrl.includes('drive.google.com');
+    linkEl.href          = firstVidUrl;
+    linkEl.style.display = 'inline-block';
+    linkEl.textContent   = ytid2  ? '<?php echo esc_js($lang === "en" ? "Watch on YouTube →" : "Ver no YouTube →"); ?>'
+                         : isFB2  ? '<?php echo esc_js($lang === "en" ? "Watch on Facebook →" : "Ver no Facebook →"); ?>'
+                         : isDrv2 ? '<?php echo esc_js($lang === "en" ? "Watch on Drive →" : "Ver no Drive →"); ?>'
+                         :          '<?php echo esc_js($lbl_open_orig); ?>';
+  } else {
+    linkEl.style.display = 'none';
+  }
+}
+
+  /* ── Modal ────────────────────────────────────────────────── */
+  (function () {
+    var modal   = document.getElementById('vanaSubmissionModal');
+    var btnPrev = document.getElementById('vanaModalPrev');
+    var btnNext = document.getElementById('vanaModalNext');
+    if (!modal) return;
+
+    var set = [], idx = -1;
+
+    function nav(d) {
+      if (set.length <= 1) return;
+      idx = (idx + d + set.length) % set.length;
+      renderSangha(set[idx].dataset);
+    }
+
+    document.addEventListener('click', function (e) {
+      var sb = e.target.closest('[data-vana-sangha-item="1"]');
+      if (sb) {
+        var isGallery = !!sb.dataset.vanaGalleryItem;
+        var selector  = isGallery
+          ? '[data-vana-sangha-item="1"][data-vana-gallery-item="1"]'
+          : '[data-vana-sangha-item="1"]:not([data-vana-gallery-item])';
+        set = Array.from(document.querySelectorAll(selector));
+        idx = set.indexOf(sb);
+        renderSangha(sb.dataset);
+        modal.classList.add('is-active');
+        modal.setAttribute('aria-hidden', 'false');
+        if (btnPrev) btnPrev.style.display = set.length > 1 ? 'flex' : 'none';
+        if (btnNext) btnNext.style.display = set.length > 1 ? 'flex' : 'none';
+        return;
+      }
+
+      if (
+        e.target.closest('[data-vana-modal-close]') ||
+        e.target === modal.querySelector('.vana-modal__backdrop')
+      ) {
+        modal.classList.remove('is-active');
+        modal.setAttribute('aria-hidden', 'true');
+        document.getElementById('vanaModalMedia').innerHTML = '';
+      }
+    });
+
+    if (btnPrev) btnPrev.addEventListener('click', function (e) {
+      e.stopPropagation(); nav(-1);
+    });
+    if (btnNext) btnNext.addEventListener('click', function (e) {
+      e.stopPropagation(); nav(+1);
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (!modal || modal.getAttribute('aria-hidden') === 'true') return;
+      if (e.key === 'ArrowLeft')  nav(-1);
+      if (e.key === 'ArrowRight') nav(+1);
+      if (e.key === 'Escape') {
+        modal.classList.remove('is-active');
+        modal.setAttribute('aria-hidden', 'true');
+        document.getElementById('vanaModalMedia').innerHTML = '';
+      }
+    });
+  }());
+
+}());
+</script>

@@ -1,0 +1,78 @@
+# ═══════════════════════════════════════════════════════
+# .gitignore — Repository configuration
+# Track ONLY vana-mission-control plugin and documentation
+# ═══════════════════════════════════════════════════════
+
+# ─ Track these first ─────────────────────────────────────
+!.gitignore
+!FASE-*.md
+!README.md
+!beta/
+!beta/**
+!wp-content/
+!wp-content/plugins/
+!wp-content/plugins/vana-mission-control/
+!wp-content/plugins/vana-mission-control/**
+
+# ─ Ignore WordPress Core ──────────────────────────────────
+wp-admin/
+wp-includes/
+wp-*.php
+xmlrpc.php
+index.php
+license.txt
+readme.html
+upgrade/
+
+# ─ Ignore Most WordPress Content ───────────────────────────
+wp-content/plugins/*
+!wp-content/plugins/vana-mission-control/
+
+wp-content/themes/
+wp-content/mu-plugins/
+wp-content/upgrade/
+wp-content/upgrade-temp-backup/
+wp-content/uploads/
+wp-content/vana-backups/
+wp-content/litespeed/
+wp-content/jetpack-waf/
+wp-content/languages/
+
+# ─ Ignore Node/Package Managers ────────────────────────────
+node_modules/
+/node_modules/
+package-lock.json
+yarn.lock
+composer.lock
+
+# ─ Ignore IDE & Editor ─────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─ Ignore System Files ────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.log
+*.sql
+*.gz
+*.zip
+*.rar
+
+# ─ Ignore Testing & Temp ──────────────────────────────────
+/tests/
+/test/
+/tmp/
+/temp/
+.cache/
+
+# ─ Ignore Build Artifacts ────────────────────────────────
+/dist/
+/build/
+*.min.js
+*.min.css

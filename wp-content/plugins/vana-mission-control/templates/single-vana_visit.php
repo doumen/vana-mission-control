@@ -1,0 +1,347 @@
+<?php
+/**
+ * Single Template: vana_visit
+ * Arquivo: plugins/vana-mission-control/templates/single-vana_visit.php
+ *
+ * Registrado via plugin (class-vana-visit-cpt.php ou filtro
+ * template_include). NÃO é override de tema.
+ *
+ * Fase 3: delega toda resolução de contexto ao VisitStageResolver
+ *         via templates/visit/_bootstrap.php.
+ */
+defined( 'ABSPATH' ) || exit;
+echo '<!-- VANA-PLUGIN-TEMPLATE-START -->';
+
+/* ============================================================
+   1. BOOTSTRAP DO POST
+   ============================================================ */
+
+if ( ! have_posts() ) {
+    wp_redirect( home_url( '/' ) );
+    exit;
+}
+the_post();
+
+/* ============================================================
+   2. RESOLVER FASE 3
+   FIX B1: era _bootstrap.php (inexistente) → agora _bootstrap_shim.php
+   ============================================================ */
+
+require_once VANA_MC_PATH . 'templates/visit/_bootstrap.php';
+
+/* ============================================================
+   3. METAS DE APRESENTAÇÃO (OG / PWA)
+   ============================================================ */
+
+$post_id = (int) $visit_id;
+
+$origin_key      = (string) get_post_meta( $post_id, '_vana_origin_key',             true );
+$parent_tour_key = (string) get_post_meta( $post_id, '_vana_parent_tour_origin_key', true );
+$start_date      = (string) get_post_meta( $post_id, '_vana_start_date',             true );
+$youtube_id      = (string) get_post_meta( $post_id, '_vana_youtube_id',             true );
+$hero_fb_url     = (string) get_post_meta( $post_id, '_vana_hero_fb_url',            true );
+$updated_at      = (string) get_post_meta( $post_id, '_vana_timeline_updated_at',    true );
+$timeline_hash   = (string) get_post_meta( $post_id, '_vana_timeline_hash',          true );
+
+
+/* ============================================================
+   4. IDIOMA
+   ============================================================ */
+
+$lang = ( isset( $_GET['lang'] ) && $_GET['lang'] === 'en' ) ? 'en' : 'pt';
+
+/* ============================================================
+   5. DADOS DE VISITA
+   ============================================================ */
+
+$visit_data = $timeline;
+$days       = (array) ( $visit_data['days'] ?? [] );
+
+/* ============================================================
+   6. ACTIVE VOD INDEX
+   ============================================================ */
+
+$active_vod_index = max(
+    0,
+    (int) sanitize_text_field( wp_unslash( $_GET['vod'] ?? '0' ) )
+);
+
+/* ============================================================
+   7. META DADOS PARA <head>
+   ============================================================ */
+
+$page_title_pt = (string) ( $visit_data['title_pt'] ?? get_the_title() );
+$page_title_en = (string) ( $visit_data['title_en'] ?? $page_title_pt );
+$page_title    = $lang === 'en' ? $page_title_en : $page_title_pt;
+
+$site_name     = get_bloginfo( 'name' ) ?: 'Vana Madhuryam';
+$canonical_url = get_permalink( $post_id );
+
+$og_image = '';
+if ( $youtube_id !== '' ) {
+    $og_image = 'https://i.ytimg.com/vi/' . $youtube_id . '/maxresdefault.jpg';
+} elseif ( ! empty( $visit_data['cover_url'] ) ) {
+    $og_image = esc_url_raw( (string) $visit_data['cover_url'] );
+} elseif ( has_post_thumbnail( $post_id ) ) {
+    $og_image = get_the_post_thumbnail_url( $post_id, 'large' );
+}
+
+$og_desc = $lang === 'en'
+    ? (string) ( $visit_data['description_en'] ?? $visit_data['description_pt'] ?? '' )
+    : (string) ( $visit_data['description_pt'] ?? $visit_data['description_en'] ?? '' );
+$og_desc = wp_strip_all_tags( $og_desc );
+
+$seal_url        = apply_filters( 'vana_seal_url', plugins_url( 'assets/images/vana-seal.png', VANA_MC_FILE ) );
+$pwa_theme_color = apply_filters( 'vana_pwa_theme_color', '#0f172a' );
+
+/* ============================================================
+   8. GLOBAL LEGADO + FASE 3
+   ============================================================ */
+
+$GLOBALS['_vana_visit'] = [
+    'post_id'          => $post_id,
+    'origin_key'       => $origin_key,
+    'parent_tour_key'  => $parent_tour_key,
+    'start_date'       => $start_date,
+    'visit_tz'         => $visit_tz,
+    'youtube_id'       => $youtube_id,
+    'hero_fb_url'      => $hero_fb_url,
+    'updated_at'       => $updated_at,
+    'timeline_hash'    => $timeline_hash,
+    'visit_data'       => $visit_data,
+    'days'             => $days,
+    'lang'             => $lang,
+    'seal_url'         => $seal_url,
+    'page_title'       => $page_title,
+    'og_image'         => $og_image,
+    'active_vod_index' => $active_vod_index,
+    'active_day'       => $active_day,
+    'active_day_date'  => $active_day_date,
+    'active_events'    => $active_events,
+    'active_event'     => $active_event,
+    'hero'             => $hero,
+    'stage_mode'       => $stage_mode,
+    'visit_status'     => $visit_status,
+    'viewer_mode'      => $viewer_mode,
+    'viewer_event_key' => $viewer_event_key,
+    'viewer_item_id'   => $viewer_item_id,
+];
+?>
+<!DOCTYPE html>
+<html lang="<?php echo esc_attr( $lang === 'en' ? 'en' : 'pt-BR' ); ?>" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <title><?php echo esc_html( $page_title . ' — ' . $site_name ); ?></title>
+
+  <meta name="description" content="<?php echo esc_attr( $og_desc ); ?>">
+  <meta name="robots"      content="index, follow">
+  <link rel="canonical"    href="<?php echo esc_url( $canonical_url ); ?>">
+
+  <meta property="og:type"        content="website">
+  <meta property="og:site_name"   content="<?php echo esc_attr( $site_name ); ?>">
+  <meta property="og:title"       content="<?php echo esc_attr( $page_title ); ?>">
+  <meta property="og:description" content="<?php echo esc_attr( $og_desc ); ?>">
+  <meta property="og:url"         content="<?php echo esc_url( $canonical_url ); ?>">
+  <?php if ( $og_image ) : ?>
+  <meta property="og:image"        content="<?php echo esc_url( $og_image ); ?>">
+  <meta property="og:image:width"  content="1280">
+  <meta property="og:image:height" content="720">
+  <?php endif; ?>
+
+  <meta name="twitter:card"        content="summary_large_image">
+  <meta name="twitter:title"       content="<?php echo esc_attr( $page_title ); ?>">
+  <meta name="twitter:description" content="<?php echo esc_attr( $og_desc ); ?>">
+  <?php if ( $og_image ) : ?>
+  <meta name="twitter:image" content="<?php echo esc_url( $og_image ); ?>">
+  <?php endif; ?>
+
+  <link rel="manifest" href="<?php echo esc_url( add_query_arg(
+      [ 'vana_manifest' => '1', 'visit_id' => $origin_key ],
+      home_url( '/' )
+  ) ); ?>">
+
+  <meta name="theme-color" content="<?php echo esc_attr( $pwa_theme_color ); ?>">
+  <meta name="theme-color" media="(prefers-color-scheme: light)"
+        content="<?php echo esc_attr( $pwa_theme_color ); ?>">
+
+  <meta name="apple-mobile-web-app-capable"          content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title"            content="<?php echo esc_attr( $site_name ); ?>">
+  <link rel="apple-touch-icon"                       href="<?php echo esc_url( $seal_url ); ?>">
+
+  <link rel="icon" type="image/png" href="<?php echo esc_url( $seal_url ); ?>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://www.youtube-nocookie.com">
+  <link rel="preconnect" href="https://www.facebook.com">
+
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;900&family=Questrial&display=swap"
+        rel="stylesheet">
+
+  <?php wp_print_styles( 'dashicons' ); ?>
+
+  <script type="application/ld+json">
+  <?php echo wp_json_encode( [
+      '@context'    => 'https://schema.org',
+      '@type'       => 'Event',
+      'name'        => $page_title,
+      'description' => $og_desc,
+      'startDate'   => $start_date ?: $active_day_date,
+      'location'    => [
+          '@type' => 'Place',
+          'name'  => (string) ( $active_day['hero']['location']['name'] ?? 'Vrindavan' ),
+      ],
+      'organizer'   => [
+          '@type' => 'Organization',
+          'name'  => $site_name,
+          'url'   => 'https://www.youtube.com/@vanamadhuryamofficial',
+      ],
+      'image'       => $og_image ?: $seal_url,
+      'url'         => $canonical_url,
+  ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ); ?>
+  </script>
+
+  <style>
+    #vana-splash {
+      position:        fixed;
+      inset:           0;
+      z-index:         99999;
+      display:         flex;
+      flex-direction:  column;
+      align-items:     center;
+      justify-content: center;
+      gap:             24px;
+      background:      linear-gradient(160deg, #0f172a 0%, #1e1a0e 60%, #0f172a 100%);
+      opacity:         1;
+      transition:      opacity 0.5s ease;
+    }
+    #vana-splash__seal {
+      width:      180px;
+      height:     180px;
+      object-fit: contain;
+      filter:     drop-shadow(0 0 24px rgba(255,217,6,.55))
+                  drop-shadow(0 0 8px  rgba(255,217,6,.35));
+      animation:  vana-seal-pulse 2s ease-in-out infinite;
+    }
+    @keyframes vana-seal-pulse {
+      0%,100% { filter:
+        drop-shadow(0 0 24px rgba(255,217,6,.55))
+        drop-shadow(0 0 8px  rgba(255,217,6,.35));
+      }
+      50% { filter:
+        drop-shadow(0 0 40px rgba(255,217,6,.80))
+        drop-shadow(0 0 16px rgba(255,217,6,.55));
+      }
+    }
+    #vana-splash__title {
+      font-family:    'Syne', sans-serif;
+      font-weight:    900;
+      font-size:      clamp(1rem, 4vw, 1.3rem);
+      color:          #FFD906;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      opacity:        .9;
+    }
+    #vana-splash__loader {
+      width:         48px;
+      height:        4px;
+      border-radius: 2px;
+      background:    rgba(255,217,6,.2);
+      overflow:      hidden;
+      position:      relative;
+    }
+    #vana-splash__loader::after {
+      content:       '';
+      position:      absolute;
+      left:          -100%;
+      top:           0;
+      width:         60%;
+      height:        100%;
+      background:    #FFD906;
+      border-radius: 2px;
+      animation:     vana-loader-slide 1.2s ease-in-out infinite;
+    }
+    @keyframes vana-loader-slide {
+      0%   { left: -60%; }
+      100% { left: 110%; }
+    }
+    body.vana-splash-active #vana-page-root { visibility: hidden; }
+  </style>
+
+</head>
+<body class="vana-splash-active vana-visit-page"
+      data-stage-mode="<?php echo esc_attr( $stage_mode ); ?>"
+      data-visit-status="<?php echo esc_attr( $visit_status ); ?>">
+
+<div id="vana-splash" role="status" aria-live="polite"
+     aria-label="<?php echo esc_attr( $lang === 'en' ? 'Loading…' : 'Carregando…' ); ?>">
+  <img
+    id="vana-splash__seal"
+    src="<?php echo esc_url( $seal_url ); ?>"
+    alt="<?php echo esc_attr( $site_name ); ?>"
+    width="180"
+    height="180"
+  >
+  <div id="vana-splash__title"><?php echo esc_html( $site_name ); ?></div>
+  <div id="vana-splash__loader" aria-hidden="true"></div>
+</div>
+
+<div id="vana-page-root">
+  <?php
+  $tpl = VANA_MC_PATH . 'templates/visit/visit-template.php';
+  if ( file_exists( $tpl ) ) {
+      include $tpl;
+  } else {
+      echo '<p style="padding:40px;text-align:center;color:#ef4444;">';
+      echo esc_html( $lang === 'en'
+          ? 'Template not found. Contact the administrator.'
+          : 'Template não encontrado. Contate o administrador.' );
+      echo '</p>';
+  }
+  ?>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var splash = document.getElementById('vana-splash');
+  var root   = document.getElementById('vana-page-root');
+  var body   = document.body;
+  var isStandalone = (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true
+  );
+  function hideSplash() {
+    if (!splash) return;
+    splash.style.opacity    = '0';
+    splash.style.transition = 'opacity 0.5s ease';
+    setTimeout(function () {
+      splash.style.display = 'none';
+      splash.setAttribute('aria-hidden', 'true');
+      body.classList.remove('vana-splash-active');
+      if (root) root.style.visibility = 'visible';
+    }, 500);
+  }
+  if (!isStandalone) {
+    if (splash) splash.style.display = 'none';
+    body.classList.remove('vana-splash-active');
+    if (root) root.style.visibility = 'visible';
+    return;
+  }
+  var HOLD_MS = 1800;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout( hideSplash, HOLD_MS );
+    });
+  } else {
+    setTimeout( hideSplash, HOLD_MS );
+  }
+}());
+</script>
+
+</body>
+</html>

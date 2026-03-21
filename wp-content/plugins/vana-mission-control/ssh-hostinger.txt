@@ -1,0 +1,3 @@
+ssh -p 65002 u419701790@149.62.37.117
+
+https://hpanel.hostinger.com/websites/vanamadhuryamdaily.com/advanced/ssh-access

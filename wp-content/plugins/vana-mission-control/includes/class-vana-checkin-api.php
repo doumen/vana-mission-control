@@ -1,0 +1,545 @@
+<?php
+/**
+ * REST API — Check-in / Oferenda da Sangha
+ * Arquivo: includes/class-vana-checkin-api.php
+ * Version: 2.0.0
+ *
+ * Endpoint: POST /wp-json/vana/v1/checkin
+ *
+ * Multipart form-data esperado:
+ *   visit_id         int       obrigatório
+ *   consent_publish  int       obrigatório (deve ser 1)
+ *   sender_name      string    opcional
+ *   message          string    opcional
+ *   external_url     string    opcional (YouTube/Drive/Facebook)
+ *   subtype          string    opcional ('devotee'|'gurudeva') — default: devotee
+ *   images[]         file[]    opcional — até 12 arquivos
+ *   website          string    honeypot — deve estar vazio
+ *
+ * Dependências:
+ *   - Vana_Submission_CPT  (constantes de limite e perfil)
+ *   - Vana_Image_Processor (resize + WebP + strip EXIF)
+ *   - Vana_R2_Client       (upload Cloudflare R2)
+ *   - Vana_Utils           (api_response, log)
+ */
+defined('ABSPATH') || exit;
+
+final class Vana_Checkin_API {
+
+    // ── Rate limit ────────────────────────────────────────────
+    private const RL_MAX     = 6;
+    private const RL_WINDOW  = 30 * MINUTE_IN_SECONDS;
+
+    // ════════════════════════════════════════════════════════════
+    //  REGISTRO
+    // ════════════════════════════════════════════════════════════
+
+    public static function register(): void {
+        register_rest_route('vana/v1', '/checkin', [
+            'methods'             => 'POST',
+            'callback'            => [__CLASS__, 'handle'],
+            'permission_callback' => '__return_true',
+        ]);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  HANDLER PRINCIPAL
+    // ════════════════════════════════════════════════════════════
+
+    public static function handle(WP_REST_Request $request): WP_REST_Response {
+        try {
+
+            // ── 0. Pré-requisitos do sistema ──────────────────
+            if (!post_type_exists('vana_submission')) {
+                return Vana_Utils::api_response(
+                    false, 'Sistema de oferendas offline.', 503
+                );
+            }
+
+            // ── 1. Honeypot anti-spam ─────────────────────────
+            if (trim((string) $request->get_param('website')) !== '') {
+                return Vana_Utils::api_response(
+                    false, 'Falha anti-spam.', 400
+                );
+            }
+
+            // ── 2. Visita válida ──────────────────────────────
+            $visit_id = absint($request->get_param('visit_id'));
+            if (!$visit_id || get_post_type($visit_id) !== 'vana_visit') {
+                return Vana_Utils::api_response(
+                    false, 'Visita inválida.', 400
+                );
+            }
+
+            // ── 3. Rate limit ─────────────────────────────────
+            if (!self::rate_limit_ok($visit_id)) {
+                return Vana_Utils::api_response(
+                    false, 'Muitos envios em pouco tempo. Tente mais tarde.', 429
+                );
+            }
+
+            // ── 4. Consentimento publicação ──────────────────────
+            if ((int) $request->get_param('consent_publish') !== 1) {
+                return Vana_Utils::api_response(
+                    false, 'É necessário autorizar a publicação.', 422
+                );
+            }
+
+            // ── 4b. Consentimento LGPD ───────────────────────────
+            $lgpd_consent = (int) $request->get_param('consent_lgpd');
+            if ($lgpd_consent !== 1) {
+                return Vana_Utils::api_response(
+                    false, 'É necessário aceitar a política de dados (LGPD).', 422
+                );
+            }
+
+            // ── 5. Campos de texto ────────────────────────────
+            $name    = sanitize_text_field(
+                (string) $request->get_param('sender_name')
+            );
+            $message = sanitize_textarea_field(
+                (string) $request->get_param('message')
+            );
+            $subtype = in_array(
+                $request->get_param('subtype'),
+                ['devotee', 'gurudeva', 'gurudeva_gallery'],
+                true
+            ) ? $request->get_param('subtype') : 'devotee';
+
+            // ── 6. Valida links externos (vídeos) — suporta múltiplos ──
+            $external_urls = [];
+            
+            // Suporta tanto external_url (legado) quanto external_urls[] (novo)
+            $raw_urls = [];
+            $single   = (string) $request->get_param('external_url');
+            if ($single !== '') $raw_urls[] = $single;
+            
+            $multi = $request->get_param('external_urls');
+            if (is_array($multi)) {
+                foreach ($multi as $u) {
+                    $u = (string) $u;
+                    if ($u !== '') $raw_urls[] = $u;
+                }
+            }
+            
+            // Deduplica e valida cada URL
+            $raw_urls = array_unique(array_filter(array_map('trim', $raw_urls)));
+            
+            if (count($raw_urls) > 5) {
+                return Vana_Utils::api_response(
+                    false, 'Máximo de 5 vídeos por envio.', 422
+                );
+            }
+            
+            foreach ($raw_urls as $raw_url) {
+                $normalized = self::normalize_https_url($raw_url);
+            
+                if ($normalized === '') continue;
+            
+                if (!self::host_allowed($normalized)) {
+                    return Vana_Utils::api_response(
+                        false, 'Use links do YouTube, Drive ou Facebook.', 422
+                    );
+                }
+                if (self::looks_like_drive_folder($normalized)) {
+                    return Vana_Utils::api_response(
+                        false, 'Link de PASTA não permitido. Use link de ARQUIVO.', 422
+                    );
+                }
+                $external_urls[] = $normalized;
+            }
+
+            // ── 7. Processa imagens ───────────────────────────
+            $media_items = [];
+            $upload_errors = [];
+
+            $files = self::extract_files();
+
+            if (!empty($files)) {
+
+                // Valida total de imagens
+                if (count($files) > Vana_Submission_CPT::MAX_IMAGES) {
+                    return Vana_Utils::api_response(
+                        false,
+                        sprintf(
+                            'Máximo de %d fotos por envio.',
+                            Vana_Submission_CPT::MAX_IMAGES
+                        ),
+                        422
+                    );
+                }
+
+                $r2 = Vana_R2_Client::instance();
+
+                foreach ($files as $idx => $file) {
+
+                    // 7a. Erro de upload do PHP
+                    if ((int) $file['error'] !== UPLOAD_ERR_OK) {
+                        $upload_errors[] = sprintf(
+                            'Foto %d: %s',
+                            $idx + 1,
+                            self::upload_error_message((int) $file['error'])
+                        );
+                        continue;
+                    }
+
+                    // 7b. Processa: valida MIME + resize + WebP + strip EXIF
+                    $processed = Vana_Image_Processor::process(
+                        $file['tmp_name'],
+                        $subtype
+                    );
+
+                    if (is_wp_error($processed)) {
+                        $upload_errors[] = sprintf(
+                            'Foto %d: %s',
+                            $idx + 1,
+                            $processed->get_error_message()
+                        );
+                        continue;
+                    }
+
+                    // 7c. Upload para Cloudflare R2
+                    $uploaded = $r2->upload(
+                        $processed['path'],
+                        $visit_id,
+                        $subtype
+                    );
+
+                    // 7d. Limpa arquivo temporário SEMPRE
+                    Vana_Image_Processor::cleanup($processed['path']);
+
+                    if (is_wp_error($uploaded)) {
+                        Vana_Utils::log(
+                            'R2_UPLOAD_FAIL visit=' . $visit_id
+                            . ' idx=' . $idx
+                            . ' err=' . $uploaded->get_error_message()
+                        );
+                        $upload_errors[] = sprintf(
+                            'Foto %d: falha no armazenamento.',
+                            $idx + 1
+                        );
+                        continue;
+                    }
+
+                    // 7e. Monta MediaItem
+                    $media_items[] = [
+                        'type'    => 'image',
+                        'subtype' => $subtype,
+                        'url'     => $uploaded['url'],
+                        'r2_key'  => $uploaded['key'],
+                        'caption' => '',
+                        'status'  => Vana_Submission_CPT::ITEM_STATUS_PENDING,
+                        'order'   => count($media_items),
+                        'width'   => $processed['width'],
+                        'height'  => $processed['height'],
+                        'size'    => $processed['size'],
+                        'engine'  => $processed['engine'],
+                        // LGPD: GPS removido pelo processor
+                        // Só subtype gurudeva recebe checkbox de confirmação
+                        'gurudeva_confirmed' => $subtype === 'gurudeva'
+                            ? false
+                            : null,
+                    ];
+                }
+
+                // Se TODAS as fotos falharam e não há mais nada → erro
+                if (empty($media_items) && !empty($files) && empty($external_urls) && trim($message) === '') {
+                    return Vana_Utils::api_response(
+                        false,
+                        'Nenhuma foto foi processada com sucesso. '
+                        . implode(' | ', $upload_errors),
+                        422
+                    );
+                }
+            }
+
+            // ── 8. Links de vídeo → MediaItems ────────────────────────
+            foreach ($external_urls as $ext_url) {
+                $video_item           = Vana_Submission_CPT::build_video_item(
+                    $ext_url,
+                    count($media_items)
+                );
+                $video_item['status'] = Vana_Submission_CPT::ITEM_STATUS_PENDING;
+                $media_items[]        = $video_item;
+            }
+
+            // ── 9. Valida que há algum conteúdo ───────────────
+            if (empty($media_items) && trim($message) === '') {
+                return Vana_Utils::api_response(
+                    false, 'Envie mensagem, foto ou link de vídeo.', 422
+                );
+            }
+
+            // ── 10. Cria post ─────────────────────────────────
+            $post_id = wp_insert_post([
+                'post_title'  => $name
+                    ? "Oferenda de {$name}"
+                    : 'Oferenda',
+                'post_type'   => 'vana_submission',
+                'post_status' => 'pending',
+            ], true);
+
+            if (is_wp_error($post_id)) {
+                // R2 já tem as fotos — limpa o bucket
+                self::rollback_r2($media_items);
+                return Vana_Utils::api_response(
+                    false, 'Erro ao registrar oferenda.', 500
+                );
+            }
+
+            // ── 11. Salva metas ───────────────────────────────
+            update_post_meta($post_id, '_visit_id',            $visit_id);
+            update_post_meta($post_id, '_sender_display_name', $name);
+            update_post_meta($post_id, '_message',             $message);
+            update_post_meta($post_id, '_consent_publish',     1);
+            update_post_meta($post_id, '_submitted_at',        time());
+            update_post_meta($post_id, '_subtype',             $subtype);
+            update_post_meta($post_id, '_vana_lgpd_consent',   1);
+            update_post_meta($post_id, '_vana_lgpd_timestamp', time());
+            // IP anonimizado (3 octetos) para audit trail
+            $ip_parts = explode('.', (string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+            if (count($ip_parts) === 4) {
+                $ip_parts[3] = 'xxx';
+                update_post_meta($post_id, '_vana_lgpd_ip_anon', implode('.', $ip_parts));
+            }
+
+            // Salva todas as mídias no schema _media_items
+            if (!empty($media_items)) {
+                Vana_Submission_CPT::save_media_items($post_id, $media_items);
+            }
+
+            // ── 12. Localização (LGPD) ────────────────────────
+            self::maybe_save_location($post_id, $request);
+
+            // ── 13. Resposta ──────────────────────────────────
+            $response_data = ['submission_id' => (int) $post_id];
+
+            // Informa erros parciais (algumas fotos falharam mas outras ok)
+            if (!empty($upload_errors)) {
+                $response_data['warnings'] = $upload_errors;
+            }
+
+            $has_images = count(array_filter(
+                $media_items,
+                fn($i) => $i['type'] === 'image'
+            ));
+
+            $message_ok = sprintf(
+                'Oferenda enviada! %s Aguardando moderação.',
+                $has_images
+                    ? $has_images . ' foto(s) processada(s).'
+                    : ''
+            );
+
+            return Vana_Utils::api_response(
+                true,
+                trim($message_ok),
+                201,
+                $response_data
+            );
+
+        } catch (Throwable $e) {
+            Vana_Utils::log('INTERNAL_ERROR checkin: ' . $e->getMessage());
+            return Vana_Utils::api_response(
+                false, 'Erro interno no processamento.', 500
+            );
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  HELPERS PRIVADOS
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Extrai array normalizado de $_FILES['images'].
+     * Suporta input name="images[]" (múltiplos arquivos).
+     *
+     * @return array[]  Lista de ['tmp_name', 'error', 'size', 'name']
+     */
+    private static function extract_files(): array {
+        $raw = $_FILES['images'] ?? null;
+
+        if (!is_array($raw) || empty($raw['tmp_name'])) {
+            return [];
+        }
+
+        // Arquivo único enviado como array (comportamento do PHP)
+        if (!is_array($raw['tmp_name'])) {
+            if ((int) ($raw['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                return [];
+            }
+            return [[
+                'tmp_name' => $raw['tmp_name'],
+                'error'    => $raw['error'],
+                'size'     => $raw['size'],
+                'name'     => $raw['name'],
+            ]];
+        }
+
+        // Múltiplos arquivos
+        $files = [];
+        foreach ($raw['tmp_name'] as $i => $tmp) {
+            if ((int) $raw['error'][$i] === UPLOAD_ERR_NO_FILE) continue;
+            $files[] = [
+                'tmp_name' => $tmp,
+                'error'    => $raw['error'][$i],
+                'size'     => $raw['size'][$i],
+                'name'     => $raw['name'][$i],
+            ];
+        }
+        return $files;
+    }
+
+    /**
+     * Salva localização respeitando LGPD:
+     *  - Cidade → pública
+     *  - Coordenadas → ofuscadas (~11km), PRIVADAS
+     */
+    private static function maybe_save_location(
+        int              $post_id,
+        WP_REST_Request  $request
+    ): void {
+
+        // Cidade informada pelo frontend (via IP geolocation no JS)
+        $city = sanitize_text_field(
+            (string) $request->get_param('user_city')
+        );
+        if ($city !== '') {
+            update_post_meta($post_id, '_vana_public_user_city', $city);
+        }
+
+        // Coordenadas brutas (se o browser enviou via navigator.geolocation)
+        $lat_raw = $request->get_param('user_lat');
+        $lng_raw = $request->get_param('user_lng');
+
+        if ($lat_raw !== null && $lng_raw !== null) {
+            $lat = (float) $lat_raw;
+            $lng = (float) $lng_raw;
+
+            // Validação de range
+            if (
+                $lat >= -90  && $lat <= 90 &&
+                $lng >= -180 && $lng <= 180
+            ) {
+                // Ofusca ~11km: trunca em 1 casa decimal
+                // Ex: -23.621847 → -23.6
+                $lat_blurred = round($lat, 1);
+                $lng_blurred = round($lng, 1);
+
+                update_post_meta(
+                    $post_id,
+                    '_vana_user_lat_blurred',
+                    (string) $lat_blurred
+                );
+                update_post_meta(
+                    $post_id,
+                    '_vana_user_lng_blurred',
+                    (string) $lng_blurred
+                );
+            }
+        }
+    }
+
+    /**
+     * Rollback: deleta objetos R2 se wp_insert_post falhar.
+     * Evita arquivos órfãos no bucket.
+     *
+     * @param array[] $media_items
+     */
+    private static function rollback_r2(array $media_items): void {
+        if (empty($media_items)) return;
+
+        $r2 = Vana_R2_Client::instance();
+
+        foreach ($media_items as $item) {
+            $key = (string) ($item['r2_key'] ?? '');
+            if ($key === '') continue;
+
+            $deleted = $r2->delete($key);
+
+            if (is_wp_error($deleted)) {
+                Vana_Utils::log(
+                    'R2_ROLLBACK_FAIL key=' . $key
+                    . ' err=' . $deleted->get_error_message()
+                );
+            }
+        }
+    }
+
+    /**
+     * Rate limit por IP + visit_id.
+     */
+    private static function rate_limit_ok(int $visit_id): bool {
+        $ip = preg_replace(
+            '/[^0-9a-fA-F\:\.]/',
+            '',
+            (string) ($_SERVER['REMOTE_ADDR'] ?? '')
+        );
+        if ($ip === '') return true;
+
+        $key   = 'vana_rl_checkin_' . md5($ip . '|' . $visit_id);
+        $count = (int) get_transient($key);
+
+        if ($count >= self::RL_MAX) return false;
+
+        set_transient($key, $count + 1, self::RL_WINDOW);
+        return true;
+    }
+
+    /**
+     * Normaliza e valida URL HTTPS.
+     */
+    private static function normalize_https_url(string $url): string {
+        $url = trim($url);
+        if ($url === '') return '';
+
+        $url = esc_url_raw($url);
+        if (!$url) return '';
+
+        $parsed = wp_parse_url($url);
+        if (!is_array($parsed) || ($parsed['scheme'] ?? '') !== 'https') {
+            return '';
+        }
+
+        return $url;
+    }
+
+    /**
+     * Valida host da URL externa.
+     */
+    private static function host_allowed(string $url): bool {
+        $parsed = wp_parse_url($url);
+        $host   = strtolower((string) ($parsed['host'] ?? ''));
+        $host   = preg_replace('/^www\./', '', $host);
+
+        foreach (Vana_Submission_CPT::ALLOWED_HOSTS as $allowed) {
+            if ($host === $allowed || str_ends_with($host, '.' . $allowed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Detecta se URL parece ser de pasta do Drive.
+     */
+    private static function looks_like_drive_folder(string $url): bool {
+        $path = (string) (wp_parse_url($url, PHP_URL_PATH) ?? '');
+        return (bool) preg_match('~/(drive/)?folders/~', $path);
+    }
+
+    /**
+     * Mensagem amigável para erros de upload PHP.
+     */
+    private static function upload_error_message(int $code): string {
+        return match ($code) {
+            UPLOAD_ERR_INI_SIZE,
+            UPLOAD_ERR_FORM_SIZE => 'Arquivo muito grande.',
+            UPLOAD_ERR_PARTIAL   => 'Upload incompleto. Tente novamente.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Erro interno no servidor (sem /tmp).',
+            UPLOAD_ERR_CANT_WRITE => 'Erro interno no servidor (disco cheio).',
+            UPLOAD_ERR_EXTENSION  => 'Upload bloqueado por extensão PHP.',
+            default               => 'Erro desconhecido no upload.',
+        };
+    }
+}

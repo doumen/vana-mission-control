@@ -1,0 +1,338 @@
+<?php
+/**
+ * Shortcode: [vana_oferenda_form visit_id="42"]
+ * Arquivo: templates/oferenda-form.php
+ *
+ * Uso no Gutenberg / Classic Editor:
+ *   [vana_oferenda_form visit_id="42"]
+ *   [vana_oferenda_form visit_id="42" subtype="gurudeva"]
+ */
+defined('ABSPATH') || exit;
+
+function vana_render_oferenda_form(array $atts): string {
+    // Injetar CSS via inline no handle existente
+    static $vana_css_loaded = false;
+    if ( ! $vana_css_loaded ) {
+        $css_file = plugin_dir_path( __FILE__ ) . '../assets/css/oferenda-form.css';
+        if ( file_exists( $css_file ) ) {
+            $css = file_get_contents( $css_file );
+            wp_register_style( 'vana-oferenda-form', false );
+            wp_enqueue_style( 'vana-oferenda-form' );
+            wp_add_inline_style( 'vana-oferenda-form', $css );
+        }
+        $vana_css_loaded = true;
+    }
+
+    $atts = shortcode_atts([
+        'visit_id' => 0,
+        'subtype'  => 'devotee',
+        'lang'     => 'pt',
+    ], $atts, 'vana_oferenda_form');
+
+    $visit_id = absint($atts['visit_id']);
+    $subtype  = in_array($atts['subtype'], ['devotee', 'gurudeva'], true)
+        ? $atts['subtype']
+        : 'devotee';
+
+    // Visita precisa existir e estar publicada
+    if (!$visit_id || get_post_status($visit_id) !== 'publish') {
+        return '<p class="vana-form-error">Visita não disponível.</p>';
+    }
+
+    // Injetar JS via tag direta no output do shortcode (wp_footer não disponível aqui)
+    static $vana_js_loaded = false;
+    $js_tag = '';
+    if ( ! $vana_js_loaded ) {
+        $js_url   = plugin_dir_url( __FILE__ ) . '../assets/js/oferenda-form.js?ver=' . filemtime( plugin_dir_path( __FILE__ ) . '../assets/js/oferenda-form.js' );
+        $js_tag   = '<script src="' . esc_url( $js_url ) . '"></script>';
+        $vana_js_loaded = true;
+    }
+    // Injetar VanaForm inline (wp_localize_script não funciona sem handle registrado)
+    $vana_cfg = [
+        'endpoint'  => esc_url( rest_url( 'vana/v1/checkin' ) ),
+        'nonce'     => wp_create_nonce( 'wp_rest' ),
+        'maxImages' => (int) Vana_Submission_CPT::MAX_IMAGES,
+        'maxMB'     => 5,
+        'i18n'      => [
+            'sending'        => 'Enviando sua oferenda...',
+            'success'        => 'Oferenda enviada! Aguardando moderação. 🙏',
+            'errorGeneric'   => 'Erro ao enviar. Tente novamente.',
+            'errorMaxImages' => 'Máximo de %d fotos por envio.',
+            'errorMaxSize'   => 'A foto "%s" excede 5MB.',
+            'errorType'      => 'Formato não aceito: "%s". Use JPG, PNG ou WebP.',
+            'removePhoto'    => 'Remover foto',
+            'photoAlt'       => 'Pré-visualização foto %d',
+        ],
+    ];
+    $js_tag = '<script>window.VanaForm=' . wp_json_encode( $vana_cfg ) . ';</script>' . $js_tag;
+
+    ob_start();
+    ?>
+
+    <section
+        class="vana-oferenda-wrap"
+        data-visit-id="<?= esc_attr($visit_id) ?>"
+        data-subtype="<?= esc_attr($subtype) ?>"
+        aria-label="Formulário de Oferenda"
+    >
+
+        <?php /* ── CABEÇALHO ─────────────────────────────── */ ?>
+        <header class="vana-oferenda-header">
+            <span class="vana-lotus" aria-hidden="true">🪷</span>
+            <h2 class="vana-oferenda-title">
+                <?= $subtype === 'gurudeva'
+                    ? 'Oferenda ao Gurudeva'
+                    : 'Sua Oferenda à Sangha'
+                ?>
+            </h2>
+            <p class="vana-oferenda-subtitle">
+                Compartilhe uma mensagem, foto ou vídeo desta visita sagrada.
+            </p>
+        </header>
+
+        <?php /* ── FORMULÁRIO ───────────────────────────────── */ ?>
+        <form
+            id="vana-oferenda-form"
+            class="vana-oferenda-form"
+            novalidate
+            enctype="multipart/form-data"
+        >
+            <?php /* Honeypot */ ?>
+            <input
+                type="text"
+                name="website"
+                value=""
+                autocomplete="off"
+                tabindex="-1"
+                aria-hidden="true"
+                style="display:none!important"
+            >
+
+            <?php /* Campos ocultos */ ?>
+            <input type="hidden" name="visit_id"        value="<?= esc_attr($visit_id) ?>">
+            <input type="hidden" name="subtype"         value="<?= esc_attr($subtype) ?>">
+            <input type="hidden" name="consent_publish" value="1">
+
+            <?php /* ── NOME ──────────────────────────────── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-sender-name">
+                    Seu nome
+                    <span class="vana-optional">(opcional)</span>
+                </label>
+                <input
+                    type="text"
+                    id="vana-sender-name"
+                    name="sender_name"
+                    class="vana-input"
+                    placeholder="Como gostaria de ser identificado"
+                    maxlength="100"
+                    autocomplete="name"
+                >
+            </div>
+
+            <?php /* ── MENSAGEM ──────────────────────────── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-message">
+                    Mensagem
+                    <span class="vana-optional">(opcional)</span>
+                </label>
+                <textarea
+                    id="vana-message"
+                    name="message"
+                    class="vana-input vana-textarea"
+                    placeholder="Compartilhe uma memória, gratidão ou aprendizado..."
+                    maxlength="2000"
+                    rows="4"
+                ></textarea>
+                <span class="vana-char-count" aria-live="polite">0 / 2000</span>
+            </div>
+
+            <?php /* ── FOTOS ──────────────────────────────── */ ?>
+            <div class="vana-field">
+                <label class="vana-label">
+                    Fotos
+                    <span class="vana-optional">
+                        (opcional — até <?= (int) Vana_Submission_CPT::MAX_IMAGES ?> fotos)
+                    </span>
+                </label>
+
+                <?php /* Área de drop */ ?>
+                <div
+                    class="vana-dropzone"
+                    id="vana-dropzone"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Clique ou arraste fotos aqui"
+                >
+                    <input
+                        type="file"
+                        id="vana-images"
+                        name="images[]"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        class="vana-file-input"
+                        aria-label="Selecionar fotos"
+                    >
+                    <div class="vana-dropzone-inner">
+                        <span class="vana-dropzone-icon" aria-hidden="true">📷</span>
+                        <span class="vana-dropzone-text">
+                            Clique ou arraste as fotos aqui
+                        </span>
+                        <span class="vana-dropzone-hint">
+                            JPG, PNG ou WebP · Máx. 5MB por foto
+                        </span>
+                    </div>
+                </div>
+
+                <?php /* Grid de preview */ ?>
+                <div
+                    class="vana-preview-grid"
+                    id="vana-preview-grid"
+                    aria-label="Fotos selecionadas"
+                    aria-live="polite"
+                ></div>
+            </div>
+
+            <?php /* ── VÍDEOS ────────────────────────────────────────── */ ?>
+            <div class="vana-field" id="vana-videos-field">
+                <label class="vana-label">
+                    Links de vídeo
+                    <span class="vana-optional">(opcional — até 5)</span>
+                </label>
+            
+                <div class="vana-video-list" id="vana-video-list">
+                    <!-- Items injetados pelo JS -->
+                </div>
+            
+                <button
+                    type="button"
+                    id="vana-add-video-btn"
+                    class="vana-btn-add-video"
+                    aria-label="Adicionar link de vídeo"
+                >
+                    <span aria-hidden="true">＋</span> Adicionar vídeo
+                </button>
+            
+                <span class="vana-field-hint">
+                    📹 YouTube &nbsp;|&nbsp; 📁 Google Drive &nbsp;|&nbsp; 👥 Facebook
+                </span>
+            </div>
+            
+            <?php /* ── LOCALIZAÇÃO ──────────────────────── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-user-city">
+                    Sua cidade
+                    <span class="vana-optional">(opcional)</span>
+                </label>
+                <input
+                    type="text"
+                    id="vana-user-city"
+                    name="user_city"
+                    class="vana-input"
+                    placeholder="Ex: São Paulo, Mumbai, Vrindavan..."
+                    maxlength="100"
+                    autocomplete="address-level2"
+                >
+                <span class="vana-field-hint">
+                    📍 Aparece no card da Sangha
+                </span>
+            </div>
+
+            <?php /* ── SUBTYPE ────────────────────────────── */ ?>
+            <div class="vana-field">
+                <label class="vana-label">Tipo de oferenda</label>
+                <div class="vana-subtype-group" role="radiogroup" aria-label="Tipo de oferenda">
+                    <label class="vana-subtype-option">
+                        <input
+                            type="radio"
+                            name="subtype_ui"
+                            value="devotee"
+                            class="vana-subtype-radio"
+                            checked
+                        >
+                        <span class="vana-subtype-card">
+                            <span class="vana-subtype-icon" aria-hidden="true">🙏</span>
+                            <span class="vana-subtype-label">Momento da Sangha</span>
+                            <span class="vana-subtype-desc">Relato pessoal, foto ou vídeo do devoto</span>
+                        </span>
+                    </label>
+                    <label class="vana-subtype-option">
+                        <input
+                            type="radio"
+                            name="subtype_ui"
+                            value="gurudeva_gallery"
+                            class="vana-subtype-radio"
+                        >
+                        <span class="vana-subtype-card">
+                            <span class="vana-subtype-icon" aria-hidden="true">🌸</span>
+                            <span class="vana-subtype-label">Galeria de Gurudeva</span>
+                            <span class="vana-subtype-desc">Fotos ou vídeos de Gurudeva (curadoria especial)</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <?php /* ── CONSENTIMENTO PUBLICAÇÃO ───────────── */ ?>
+            <div class="vana-field vana-consent-field">
+                <label class="vana-consent-label">
+                    <input
+                        type="checkbox"
+                        id="vana-consent-publish"
+                        name="consent_ui"
+                        class="vana-consent-checkbox"
+                        required
+                    >
+                    <span class="vana-consent-text">
+                        Autorizo a publicação desta oferenda e estou ciente
+                        de que passa por moderação antes de ser exibida. <strong>*</strong>
+                    </span>
+                </label>
+            </div>
+
+            <?php /* ── CONSENTIMENTO LGPD ────────────────── */ ?>
+            <div class="vana-field vana-consent-field">
+                <label class="vana-consent-label">
+                    <input
+                        type="checkbox"
+                        id="vana-consent-lgpd"
+                        name="consent_lgpd"
+                        class="vana-consent-checkbox"
+                        required
+                    >
+                    <span class="vana-consent-text">
+                        Autorizo o uso dos meus dados (nome, cidade, conteúdo)
+                        conforme a <strong>LGPD</strong> para fins de divulgação
+                        da missão Vana Madhuryam. <strong>*</strong>
+                    </span>
+                </label>
+            </div>
+
+            <?php /* ── SUBMIT ────────────────────────────── */ ?>
+            <div class="vana-field vana-submit-field">
+                <button
+                    type="submit"
+                    id="vana-submit-btn"
+                    class="vana-btn vana-btn-primary"
+                    disabled
+                >
+                    <span class="vana-btn-label">Enviar Oferenda 🙏</span>
+                    <span class="vana-btn-spinner" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <?php /* ── FEEDBACK ──────────────────────────── */ ?>
+            <div
+                id="vana-feedback"
+                class="vana-feedback"
+                role="alert"
+                aria-live="assertive"
+                hidden
+            ></div>
+
+        </form>
+    </section>
+
+    <?php
+    return ob_get_clean() . $js_tag;
+}
+add_shortcode('vana_oferenda_form', 'vana_render_oferenda_form');

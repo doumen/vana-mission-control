@@ -1,0 +1,241 @@
+<?php
+/**
+ * Hero Header — Vana Madhuryam Daily
+ * Template Part: templates/visit/parts/hero-header.php
+ * v3B — usa $data e $prev_visit/$next_visit do _bootstrap.php
+ *
+ * Variáveis consumidas (exportadas por _bootstrap.php):
+ *   $data         array      — timeline JSON decodificado
+ *   $lang         string     — 'pt' | 'en'
+ *   $visit_id     int
+ *   $active_day   array
+ *   $prev_visit   array|null — {id, permalink, title, has_mag}
+ *   $next_visit   array|null — {id, permalink, title, has_mag}
+ */
+defined('ABSPATH') || exit;
+
+// ── 1. Dados da visita atual ──────────────────────────────
+// Fonte única: $data (exportado por _bootstrap.php)
+// $visit_data (v2) NÃO existe mais neste contexto.
+
+$title     = $data['title_'       . $lang] ?? $data['title_pt']       ?? get_the_title();
+$desc      = $data['description_' . $lang] ?? $data['description_pt'] ?? '';
+$cover_url = (string) ($data['cover_url'] ?? '');
+
+// Fallback de imagem: cover_url → thumb YouTube do primeiro dia
+$bg_image = '';
+if ($cover_url !== '') {
+    $bg_image = esc_url($cover_url);
+} else {
+    foreach (($data['days'] ?? []) as $day) {
+        $yt_url = (string) ($day['hero']['youtube_url'] ?? '');
+        if ($yt_url !== '') {
+            if (preg_match(
+                '/(?:v=|\/embed\/|\.be\/)([a-zA-Z0-9_-]{11})/',
+                $yt_url, $m
+            )) {
+                $bg_image = 'https://i.ytimg.com/vi/' . esc_attr($m[1]) . '/maxresdefault.jpg';
+            }
+            break;
+        }
+    }
+}
+
+// ── 2. Label do dia ativo ─────────────────────────────────
+// $active_day já resolvido pelo _bootstrap.php — não sobrescrever.
+$active_label = (string) (
+    $active_day['label_' . $lang]
+    ?? $active_day['label_pt']
+    ?? ''
+);
+
+// ── 3. i18n ───────────────────────────────────────────────
+$lang_alt = $lang === 'pt' ? 'en' : 'pt';
+$lang_url = add_query_arg('lang', $lang_alt);
+
+// $prev_visit e $next_visit chegam prontos do _bootstrap.php.
+// Nenhuma WP_Query adicional necessária aqui.
+?>
+
+<!-- ════════════════════════════════════════════════════════
+     HEADER FIXO CONTEXTUAL
+     ════════════════════════════════════════════════════════ -->
+<header class="vana-header" role="banner">
+    <div class="vana-header__inner">
+
+        <!-- Esquerda: botão Tours -->
+        <button
+            class="vana-header__tours-btn"
+            data-drawer="vana-tour-drawer"
+            aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"
+            aria-expanded="false"
+            aria-controls="vana-tour-drawer"
+        >
+            <span class="vana-header__tours-icon" aria-hidden="true">
+                <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+                    <rect width="18" height="2" rx="1" fill="currentColor"/>
+                    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+                    <rect y="12" width="12" height="2" rx="1" fill="currentColor"/>
+                </svg>
+            </span>
+            <span class="vana-header__tours-label">
+                <?php echo esc_html(vana_t('hero.tours', $lang)); ?>
+            </span>
+        </button>
+
+        <!-- Centro: título contextual -->
+        <div class="vana-header__context">
+            <span class="vana-header__title"><?php echo esc_html($title); ?></span>
+            <?php if ($active_label): ?>
+                <span class="vana-header__sep" aria-hidden="true">·</span>
+                <span class="vana-header__day"><?php echo esc_html($active_label); ?></span>
+            <?php endif; ?>
+        </div>
+
+        <!-- Direita: notificações + idioma -->
+        <div class="vana-header__actions">
+            <button
+                class="vana-header__notify-btn"
+                id="vana-notify-btn"
+                aria-label="<?php echo esc_attr(vana_t('hero.notify', $lang)); ?>"
+            >
+                <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
+                    <path d="M9 20c1.1 0 2-.9 2-2H7c0 1.1.9 2 2 2zm6-6V9c0-3.07-1.64-5.64-4.5-6.32V2C10.5 1.17 9.83.5 9 .5S7.5 1.17 7.5 2v.68C4.63 3.36 3 5.92 3 9v5l-2 2v1h16v-1l-2-2z" fill="currentColor"/>
+                </svg>
+            </button>
+
+            <a
+                href="<?php echo esc_url($lang_url); ?>"
+                class="vana-header__lang-btn"
+                aria-label="<?php echo esc_attr(vana_t('hero.lang_toggle_aria', $lang) . strtoupper($lang_alt)); ?>"
+            >
+                <?php echo esc_html(vana_t('hero.lang_toggle', $lang)); ?>
+            </a>
+        </div>
+
+    </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════
+     TOUR DRAWER
+     ════════════════════════════════════════════════════════ -->
+<div
+    id="vana-tour-drawer"
+    class="vana-drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"
+    hidden
+>
+    <div class="vana-drawer__header">
+        <button class="vana-drawer__back" id="vana-drawer-back" hidden aria-label="Voltar">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+        <span class="vana-drawer__header-title" id="vana-drawer-title">
+            <?php echo esc_html(vana_t('hero.tours', $lang)); ?>
+        </span>
+        <button class="vana-drawer__close" aria-label="Fechar">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="vana-drawer__body" id="vana-drawer-body">
+        <div class="vana-drawer__loading" id="vana-drawer-loading">
+            <span class="vana-drawer__spinner"></span>
+        </div>
+        <ul class="vana-drawer__tour-list" id="vana-drawer-tour-list" role="list" hidden></ul>
+    </div>
+
+    <div class="vana-drawer__body vana-drawer__body--visits" id="vana-drawer-visits" hidden>
+        <div class="vana-drawer__loading" id="vana-drawer-visits-loading">
+            <span class="vana-drawer__spinner"></span>
+        </div>
+        <ul class="vana-drawer__visit-list" id="vana-drawer-visit-list" role="list" hidden></ul>
+    </div>
+</div>
+
+<div class="vana-drawer__overlay" id="vana-drawer-overlay" hidden></div>
+
+<!-- ════════════════════════════════════════════════════════
+     HERO SECTION
+     ════════════════════════════════════════════════════════ -->
+<section
+    class="vana-hero <?php echo $bg_image ? 'vana-hero--has-image' : 'vana-hero--gradient'; ?>"
+    <?php if ($bg_image): ?>
+        style="--vana-hero-bg: url('<?php echo esc_url($bg_image); ?>')"
+    <?php endif; ?>
+    aria-label="<?php echo esc_attr($title); ?>"
+>
+    <div class="vana-hero__overlay" aria-hidden="true"></div>
+
+    <div class="vana-hero__content">
+
+        <p class="vana-hero__badge"
+           aria-label="<?php echo esc_attr(vana_t('hero.breadcrumb', $lang)); ?>">
+            <?php echo esc_html(vana_t('hero.breadcrumb', $lang)); ?>
+        </p>
+
+        <h1 class="vana-hero__title"><?php echo esc_html($title); ?></h1>
+
+        <?php if ($desc): ?>
+            <p class="vana-hero__desc"><?php echo esc_html($desc); ?></p>
+        <?php endif; ?>
+
+        <!-- Prev / Next — dados vindos do _bootstrap.php -->
+        <nav class="vana-hero__nav"
+             aria-label="<?php echo esc_attr(vana_t('hero.nav_aria', $lang)); ?>">
+
+            <?php if ($prev_visit): ?>
+                <a
+                    href="<?php echo esc_url($prev_visit['permalink']); ?>"
+                    class="vana-hero__nav-btn vana-hero__nav-btn--prev"
+                    rel="prev"
+                    aria-label="<?php echo esc_attr(
+                        vana_t('hero.prev_aria', $lang) . $prev_visit['title']
+                    ); ?>"
+                >
+                    <span class="vana-hero__nav-arrow" aria-hidden="true">←</span>
+                    <span class="vana-hero__nav-label">
+                        <?php echo esc_html($prev_visit['title']); ?>
+                        <?php if ($prev_visit['has_mag']): ?>
+                            <span class="vana-hero__nav-mag"
+                                  aria-label="Revista publicada">📄</span>
+                        <?php endif; ?>
+                    </span>
+                </a>
+            <?php else: ?>
+                <span class="vana-hero__nav-btn vana-hero__nav-btn--prev
+                             vana-hero__nav-btn--disabled" aria-hidden="true"></span>
+            <?php endif; ?>
+
+            <?php if ($next_visit): ?>
+                <a
+                    href="<?php echo esc_url($next_visit['permalink']); ?>"
+                    class="vana-hero__nav-btn vana-hero__nav-btn--next"
+                    rel="next"
+                    aria-label="<?php echo esc_attr(
+                        vana_t('hero.next_aria', $lang) . $next_visit['title']
+                    ); ?>"
+                >
+                    <span class="vana-hero__nav-label">
+                        <?php echo esc_html($next_visit['title']); ?>
+                        <?php if ($next_visit['has_mag']): ?>
+                            <span class="vana-hero__nav-mag"
+                                  aria-label="Revista publicada">📄</span>
+                        <?php endif; ?>
+                    </span>
+                    <span class="vana-hero__nav-arrow" aria-hidden="true">→</span>
+                </a>
+            <?php else: ?>
+                <span class="vana-hero__nav-btn vana-hero__nav-btn--next
+                             vana-hero__nav-btn--disabled" aria-hidden="true"></span>
+            <?php endif; ?>
+
+        </nav>
+
+    </div>
+</section>

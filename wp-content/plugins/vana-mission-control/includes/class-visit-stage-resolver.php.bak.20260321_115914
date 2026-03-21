@@ -1,0 +1,413 @@
+<?php
+/**
+ * VisitStageResolver — Fase 2
+ *
+ * Responsabilidades:
+ * - Carregar metas do WP (timeline, overrides, editorial)
+ * - Resolver contexto ativo via VisitEventResolver (Fase 1)
+ * - Resolver hero final: Viewer URL válido > Editorial válido > Heurística
+ * - Resolver stage_mode
+ * - Retornar VisitStageViewModel SSR-first
+ *
+ * @package VanaMissionControl
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+require_once __DIR__ . '/class-visit-event-resolver.php';
+require_once __DIR__ . '/class-visit-stage-view-model.php';
+
+final class VisitStageResolver {
+
+    // -------------------------------------------------------------------------
+    // Entrada pública
+    // -------------------------------------------------------------------------
+
+    /**
+     * Resolve o ViewModel completo para um post vana_visit.
+     *
+     * @param int $visit_id ID do post CPT vana_visit.
+     * @return VisitStageViewModel
+     */
+    public static function resolve( int $visit_id ): VisitStageViewModel {
+
+        // 1. Metas WP — dados brutos
+        $timeline       = self::read_json_meta( $visit_id, '_vana_visit_timeline_json' );
+        $overrides      = self::read_json_meta( $visit_id, '_vana_overrides_json' );
+        $visit_timezone = self::read_string_meta( $visit_id, '_visit_timezone', 'UTC' );
+        $visit_status   = self::read_string_meta( $visit_id, '_vana_visit_status', '' );
+
+        // 2. Metas editoriais
+        $hero_type      = self::read_string_meta( $visit_id, '_vana_hero_type', '' );
+        $hero_event_key = self::read_string_meta( $visit_id, '_vana_hero_event_key', '' );
+        $hero_item_id   = self::read_string_meta( $visit_id, '_vana_hero_item_id', '' );
+
+        // 3. Query params — contexto da página (URL > heurística, editorial fora)
+        $requested_event_key = self::read_query_text( 'event_key' );
+        $requested_day       = self::read_query_text( 'v_day' );
+
+        // 4. Query params — viewer state
+        $viewer_mode      = self::read_query_key( 'viewer_mode', 'vod' );
+        $viewer_event_key = self::read_query_text( 'viewer_event_key' );
+        $viewer_item_id   = self::read_query_text( 'viewer_item_id' );
+
+        // 5. Fase 1 — resolve contexto ativo da agenda
+        //    Editorial não entra aqui (D2a aprovado).
+        $event_data = VisitEventResolver::resolve(
+            $timeline,
+            $overrides,
+            $requested_event_key,
+            $requested_day,
+            $visit_timezone
+        );
+
+        // 6. Resolve hero final (D2b: viewer > editorial > heurística)
+        $hero = self::resolve_hero(
+            $timeline,
+            $event_data,
+            [
+                'viewer_mode'      => $viewer_mode,
+                'viewer_event_key' => $viewer_event_key,
+                'viewer_item_id'   => $viewer_item_id,
+            ],
+            [
+                'hero_type'      => $hero_type,
+                'hero_event_key' => $hero_event_key,
+                'hero_item_id'   => $hero_item_id,
+            ]
+        );
+
+        // 7. Resolve stage_mode (D4: hero > active_day > visit_status)
+        $stage_mode = self::resolve_stage_mode(
+            $hero,
+            $event_data['active_day'] ?? [],
+            $visit_status,
+            $event_data['active_day_date'] ?? '',
+            $visit_timezone
+        );
+
+        // 8. Monta e retorna ViewModel
+        return new VisitStageViewModel( [
+
+            // Identidade
+            'visit_id'  => $visit_id,
+            'visit_ref' => (string) ( $event_data['visit_ref'] ?? '' ),
+
+            // Brutos (SSR / debug)
+            'timeline'  => $timeline,
+            'overrides' => $overrides,
+
+            // Contexto ativo da página
+            'active_day'      => $event_data['active_day']    ?? [],
+            'active_day_date' => $event_data['active_day_date'] ?? '',
+            'active_events'   => $event_data['active_events'] ?? [],
+            'active_event'    => $event_data['active_event']  ?? null,
+
+            // Palco
+            'hero'       => $hero,
+            'stage_mode' => $stage_mode,
+
+            // Viewer state
+            'viewer_mode'      => $viewer_mode,
+            'viewer_event_key' => $viewer_event_key,
+            'viewer_item_id'   => $viewer_item_id,
+
+            // Editorial bruto (debug/inspeção)
+            'editorial_hero_type'      => $hero_type,
+            'editorial_hero_event_key' => $hero_event_key,
+            'editorial_hero_item_id'   => $hero_item_id,
+
+            // Metadados gerais
+            'visit_timezone' => $visit_timezone,
+            'visit_status'   => $visit_status,
+        ] );
+    }
+
+    // -------------------------------------------------------------------------
+    // Hero — trilho separado do contexto ativo
+    // -------------------------------------------------------------------------
+
+    /**
+     * Precedência D2b:
+     * 1. Viewer URL válido
+     * 2. Editorial válido
+     * 3. Heurística Fase 1
+     */
+    private static function resolve_hero(
+        array $timeline,
+        array $event_data,
+        array $viewer,
+        array $editorial
+    ): array {
+
+        $viewer_hero = self::resolve_viewer_hero( $timeline, $viewer );
+        if ( ! empty( $viewer_hero ) ) {
+            return $viewer_hero;
+        }
+
+        $editorial_hero = self::resolve_editorial_hero( $timeline, $editorial );
+        if ( ! empty( $editorial_hero ) ) {
+            return $editorial_hero;
+        }
+
+        $fallback = $event_data['hero_event'] ?? [];
+        if ( is_array( $fallback ) && ! empty( $fallback ) ) {
+            return self::normalize_event_hero( $fallback, 'heuristic' );
+        }
+
+        return self::make_placeholder_hero( 'heuristic_placeholder' );
+    }
+
+    /**
+     * Hero via viewer state.
+     *
+     * URL válida por modo:
+     *   vod     → exige viewer_event_key
+     *   photo   → exige viewer_item_id
+     *   sangha  → exige viewer_item_id
+     */
+    private static function resolve_viewer_hero( array $timeline, array $viewer ): array {
+
+        $mode      = (string) ( $viewer['viewer_mode']      ?? 'vod' );
+        $event_key = (string) ( $viewer['viewer_event_key'] ?? '' );
+        $item_id   = (string) ( $viewer['viewer_item_id']   ?? '' );
+
+        if ( $mode === 'vod' && $event_key !== '' ) {
+            $event = self::find_event_by_key( $timeline, $event_key );
+            if ( ! empty( $event ) ) {
+                return self::normalize_event_hero( $event, 'viewer' );
+            }
+        }
+
+        if ( $mode === 'photo' && $item_id !== '' ) {
+            return [
+                'type'       => 'photo',
+                'source'     => 'viewer',
+                'event_key'  => $event_key,
+                'item_id'    => $item_id,
+            ];
+        }
+
+        if ( $mode === 'sangha' && $item_id !== '' ) {
+            return [
+                'type'       => 'sangha',
+                'source'     => 'viewer',
+                'event_key'  => $event_key,
+                'item_id'    => $item_id,
+            ];
+        }
+
+        return [];
+    }
+
+    /**
+     * Hero via meta editorial.
+     * Pode mirar qualquer evento da visita (D3 aprovado).
+     *
+     * hero_type canônico: 'event'
+     * hero_type 'vod' aceito como alias (a deprecar após congelamento).
+     */
+    private static function resolve_editorial_hero( array $timeline, array $editorial ): array {
+
+        $type      = (string) ( $editorial['hero_type']      ?? '' );
+        $event_key = (string) ( $editorial['hero_event_key'] ?? '' );
+        $item_id   = (string) ( $editorial['hero_item_id']   ?? '' );
+
+        if ( in_array( $type, [ 'event', 'vod' ], true ) && $event_key !== '' ) {
+            $event = self::find_event_by_key( $timeline, $event_key );
+            if ( ! empty( $event ) ) {
+                return self::normalize_event_hero( $event, 'editorial' );
+            }
+        }
+
+        if ( $type === 'photo' && $item_id !== '' ) {
+            return [
+                'type'      => 'photo',
+                'source'    => 'editorial',
+                'event_key' => $event_key,
+                'item_id'   => $item_id,
+            ];
+        }
+
+        if ( $type === 'sangha' && $item_id !== '' ) {
+            return [
+                'type'      => 'sangha',
+                'source'    => 'editorial',
+                'event_key' => $event_key,
+                'item_id'   => $item_id,
+            ];
+        }
+
+        if ( $type === 'editorial_static' ) {
+            return [
+                'type'      => 'editorial_static',
+                'source'    => 'editorial',
+                'event_key' => $event_key,
+                'item_id'   => $item_id,
+            ];
+        }
+
+        return [];
+    }
+
+    // -------------------------------------------------------------------------
+    // stage_mode
+    // -------------------------------------------------------------------------
+
+    /**
+     * Ordem de fallback D4:
+     * 1. hero_event (kind + status)
+     * 2. active_day (tem eventos?)
+     * 3. visit_status geral
+     */
+    private static function resolve_stage_mode(
+        array  $hero,
+        array  $active_day,
+        string $visit_status,
+        string $active_day_date = '',
+        string $visit_timezone  = 'UTC'
+    ): string {
+    
+        // 1. Derivar do hero quando for evento resolvido
+        if ( ( $hero['type'] ?? '' ) === 'event' ) {
+    
+            $kind   = (string) ( $hero['kind']   ?? '' );
+            $status = (string) ( $hero['status'] ?? '' );
+    
+            $live_map = [
+                'katha'     => 'katha_live',
+                'darshan'   => 'darshan_live',
+                'parikrama' => 'parikrama_live',
+            ];
+    
+            if ( $status === 'live' && isset( $live_map[ $kind ] ) ) {
+                return $live_map[ $kind ];
+            }
+    
+            if ( in_array( $status, [ 'ended', 'vod', 'replay' ], true ) ) {
+                return 'replay_ready';
+            }
+        }
+    
+        // 2. visit_status explícito — tem precedência sobre active_day
+        $closed   = [ 'closed', 'ended', 'archived' ];
+        $upcoming = [ 'future', 'upcoming', 'scheduled' ];
+    
+        if ( in_array( $visit_status, $closed, true ) ) {
+            return 'visit_closed';
+        }
+    
+        if ( in_array( $visit_status, $upcoming, true ) ) {
+            return 'pre_arrival';
+        }
+    
+        // 3. Derivar do active_day
+        if ( empty( $active_day ) || empty( $active_day['events'] ?? [] ) ) {
+            return 'day_closed';
+        }
+    
+        // 4. Comparar data real no timezone da visita
+        if ( $active_day_date !== '' ) {
+            try {
+                $tz  = new DateTimeZone( $visit_timezone );
+                $now = new DateTime( 'now', $tz );
+                $day = new DateTime( $active_day_date . ' 23:59:59', $tz );
+    
+                if ( $now > $day ) {
+                    return 'post_visit';
+                }
+    
+                if ( $now->format( 'Y-m-d' ) === $active_day_date ) {
+                    return 'day_live';
+                }
+    
+                return 'pre_arrival';
+    
+            } catch ( \Exception $e ) {
+                // timezone inválido — fallback seguro
+            }
+        }
+    
+        return 'pre_arrival';
+    }
+    // -------------------------------------------------------------------------
+    // Helpers internos
+    // -------------------------------------------------------------------------
+
+    /**
+     * Busca evento por event_key em toda a visita (D3: cross-day permitido).
+     */
+    private static function find_event_by_key( array $timeline, string $event_key ): array {
+        foreach ( $timeline['days'] ?? [] as $day ) {
+            foreach ( $day['events'] ?? [] as $event ) {
+                if ( is_array( $event ) && ( $event['event_key'] ?? '' ) === $event_key ) {
+                    return $event;
+                }
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Normaliza evento como hero do tipo 'event'.
+     */
+    private static function normalize_event_hero( array $event, string $source ): array {
+        return array_merge( $event, [
+            'type'   => 'event',
+            'source' => $source,
+        ] );
+    }
+
+    /**
+     * Hero placeholder — último fallback.
+     */
+    private static function make_placeholder_hero( string $source ): array {
+        return [
+            'type'      => 'placeholder',
+            'source'    => $source,
+            'title'     => '',
+            'event_key' => '',
+            'status'    => '',
+            'kind'      => '',
+        ];
+    }
+
+    /**
+     * Lê meta JSON → array. Retorna [] em qualquer falha.
+     */
+    private static function read_json_meta( int $post_id, string $meta_key ): array {
+        $raw     = get_post_meta( $post_id, $meta_key, true );
+        $decoded = is_string( $raw ) && $raw !== '' ? json_decode( $raw, true ) : null;
+        return is_array( $decoded ) ? $decoded : [];
+    }
+
+    /**
+     * Lê meta escalar → string com default.
+     */
+    private static function read_string_meta( int $post_id, string $meta_key, string $default = '' ): string {
+        $value = get_post_meta( $post_id, $meta_key, true );
+        return ( is_scalar( $value ) && $value !== '' ) ? (string) $value : $default;
+    }
+
+    /**
+     * Lê $_GET textual com sanitize_text_field + wp_unslash.
+     */
+    private static function read_query_text( string $key, string $default = '' ): string {
+        if ( ! isset( $_GET[ $key ] ) ) {
+            return $default;
+        }
+        return sanitize_text_field( wp_unslash( $_GET[ $key ] ) );
+    }
+
+    /**
+     * Lê $_GET como slug/key com sanitize_key + wp_unslash.
+     */
+    private static function read_query_key( string $key, string $default = '' ): string {
+        if ( ! isset( $_GET[ $key ] ) ) {
+            return $default;
+        }
+        return sanitize_key( wp_unslash( $_GET[ $key ] ) );
+    }
+}

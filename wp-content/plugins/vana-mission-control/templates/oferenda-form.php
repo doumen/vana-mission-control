@@ -1,0 +1,251 @@
+<?php
+/**
+ * Shortcode: [vana_oferenda_form visit_id="42"]
+ * Arquivo: templates/oferenda-form.php
+ */
+defined('ABSPATH') || exit;
+
+function vana_render_oferenda_form(array $atts): string {
+    static $vana_css_loaded = false;
+    $inline_css = '';
+    if ( ! $vana_css_loaded ) {
+        $css_file = plugin_dir_path( __FILE__ ) . '../assets/css/oferenda-form.css';
+        if ( file_exists( $css_file ) ) {
+            $css = file_get_contents( $css_file );
+
+            $inline_css = '<style id="vana-oferenda-form-css">' . $css . '</style>';
+
+        }
+        $vana_css_loaded = true;
+    }
+
+    $atts = shortcode_atts([
+        'visit_id' => 0,
+        'subtype'  => 'devotee',
+        'lang'     => 'pt',
+    ], $atts, 'vana_oferenda_form');
+
+    $visit_id = absint($atts['visit_id']);
+    $subtype  = in_array($atts['subtype'], ['devotee', 'gurudeva'], true)
+        ? $atts['subtype']
+        : 'devotee';
+    $lang     = in_array($atts['lang'], ['pt', 'en'], true) ? $atts['lang'] : 'pt';
+
+    // Alias local para vana_t com lang fixo
+    $t = fn(string $key, ...$args) => $args
+        ? sprintf(vana_t($key, $lang), ...$args)
+        : vana_t($key, $lang);
+
+    if (!$visit_id || get_post_status($visit_id) !== 'publish') {
+        return '<p class="vana-form-error">' . esc_html($t('form.error.unavailable')) . '</p>';
+    }
+
+    static $vana_js_loaded = false;
+    $js_tag = '';
+    if ( ! $vana_js_loaded ) {
+        $js_url = plugin_dir_url( __FILE__ ) . '../assets/js/oferenda-form.js?ver='
+            . filemtime( plugin_dir_path( __FILE__ ) . '../assets/js/oferenda-form.js' );
+        $js_tag = '<script src="' . esc_url( $js_url ) . '"></script>';
+        $vana_js_loaded = true;
+    }
+
+    $vana_cfg = [
+        'endpoint'  => esc_url( rest_url( 'vana/v1/checkin' ) ),
+        'nonce'     => wp_create_nonce( 'wp_rest' ),
+        'maxImages' => (int) Vana_Submission_CPT::MAX_IMAGES,
+        'maxMB'     => 5,
+        'i18n'      => [
+            'sending'        => $t('js.sending'),
+            'success'        => $t('js.success'),
+            'errorGeneric'   => $t('js.error.generic'),
+            'errorMaxImages' => $t('js.error.max_images'),
+            'errorMaxSize'   => $t('js.error.max_size'),
+            'errorType'      => $t('js.error.type'),
+            'removePhoto'    => $t('js.remove_photo'),
+            'photoAlt'       => $t('js.photo_alt'),
+        ],
+    ];
+    $js_tag = '<script>window.VanaForm=' . wp_json_encode( $vana_cfg ) . ';</script>' . $js_tag;
+
+    $max_img = (int) Vana_Submission_CPT::MAX_IMAGES;
+
+    ob_start();
+    ?>
+
+    <section
+        class="vana-oferenda-wrap"
+        data-visit-id="<?= esc_attr($visit_id) ?>"
+        data-subtype="<?= esc_attr($subtype) ?>"
+        aria-label="<?= esc_attr($t('form.aria.section')) ?>"
+    >
+        <header class="vana-oferenda-header">
+            <span class="vana-lotus" aria-hidden="true">🪷</span>
+            <h2 class="vana-oferenda-title">
+                <?= esc_html($subtype === 'gurudeva' ? $t('form.title.gurudeva') : $t('form.title.devotee')) ?>
+            </h2>
+            <p class="vana-oferenda-subtitle">
+                <?= esc_html($t('form.subtitle')) ?>
+            </p>
+        </header>
+
+        <form id="vana-oferenda-form" class="vana-oferenda-form" novalidate enctype="multipart/form-data">
+
+            <?php /* Honeypot */ ?>
+            <input type="text" name="website" value="" autocomplete="off"
+                   tabindex="-1" aria-hidden="true" style="display:none!important">
+
+            <input type="hidden" name="visit_id"        value="<?= esc_attr($visit_id) ?>">
+            <input type="hidden" name="subtype"         value="<?= esc_attr($subtype) ?>">
+            <input type="hidden" name="consent_publish" value="1">
+
+            <?php /* ── NOME ── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-sender-name">
+                    <?= esc_html($t('form.field.name.label')) ?>
+                    <span class="vana-optional"><?= esc_html($t('form.field.name.optional')) ?></span>
+                </label>
+                <input type="text" id="vana-sender-name" name="sender_name"
+                       class="vana-input"
+                       placeholder="<?= esc_attr($t('form.field.name.placeholder')) ?>"
+                       maxlength="100" autocomplete="name">
+            </div>
+
+            <?php /* ── MENSAGEM ── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-message">
+                    <?= esc_html($t('form.field.msg.label')) ?>
+                    <span class="vana-optional"><?= esc_html($t('form.field.name.optional')) ?></span>
+                </label>
+                <textarea id="vana-message" name="message"
+                          class="vana-input vana-textarea"
+                          placeholder="<?= esc_attr($t('form.field.msg.placeholder')) ?>"
+                          maxlength="2000" rows="4"></textarea>
+                <span class="vana-char-count" aria-live="polite">0 / 2000</span>
+            </div>
+
+            <?php /* ── FOTOS ── */ ?>
+            <div class="vana-field">
+                <label class="vana-label">
+                    <?= esc_html($t('form.field.photos.label')) ?>
+                    <span class="vana-optional">
+                        <?= esc_html(sprintf(vana_t('form.field.photos.optional', $lang), $max_img)) ?>
+                    </span>
+                </label>
+                <div class="vana-dropzone" id="vana-dropzone"
+                     role="button" tabindex="0"
+                     aria-label="<?= esc_attr($t('form.field.photos.aria')) ?>">
+                    <input type="file" id="vana-images" name="images[]"
+                           accept="image/jpeg,image/png,image/webp" multiple
+                           class="vana-file-input"
+                           aria-label="<?= esc_attr($t('form.field.photos.select')) ?>">
+                    <div class="vana-dropzone-inner">
+                        <span class="vana-dropzone-icon" aria-hidden="true">📷</span>
+                        <span class="vana-dropzone-text"><?= esc_html($t('form.field.photos.drop')) ?></span>
+                        <span class="vana-dropzone-hint"><?= esc_html($t('form.field.photos.hint')) ?></span>
+                    </div>
+                </div>
+                <div class="vana-preview-grid" id="vana-preview-grid"
+                     aria-label="<?= esc_attr($t('form.field.photos.preview')) ?>"
+                     aria-live="polite"></div>
+            </div>
+
+            <?php /* ── VÍDEOS ── */ ?>
+            <div class="vana-field" id="vana-videos-field">
+                <label class="vana-label">
+                    <?= esc_html($t('form.field.videos.label')) ?>
+                    <span class="vana-optional"><?= esc_html($t('form.field.videos.optional')) ?></span>
+                </label>
+                <div class="vana-video-list" id="vana-video-list"></div>
+                <button type="button" id="vana-add-video-btn"
+                        class="vana-btn-add-video"
+                        aria-label="<?= esc_attr($t('form.field.videos.aria')) ?>">
+                    <span aria-hidden="true">＋</span> <?= esc_html($t('form.field.videos.add')) ?>
+                </button>
+                <span class="vana-field-hint">
+                    📹 YouTube &nbsp;|&nbsp; 📁 Google Drive &nbsp;|&nbsp; 👥 Facebook
+                </span>
+            </div>
+
+            <?php /* ── CIDADE ── */ ?>
+            <div class="vana-field">
+                <label class="vana-label" for="vana-user-city">
+                    <?= esc_html($t('form.field.city.label')) ?>
+                    <span class="vana-optional"><?= esc_html($t('form.field.name.optional')) ?></span>
+                </label>
+                <input type="text" id="vana-user-city" name="user_city"
+                       class="vana-input"
+                       placeholder="<?= esc_attr($t('form.field.city.placeholder')) ?>"
+                       maxlength="100" autocomplete="address-level2">
+                <span class="vana-field-hint"><?= esc_html($t('form.field.city.hint')) ?></span>
+            </div>
+
+            <?php /* ── SUBTYPE ── */ ?>
+            <div class="vana-field">
+                <label class="vana-label"><?= esc_html($t('form.field.subtype.label')) ?></label>
+                <div class="vana-subtype-group" role="radiogroup"
+                     aria-label="<?= esc_attr($t('form.field.subtype.aria')) ?>">
+                    <label class="vana-subtype-option">
+                        <input type="radio" name="subtype_ui" value="devotee"
+                               class="vana-subtype-radio" checked>
+                        <span class="vana-subtype-card">
+                            <span class="vana-subtype-icon" aria-hidden="true">🙏</span>
+                            <span class="vana-subtype-label"><?= esc_html($t('form.subtype.devotee.label')) ?></span>
+                            <span class="vana-subtype-desc"><?= esc_html($t('form.subtype.devotee.desc')) ?></span>
+                        </span>
+                    </label>
+                    <label class="vana-subtype-option">
+                        <input type="radio" name="subtype_ui" value="gurudeva_gallery"
+                               class="vana-subtype-radio">
+                        <span class="vana-subtype-card">
+                            <span class="vana-subtype-icon" aria-hidden="true">🌸</span>
+                            <span class="vana-subtype-label"><?= esc_html($t('form.subtype.guru.label')) ?></span>
+                            <span class="vana-subtype-desc"><?= esc_html($t('form.subtype.guru.desc')) ?></span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <?php /* ── CONSENTIMENTO PUBLICAÇÃO ── */ ?>
+            <div class="vana-field vana-consent-field">
+                <label class="vana-consent-label">
+                    <input type="checkbox" id="vana-consent-publish"
+                           name="consent_ui" class="vana-consent-checkbox" required>
+                    <span class="vana-consent-text">
+                        <?= wp_kses($t('form.consent.publish'), ['strong' => []]) ?>
+                        <strong>*</strong>
+                    </span>
+                </label>
+            </div>
+
+            <?php /* ── CONSENTIMENTO LGPD ── */ ?>
+            <div class="vana-field vana-consent-field">
+                <label class="vana-consent-label">
+                    <input type="checkbox" id="vana-consent-lgpd"
+                           name="consent_lgpd" class="vana-consent-checkbox" required>
+                    <span class="vana-consent-text">
+                        <?= wp_kses($t('form.consent.lgpd'), ['strong' => []]) ?>
+                        <strong>*</strong>
+                    </span>
+                </label>
+            </div>
+
+            <?php /* ── SUBMIT ── */ ?>
+            <div class="vana-field vana-submit-field">
+                <button type="submit" id="vana-submit-btn"
+                        class="vana-btn vana-btn-primary" disabled>
+                    <span class="vana-btn-label"><?= esc_html($t('form.btn.submit')) ?></span>
+                    <span class="vana-btn-spinner" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <?php /* ── FEEDBACK ── */ ?>
+            <div id="vana-feedback" class="vana-feedback"
+                 role="alert" aria-live="assertive" hidden></div>
+
+        </form>
+    </section>
+
+    <?php
+    return $inline_css . ob_get_clean() . $js_tag;
+}
+add_shortcode('vana_oferenda_form', 'vana_render_oferenda_form');

@@ -1,0 +1,305 @@
+<?php
+// class-vana-query-api.php
+// GET  /vana/v1/visits
+// GET  /vana/v1/visits/{id}
+// GET  /vana/v1/tours
+// GET  /vana/v1/tours/{id}
+// DELETE /vana/v1/visits/{id}
+// DELETE /vana/v1/tours/{id}
+
+defined('ABSPATH') || exit;
+
+final class Vana_Query_API {
+
+    public static function register(): void {
+
+        // ── VISITS ────────────────────────────────────────────────
+        register_rest_route('vana/v1', '/visits', [
+            'methods'             => 'GET',
+            'callback'            => [__CLASS__, 'list_visits'],
+            'permission_callback' => [__CLASS__, 'check_hmac'],
+            'args' => [
+                'tour'     => ['sanitize_callback' => 'sanitize_text_field'],
+                'status'   => ['sanitize_callback' => 'sanitize_text_field', 'default' => 'publish'],
+                'per_page' => ['sanitize_callback' => 'absint', 'default' => 20],
+                'page'     => ['sanitize_callback' => 'absint', 'default' => 1],
+            ],
+        ]);
+
+        register_rest_route('vana/v1', '/visits/(?P<id>\d+)', [
+            [
+                'methods'             => 'GET',
+                'callback'            => [__CLASS__, 'get_visit'],
+                'permission_callback' => [__CLASS__, 'check_hmac'],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [__CLASS__, 'delete_visit'],
+                'permission_callback' => [__CLASS__, 'check_hmac'],
+            ],
+        ]);
+
+        // ── TOURS ─────────────────────────────────────────────────
+        register_rest_route('vana/v1', '/tours', [
+            'methods'             => 'GET',
+            'callback'            => [__CLASS__, 'list_tours'],
+            'permission_callback' => [__CLASS__, 'check_hmac'],
+            'args' => [
+                'status'   => ['sanitize_callback' => 'sanitize_text_field', 'default' => 'publish'],
+                'per_page' => ['sanitize_callback' => 'absint', 'default' => 20],
+                'page'     => ['sanitize_callback' => 'absint', 'default' => 1],
+            ],
+        ]);
+
+        register_rest_route('vana/v1', '/tours/(?P<id>\d+)', [
+            [
+                'methods'             => 'GET',
+                'callback'            => [__CLASS__, 'get_tour'],
+                'permission_callback' => [__CLASS__, 'check_hmac'],
+            ],
+            [
+                'methods'             => 'DELETE',
+                'callback'            => [__CLASS__, 'delete_tour'],
+                'permission_callback' => [__CLASS__, 'check_hmac'],
+            ],
+        ]);
+    }
+
+    // ── AUTH (mesmo HMAC do ingest) ───────────────────────────────
+    public static function check_hmac(WP_REST_Request $request) {
+        $secret = defined('VANA_INGEST_SECRET') ? VANA_INGEST_SECRET : '';
+        if (empty($secret)) {
+            return new WP_Error('rest_forbidden', 'VANA_INGEST_SECRET não configurado.', ['status' => 401]);
+        }
+
+        $sig  = (string) $request->get_param('vana_signature');
+        $ts   = (string) $request->get_param('vana_timestamp');
+        $non  = (string) $request->get_param('vana_nonce');
+
+        if (empty($sig) || empty($ts) || empty($non)) {
+            return new WP_Error('rest_forbidden', 'Parâmetros HMAC ausentes.', ['status' => 401]);
+        }
+
+        if (abs(time() - (int)$ts) > 300) {
+            return new WP_Error('rest_forbidden', 'Timestamp expirado.', ['status' => 401]);
+        }
+
+        // GET: body é vazio — assina query string ordenada
+        $body    = (string) $request->get_body();
+        $message = $ts . "\n" . $non . "\n" . $body;
+        $expected = hash_hmac('sha256', $message, $secret);
+
+        if (!hash_equals($expected, $sig)) {
+            return new WP_Error('rest_forbidden', 'Assinatura inválida.', ['status' => 401]);
+        }
+
+        return true;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // VISITS
+    // ══════════════════════════════════════════════════════════════
+
+    public static function list_visits(WP_REST_Request $req): WP_REST_Response {
+        $args = [
+            'post_type'      => 'vana_visit',
+            'post_status'    => sanitize_text_field($req->get_param('status') ?: 'publish'),
+            'posts_per_page' => min((int)($req->get_param('per_page') ?: 20), 100),
+            'paged'          => max((int)($req->get_param('page') ?: 1), 1),
+            'orderby'        => 'meta_value',
+            'meta_key'       => '_vana_start_date',
+            'order'          => 'DESC',
+            'no_found_rows'  => false,
+        ];
+
+        // Filtro por tour
+        $tour_key = sanitize_text_field($req->get_param('tour') ?: '');
+        if ($tour_key !== '') {
+            $args['meta_query'] = [[
+                'key'     => '_vana_parent_tour_origin_key',
+                'value'   => $tour_key,
+                'compare' => '=',
+            ]];
+        }
+
+        $q     = new WP_Query($args);
+        $items = [];
+
+        foreach ($q->posts as $post) {
+            $items[] = self::format_visit($post);
+        }
+
+        return Vana_Utils::api_response(true, 'OK', 200, [
+            'items'       => $items,
+            'total'       => (int) $q->found_posts,
+            'total_pages' => (int) $q->max_num_pages,
+            'page'        => (int) $args['paged'],
+        ]);
+    }
+
+    public static function get_visit(WP_REST_Request $req): WP_REST_Response {
+        $id   = (int) $req->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== 'vana_visit') {
+            return Vana_Utils::api_response(false, 'Visita não encontrada.', 404);
+        }
+
+        // Inclui o JSON completo da timeline
+        $data = self::format_visit($post);
+        $json = get_post_meta($id, '_vana_visit_timeline_json', true);
+        $data['timeline'] = $json ? json_decode($json, true) : null;
+
+        return Vana_Utils::api_response(true, 'OK', 200, $data);
+    }
+
+    public static function delete_visit(WP_REST_Request $req): WP_REST_Response {
+        $id   = (int) $req->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== 'vana_visit') {
+            return Vana_Utils::api_response(false, 'Visita não encontrada.', 404);
+        }
+
+        // Soft delete (move para lixeira)
+        $force = (bool) $req->get_param('force');
+        $result = wp_delete_post($id, $force);
+
+        if (!$result) {
+            return Vana_Utils::api_response(false, 'Falha ao excluir.', 500);
+        }
+
+        // Limpa cache
+        delete_transient('vana_chronological_sequence');
+
+        return Vana_Utils::api_response(true, $force ? 'Visita excluída permanentemente.' : 'Visita movida para lixeira.', 200, [
+            'visit_id' => $id,
+            'action'   => $force ? 'deleted' : 'trashed',
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // TOURS
+    // ══════════════════════════════════════════════════════════════
+
+    public static function list_tours(WP_REST_Request $req): WP_REST_Response {
+        $args = [
+            'post_type'      => 'vana_tour',
+            'post_status'    => sanitize_text_field($req->get_param('status') ?: 'publish'),
+            'posts_per_page' => min((int)($req->get_param('per_page') ?: 20), 100),
+            'paged'          => max((int)($req->get_param('page') ?: 1), 1),
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'no_found_rows'  => false,
+        ];
+
+        $q     = new WP_Query($args);
+        $items = [];
+
+        foreach ($q->posts as $post) {
+            $items[] = self::format_tour($post);
+        }
+
+        return Vana_Utils::api_response(true, 'OK', 200, [
+            'items'       => $items,
+            'total'       => (int) $q->found_posts,
+            'total_pages' => (int) $q->max_num_pages,
+            'page'        => (int) $args['paged'],
+        ]);
+    }
+
+    public static function get_tour(WP_REST_Request $req): WP_REST_Response {
+        $id   = (int) $req->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== 'vana_tour') {
+            return Vana_Utils::api_response(false, 'Tour não encontrada.', 404);
+        }
+
+        $data = self::format_tour($post);
+
+        // Visitas vinculadas
+        $vq = new WP_Query([
+            'post_type'      => 'vana_visit',
+            'post_status'    => 'publish',
+            'posts_per_page' => 100,
+            'meta_query'     => [[
+                'key'   => '_vana_parent_tour_origin_key',
+                'value' => get_post_meta($id, '_vana_origin_key', true),
+            ]],
+            'orderby'  => 'meta_value',
+            'meta_key' => '_vana_start_date',
+            'order'    => 'ASC',
+            'fields'   => 'ids',
+        ]);
+
+        $data['visits'] = array_map(function($vid) {
+            return self::format_visit(get_post($vid));
+        }, $vq->posts);
+
+        return Vana_Utils::api_response(true, 'OK', 200, $data);
+    }
+
+    public static function delete_tour(WP_REST_Request $req): WP_REST_Response {
+        $id   = (int) $req->get_param('id');
+        $post = get_post($id);
+
+        if (!$post || $post->post_type !== 'vana_tour') {
+            return Vana_Utils::api_response(false, 'Tour não encontrada.', 404);
+        }
+
+        $force  = (bool) $req->get_param('force');
+        $result = wp_delete_post($id, $force);
+
+        if (!$result) {
+            return Vana_Utils::api_response(false, 'Falha ao excluir.', 500);
+        }
+
+        return Vana_Utils::api_response(true, $force ? 'Tour excluída permanentemente.' : 'Tour movida para lixeira.', 200, [
+            'tour_id' => $id,
+            'action'  => $force ? 'deleted' : 'trashed',
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // FORMATTERS
+    // ══════════════════════════════════════════════════════════════
+
+    private static function format_visit(WP_Post $post): array {
+        $id = $post->ID;
+        return [
+            'id'           => $id,
+            'origin_key'   => get_post_meta($id, '_vana_origin_key',              true),
+            'tour_key'     => get_post_meta($id, '_vana_parent_tour_origin_key',  true),
+            'title'        => $post->post_title,
+            'status'       => $post->post_status,
+            'slug'         => $post->post_name,
+            'permalink'    => get_permalink($id),
+            'start_date'   => get_post_meta($id, '_vana_start_date',              true),
+            'end_date'     => get_post_meta($id, '_vana_end_date',                true),
+            'timezone'     => get_post_meta($id, '_vana_tz',                      true),
+            'cover_url'    => get_post_meta($id, '_vana_cover_url',               true),
+            'schema_ver'   => get_post_meta($id, '_vana_timeline_schema_version', true),
+            'updated_at'   => get_post_meta($id, '_vana_timeline_updated_at',     true),
+            'hash'         => get_post_meta($id, '_vana_timeline_hash',           true),
+            'created_at'   => $post->post_date,
+        ];
+    }
+
+    private static function format_tour(WP_Post $post): array {
+        $id = $post->ID;
+        return [
+            'id'              => $id,
+            'origin_key'      => get_post_meta($id, '_vana_origin_key',        true),
+            'title'           => $post->post_title,
+            'status'          => $post->post_status,
+            'slug'            => $post->post_name,
+            'permalink'       => get_permalink($id),
+            'is_current'      => (bool) get_post_meta($id, '_tour_is_current', true),
+            'last_visit_id'   => (int)  get_post_meta($id, '_vana_last_visit_id', true),
+            'current_visit_id'=> (int)  get_post_meta($id, '_vana_current_visit_id', true),
+            'cover_url'       => get_post_meta($id, '_vana_cover_url',         true),
+            'created_at'      => $post->post_date,
+        ];
+    }
+}

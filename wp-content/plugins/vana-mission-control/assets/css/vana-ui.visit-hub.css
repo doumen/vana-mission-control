@@ -1,0 +1,130 @@
+/*── Visit Hub ──────────────────────────────────────────*/
+.vana-visit-hub-meta {
+    background:   var(--vana-bg-soft);
+    border:       1px solid var(--vana-line);
+    border-radius: 12px;
+    padding:      1.5rem;
+    margin-bottom: 2rem;
+    display:      grid;
+    gap:          1.5rem;
+
+    @media (min-width: 768px) {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.vana-hub-item {
+    text-align: center;
+}
+
+.vana-hub-item__label {
+    display:      block;
+    font-size:    0.85rem;
+    color:        var(--vana-muted);
+    margin-bottom: 0.25rem;
+}
+
+.vana-hub-item__value {
+    display:      block;
+    font-size:    1.2rem;
+    font-weight:  700;
+    color:        var(--vana-text);
+    font-family:  'Syne', sans-serif;
+}
+
+.vana-hub-item__link {
+    font-size:    0.9rem;
+    color:        var(--vana-blue);
+    text-decoration: underline;
+}
+
+/* ── Stage ────────────────────────────────────────────── */
+.vana-stage-wrap {
+    background:   var(--vana-bg-soft);
+    border:       1px solid var(--vana-line);
+    border-radius: 12px;
+    overflow:     hidden; /* Para vídeos e players */
+    margin-bottom: 2rem;
+}
+
+#vana-stage {
+    min-height:   300px; /* Garante altura mínima para loading */
+    display:      flex;
+    align-items:  center;
+    justify-content: center;
+    font-size:    1.2rem;
+    color:        var(--vana-muted);
+}
+
+#vana-stage-info {
+    padding: 1.5rem;
+}
+
+/* ── Event Selector ───────────────────────────────────── */
+.vana-event-selector {
+    margin-bottom: 1.5rem;
+}
+
+.vana-event-selector__list {
+    display:   flex;
+    flex-wrap: wrap;
+    gap:       8px;
+}
+
+.vana-event-btn {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     flex-start;
+    gap:             4px;
+    padding:         10px 16px;
+    background:      var(--vana-bg-soft);
+    border:          1px solid var(--vana-line);
+    border-radius:   10px;
+    cursor:          pointer;
+    transition:      border-color .2s, background .2s, opacity .15s;
+    min-width:       120px;
+    text-align:      left;
+}
+
+.vana-event-btn:hover {
+    border-color: var(--vana-blue);
+    background:   rgba(74, 163, 255, 0.06);
+}
+
+.vana-event-btn--active {
+    border-color: var(--vana-gold);
+    background:   rgba(255, 215, 0, 0.08);
+}
+
+.vana-event-btn--loading {
+    opacity: .5;
+    pointer-events: none;
+}
+
+.vana-event-btn__time {
+    font-size:   .8rem;
+    color:       var(--vana-muted);
+    font-weight: 700;
+}
+
+.vana-event-btn__title {
+    font-size:   .95rem;
+    font-weight: 700;
+    color:       var(--vana-text);
+    font-family: 'Syne', sans-serif;
+}
+
+.vana-event-btn__badge {
+    font-size:     .75rem;
+    border-radius: 4px;
+    padding:       2px 6px;
+    font-weight:   700;
+}
+
+.badge--live { background: rgba(239,68,68,.15); color: #ef4444; }
+.badge--done { background: rgba(34,197,94,.15); color: #22c55e; }
+.badge--soon { background: rgba(234,179, 8,.15); color: #ca8a04; }
+.badge--off  { background: rgba(107,114,128,.15); color: #6b7280; }
+
+/* Stage — transição de opacity controlada pelo JS */
+#vana-stage { transition: opacity .15s ease; }

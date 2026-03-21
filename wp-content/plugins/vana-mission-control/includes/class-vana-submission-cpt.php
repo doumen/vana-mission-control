@@ -1,0 +1,967 @@
+<?php
+/**
+ * CPT: vana_submission — Oferendas da Sangha
+ * Arquivo: includes/class-vana-submission-cpt.php
+ * Version: 2.1.0 — canônica
+ *
+ * Schema _media_items (JSON array):
+ * [
+ *   {
+ *     "type":            "image",
+ *     "subtype":         "devotee"|"gurudeva",
+ *     "url":             "https://…/foto.webp",
+ *     "attachment_id":   123,
+ *     "caption":         "...",
+ *     "order":           0,
+ *     "status":          "pending"|"approved"|"rejected",
+ *     "gurudeva_confirmed": false   // só subtype gurudeva
+ *   },
+ *   {
+ *     "type":      "video",
+ *     "provider":  "youtube"|"drive"|"facebook"|"external",
+ *     "url":       "https://…",
+ *     "video_id":  "abc123",
+ *     "caption":   "...",
+ *     "order":     1,
+ *     "status":    "pending"|"approved"|"rejected"
+ *   }
+ * ]
+ *
+ * Metas de contexto:
+ *   _visit_id, _sender_display_name, _message,
+ *   _submitted_at, _consent_publish
+ *
+ * Metas de localização (privadas):
+ *   _vana_public_user_city
+ *   _vana_user_lat_blurred, _vana_user_lng_blurred
+ *
+ * Metas legadas (só leitura):
+ *   _image_url, _external_url
+ */
+defined('ABSPATH') || exit;
+
+final class Vana_Submission_CPT {
+
+    // ── Limites ───────────────────────────────────────────────────
+    public const MAX_IMAGES      = 12;
+    public const MAX_VIDEO_LINKS = 3;
+    public const MAX_MEDIA_ITEMS = 15;
+    public const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB bruto
+
+    // ── Perfis de qualidade por subtype ──────────────────────────
+    public const IMAGE_PROFILES = [
+        'devotee'  => ['max_px' => 1200, 'quality' => 80],
+        'gurudeva' => ['max_px' => 1920, 'quality' => 85],
+    ];
+
+    // ── MIME aceitos ──────────────────────────────────────────────
+    public const ALLOWED_MIME = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+    ];
+
+    // ── Providers de vídeo aceitos ────────────────────────────────
+    public const ALLOWED_HOSTS = [
+        'youtube.com', 'youtu.be',
+        'drive.google.com',
+        'facebook.com', 'fb.watch',
+    ];
+
+    // ── Status possíveis de um item de mídia ─────────────────────
+    public const ITEM_STATUS_PENDING  = 'pending';
+    public const ITEM_STATUS_APPROVED = 'approved';
+    public const ITEM_STATUS_REJECTED = 'rejected';
+
+    // ── Init ──────────────────────────────────────────────────────
+    public static function init(): void {
+        add_action('init', [__CLASS__, 'register']);
+        add_action('init', [__CLASS__, 'register_meta']);
+
+        // Admin list table
+        add_filter('manage_vana_submission_posts_columns',
+            [__CLASS__, 'admin_columns']);
+        add_action('manage_vana_submission_posts_custom_column',
+            [__CLASS__, 'admin_column_content'], 10, 2);
+
+        // Ordenação
+        add_filter('manage_edit-vana_submission_sortable_columns',
+            [__CLASS__, 'admin_sortable_columns']);
+        add_action('pre_get_posts',
+            [__CLASS__, 'admin_orderby_meta']);
+
+        // Filtro por visita
+        add_action('restrict_manage_posts',
+            [__CLASS__, 'admin_visit_filter']);
+        add_action('pre_get_posts',
+            [__CLASS__, 'admin_apply_visit_filter']);
+
+        // Meta box de curadoria granular
+        add_action('add_meta_boxes',
+            [__CLASS__, 'register_curation_metabox']);
+        add_action('save_post_vana_submission',
+            [__CLASS__, 'save_curation_metabox'], 10, 2);
+
+        // CSS admin
+        add_action('admin_head',
+            [__CLASS__, 'admin_inline_css']);
+        add_action('wp_enqueue_scripts', [__CLASS__, 'enqueue_oferenda_assets']);
+    }
+
+    // ── Registro do CPT ───────────────────────────────────────────
+    public static function register(): void {
+        register_post_type('vana_submission', [
+            'labels' => [
+                'name'          => 'Oferendas',
+                'singular_name' => 'Oferenda',
+                'menu_name'     => 'Oferendas',
+                'all_items'     => 'Todas as Oferendas',
+                'add_new_item'  => 'Adicionar Oferenda',
+                'edit_item'     => 'Editar Oferenda',
+                'search_items'  => 'Buscar Oferendas',
+                'not_found'     => 'Nenhuma oferenda encontrada.',
+            ],
+            'public'          => false,
+            'show_ui'         => true,
+            'show_in_menu'    => true,
+            'menu_position'   => 22,
+            'menu_icon'       => 'dashicons-heart',
+            'supports'        => ['title', 'custom-fields'],
+            'has_archive'     => false,
+            'show_in_rest'    => true,
+            'capability_type' => 'post',
+        ]);
+    }
+
+    // ── Registro de Metas ─────────────────────────────────────────
+    public static function register_meta(): void {
+
+        $auth = '__return_true';
+
+        $int_meta = [
+            '_visit_id', '_submitted_at', '_consent_publish',
+        ];
+        foreach ($int_meta as $key) {
+            register_post_meta('vana_submission', $key, [
+                'type'              => 'integer',
+                'single'            => true,
+                'show_in_rest'      => true,
+                'auth_callback'     => $auth,
+                'sanitize_callback' => 'absint',
+            ]);
+        }
+
+        $str_meta = [
+            '_sender_display_name' => 'sanitize_text_field',
+            '_message'             => 'sanitize_textarea_field',
+        ];
+        foreach ($str_meta as $key => $san) {
+            register_post_meta('vana_submission', $key, [
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => true,
+                'auth_callback'     => $auth,
+                'sanitize_callback' => $san,
+            ]);
+        }
+
+        // Mídias — JSON, sem sanitize automático
+        register_post_meta('vana_submission', '_media_items', [
+            'type'          => 'string',
+            'single'        => true,
+            'show_in_rest'  => true,
+            'auth_callback' => $auth,
+        ]);
+
+        // Localização — cidade pública
+        register_post_meta('vana_submission', '_vana_public_user_city', [
+            'type'              => 'string',
+            'single'            => true,
+            'show_in_rest'      => true,
+            'auth_callback'     => $auth,
+            'sanitize_callback' => 'sanitize_text_field',
+        ]);
+
+        // Coordenadas ofuscadas — PRIVADAS
+        foreach (['_vana_user_lat_blurred', '_vana_user_lng_blurred'] as $key) {
+            register_post_meta('vana_submission', $key, [
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => false,
+                'auth_callback'     => $auth,
+                'sanitize_callback' => 'sanitize_text_field',
+            ]);
+        }
+
+        // Metas legadas — só leitura
+        foreach (['_image_url', '_external_url'] as $key) {
+            register_post_meta('vana_submission', $key, [
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => false,
+                'auth_callback'     => $auth,
+                'sanitize_callback' => 'esc_url_raw',
+            ]);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  HELPERS ESTÁTICOS
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Lê _media_items com fallback para schema legado.
+     */
+    public static function get_media_items(int $post_id): array {
+        $raw = get_post_meta($post_id, '_media_items', true);
+
+        if ($raw !== '' && $raw !== false) {
+            $decoded = json_decode((string) $raw, true);
+            if (is_array($decoded) && !empty($decoded)) {
+                return $decoded;
+            }
+        }
+
+        // Fallback legado
+        $items = [];
+        $img   = (string) get_post_meta($post_id, '_image_url',    true);
+        $ext   = (string) get_post_meta($post_id, '_external_url', true);
+
+        if ($img !== '') {
+            $items[] = [
+                'type'    => 'image',
+                'subtype' => 'devotee',
+                'url'     => $img,
+                'status'  => self::ITEM_STATUS_APPROVED,
+                'order'   => 0,
+            ];
+        }
+
+        if ($ext !== '') {
+            $item          = self::build_video_item($ext, count($items));
+            $item['status'] = self::ITEM_STATUS_APPROVED;
+            $items[]       = $item;
+        }
+
+        return $items;
+    }
+
+    /**
+     * Salva array de MediaItems como JSON.
+     * Normaliza order sequencial automaticamente.
+     */
+    public static function save_media_items(int $post_id, array $items): void {
+        foreach ($items as $i => &$item) {
+            $item['order'] = $i;
+        }
+        unset($item);
+
+        update_post_meta(
+            $post_id,
+            '_media_items',
+            wp_json_encode(
+                $items,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            )
+        );
+    }
+
+    /**
+     * Retorna perfil de resize para um subtype.
+     */
+    public static function get_image_profile(string $subtype): array {
+        return self::IMAGE_PROFILES[$subtype]
+            ?? self::IMAGE_PROFILES['devotee'];
+    }
+
+    /**
+     * Constrói um MediaItem de vídeo a partir de URL.
+     * Detecta provider e extrai video_id.
+     */
+    public static function build_video_item(string $url, int $order = 0): array {
+        $url      = esc_url_raw(trim($url));
+        $provider = 'external';
+        $video_id = '';
+
+        if (
+            str_contains($url, 'youtube.com') ||
+            str_contains($url, 'youtu.be')
+        ) {
+            $provider = 'youtube';
+            if (preg_match(
+                '%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/'.
+                '|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i',
+                $url, $m
+            )) {
+                $video_id = $m[1];
+            }
+
+        } elseif (str_contains($url, 'drive.google.com')) {
+            $provider = 'drive';
+            if (preg_match('~/d/([a-zA-Z0-9_-]+)~', $url, $m)) {
+                $video_id = $m[1];
+            }
+
+        } elseif (
+            str_contains($url, 'facebook.com') ||
+            str_contains($url, 'fb.watch')
+        ) {
+            $provider = 'facebook';
+        }
+
+        return [
+            'type'     => 'video',
+            'provider' => $provider,
+            'url'      => $url,
+            'video_id' => $video_id,
+            'caption'  => '',
+            'status'   => self::ITEM_STATUS_PENDING,
+            'order'    => $order,
+        ];
+    }
+
+    /**
+     * Retorna thumbnail URL de um MediaItem.
+     */
+    public static function get_item_thumb(array $item): string {
+        $type = (string) ($item['type'] ?? '');
+
+        if ($type === 'image') {
+            return (string) ($item['url'] ?? '');
+        }
+
+        if ($type === 'video') {
+            $provider = (string) ($item['provider'] ?? '');
+            $video_id = (string) ($item['video_id'] ?? '');
+
+            if ($provider === 'youtube' && $video_id !== '') {
+                return "https://img.youtube.com/vi/{$video_id}/hqdefault.jpg";
+            }
+            if ($provider === 'drive' && $video_id !== '') {
+                return "https://drive.google.com/thumbnail?id={$video_id}&sz=w400";
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Contagem por tipo.
+     * Retorna ['image' => n, 'video' => n,
+     *          'gurudeva' => n, 'pending' => n]
+     */
+    public static function count_by_type(array $items): array {
+        $counts = [
+            'image'    => 0,
+            'video'    => 0,
+            'gurudeva' => 0,
+            'pending'  => 0,
+        ];
+        foreach ($items as $item) {
+            $type    = (string) ($item['type']    ?? '');
+            $subtype = (string) ($item['subtype'] ?? '');
+            $status  = (string) ($item['status']  ?? self::ITEM_STATUS_PENDING);
+
+            if ($type === 'image') $counts['image']++;
+            if ($type === 'video') $counts['video']++;
+            if ($subtype === 'gurudeva') $counts['gurudeva']++;
+            if ($status  === self::ITEM_STATUS_PENDING) $counts['pending']++;
+        }
+        return $counts;
+    }
+
+    /**
+     * Verifica se há fotos gurudeva não confirmadas.
+     * Usado pelo metabox para bloquear aprovação.
+     */
+    public static function has_unconfirmed_gurudeva(array $items): bool {
+        foreach ($items as $item) {
+            if (
+                ($item['type']    ?? '')  === 'image' &&
+                ($item['subtype'] ?? '')  === 'gurudeva' &&
+                ($item['status']  ?? '')  !== self::ITEM_STATUS_REJECTED &&
+                empty($item['gurudeva_confirmed'])
+            ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  ADMIN — List Table
+    // ════════════════════════════════════════════════════════════
+
+    public static function admin_columns(array $columns): array {
+        return [
+            'cb'          => $columns['cb'] ?? '<input type="checkbox">',
+            'title'       => 'Devoto(a)',
+            'visit_id'    => 'Visita',
+            'subtype_col' => 'Tipo',
+            'media_thumb' => 'Prévia',
+            'media_count' => 'Mídias',
+            'status_col'  => 'Status',
+            'date'        => $columns['date'] ?? 'Data',
+        ];
+    }
+
+    public static function admin_column_content(
+        string $column,
+        int $post_id
+    ): void {
+        switch ($column) {
+
+            case 'subtype_col': {
+                $st = (string) get_post_meta($post_id, '_subtype', true);
+                $labels = [
+                    'devotee'         => '<span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:10px;font-size:11px">👤 Devoto</span>',
+                    'gurudeva'        => '<span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:10px;font-size:11px">🙏 Gurudeva</span>',
+                    'gurudeva_gallery'=> '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:11px">🖼️ Galeria</span>',
+                ];
+                echo $labels[$st] ?? '<span style="color:#94a3b8">' . esc_html($st ?: '—') . '</span>';
+                break;
+            }
+
+            case 'visit_id': {
+                $vid   = (int) get_post_meta($post_id, '_visit_id', true);
+                $link  = $vid ? get_edit_post_link($vid) : '';
+                $title = $vid ? (get_the_title($vid) ?: "#{$vid}") : '';
+                echo $vid
+                    ? '<a href="' . esc_url((string) $link) . '">'
+                      . esc_html($title) . '</a>'
+                    : '—';
+                break;
+            }
+
+            case 'media_thumb': {
+                $items = self::get_media_items($post_id);
+                if (empty($items)) {
+                    echo '<span style="color:#94a3b8">—</span>';
+                    break;
+                }
+
+                $shown = false;
+                foreach ($items as $item) {
+                    $thumb = self::get_item_thumb($item);
+                    if ($thumb !== '') {
+                        $rejected = ($item['status'] ?? '') === self::ITEM_STATUS_REJECTED;
+                        echo '<img src="' . esc_url($thumb) . '" '
+                           . 'style="width:60px;height:40px;object-fit:cover;'
+                           . 'border-radius:4px;border:1px solid #e2e8f0;'
+                           . ($rejected ? 'opacity:.35;' : '') . '" '
+                           . 'loading="lazy" alt="">';
+                        $shown = true;
+                        break;
+                    }
+                }
+
+                if (!$shown) {
+                    echo '<span class="dashicons dashicons-video-alt3" '
+                       . 'style="color:#1877f2;font-size:24px;'
+                       . 'width:24px;height:24px;" title="Vídeo"></span>';
+                }
+                break;
+            }
+
+            case 'media_count': {
+                $items  = self::get_media_items($post_id);
+                $counts = self::count_by_type($items);
+                $parts  = [];
+
+                if ($counts['image'] > 0) {
+                    $parts[] = '<span title="Fotos" class="vana-count-badge">'
+                             . '<span class="dashicons dashicons-format-image" '
+                             . 'style="color:#10b981"></span>'
+                             . esc_html((string) $counts['image'])
+                             . '</span>';
+                }
+                if ($counts['video'] > 0) {
+                    $parts[] = '<span title="Vídeos" class="vana-count-badge">'
+                             . '<span class="dashicons dashicons-video-alt3" '
+                             . 'style="color:#3b82f6"></span>'
+                             . esc_html((string) $counts['video'])
+                             . '</span>';
+                }
+                if ($counts['gurudeva'] > 0) {
+                    $parts[] = '<span title="Fotos de Gurudeva" class="vana-count-badge">'
+                             . '<span class="dashicons dashicons-admin-users" '
+                             . 'style="color:#f59e0b"></span>'
+                             . esc_html((string) $counts['gurudeva'])
+                             . '</span>';
+                }
+                if ($counts['pending'] > 0) {
+                    $parts[] = '<span title="Itens pendentes" class="vana-count-badge">'
+                             . '<span class="dashicons dashicons-clock" '
+                             . 'style="color:#ef4444"></span>'
+                             . esc_html((string) $counts['pending'])
+                             . '</span>';
+                }
+
+                echo $parts
+                    ? '<div class="vana-count-wrap">' . implode('', $parts) . '</div>'
+                    : '<span class="dashicons dashicons-format-quote" '
+                      . 'title="Só mensagem" style="color:#f59e0b"></span>';
+                break;
+            }
+
+            case 'status_col': {
+                $status = get_post_status($post_id);
+                $map    = [
+                    'pending' => ['#d97706', 'Aguardando'],
+                    'publish' => ['#15803d', 'Aprovado'],
+                    'draft'   => ['#64748b', 'Rascunho'],
+                    'trash'   => ['#94a3b8', 'Lixeira'],
+                ];
+                [$bg, $label] = $map[$status] ?? ['#64748b', ucfirst($status)];
+                echo '<span style="background:' . esc_attr($bg) . ';color:#fff;'
+                   . 'padding:3px 8px;border-radius:6px;'
+                   . 'font-weight:700;font-size:.78rem;">'
+                   . esc_html($label) . '</span>';
+                break;
+            }
+        }
+    }
+
+    public static function admin_sortable_columns(array $columns): array {
+        $columns['status_col'] = 'status_col';
+        $columns['visit_id']   = 'visit_id';
+        return $columns;
+    }
+
+    public static function admin_orderby_meta(WP_Query $query): void {
+        if (!is_admin() || !$query->is_main_query()) return;
+        if (($query->get('post_type') ?? '') !== 'vana_submission') return;
+        if (!$query->get('orderby')) {
+            $query->set('orderby', 'date');
+            $query->set('order',   'DESC');
+        }
+    }
+
+    public static function admin_visit_filter(): void {
+        global $typenow;
+        if ($typenow !== 'vana_submission') return;
+
+        $current = isset($_GET['vana_filter_visit'])
+            ? absint($_GET['vana_filter_visit'])
+            : 0;
+
+        global $wpdb;
+        $visit_ids = $wpdb->get_col(
+            "SELECT DISTINCT meta_value
+             FROM {$wpdb->postmeta}
+             WHERE meta_key = '_visit_id'
+               AND meta_value != ''
+             ORDER BY meta_value DESC
+             LIMIT 100"
+        );
+
+        echo '<select name="vana_filter_visit">';
+        echo '<option value="0">Todas as Visitas</option>';
+        foreach ($visit_ids as $vid) {
+            $vid   = (int) $vid;
+            $title = get_the_title($vid) ?: "Visita #{$vid}";
+            echo '<option value="' . esc_attr((string) $vid) . '"'
+               . selected($current, $vid, false) . '>'
+               . esc_html($title) . '</option>';
+        }
+        echo '</select>';
+    }
+
+    public static function admin_apply_visit_filter(WP_Query $query): void {
+        if (!is_admin() || !$query->is_main_query()) return;
+        if (($query->get('post_type') ?? '') !== 'vana_submission') return;
+
+        $vid = isset($_GET['vana_filter_visit'])
+            ? absint($_GET['vana_filter_visit'])
+            : 0;
+
+        if ($vid > 0) {
+            $query->set('meta_query', [[
+                'key'     => '_visit_id',
+                'value'   => $vid,
+                'compare' => '=',
+                'type'    => 'NUMERIC',
+            ]]);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  ADMIN — Meta Box de Curadoria Granular
+    // ════════════════════════════════════════════════════════════
+
+    public static function register_curation_metabox(): void {
+        add_meta_box(
+            'vana_submission_curation',
+            '🎛️ Curadoria de Mídias',
+            [__CLASS__, 'render_curation_metabox'],
+            'vana_submission',
+            'normal',
+            'high'
+        );
+    }
+
+    public static function render_curation_metabox(WP_Post $post): void {
+        $items   = self::get_media_items($post->ID);
+        $has_guru = self::has_unconfirmed_gurudeva($items);
+
+        wp_nonce_field('vana_curation_save', 'vana_curation_nonce');
+        ?>
+        <div class="vana-curation-wrap">
+
+        <?php if (empty($items)) : ?>
+            <p style="color:#64748b;font-style:italic;">
+                Esta oferenda não possui mídias — somente mensagem de texto.
+            </p>
+        <?php else : ?>
+
+            <?php if ($has_guru) : ?>
+            <div class="vana-curation-alert">
+                ⚠️ <strong>Atenção:</strong> Esta oferenda contém fotos de Gurudeva.
+                Confirme a presença de Gurudeva em cada foto antes de aprovar.
+            </div>
+            <?php endif; ?>
+
+            <div class="vana-curation-grid">
+            <?php foreach ($items as $idx => $item) :
+                $type     = (string) ($item['type']               ?? 'image');
+                $subtype  = (string) ($item['subtype']            ?? 'devotee');
+                $status   = (string) ($item['status']             ?? self::ITEM_STATUS_PENDING);
+                $caption  = (string) ($item['caption']            ?? '');
+                $guru_ok  = !empty($item['gurudeva_confirmed']);
+                $thumb    = self::get_item_thumb($item);
+                $is_guru  = ($subtype === 'gurudeva');
+                $is_video = ($type === 'video');
+
+                $provider = (string) ($item['provider'] ?? '');
+                $url      = (string) ($item['url']      ?? '');
+                $name     = "vana_media[{$idx}]";
+            ?>
+            <div class="vana-curation-item
+                <?php echo $is_guru  ? ' is-gurudeva' : ''; ?>
+                <?php echo $is_video ? ' is-video'    : ''; ?>
+                <?php echo $status === self::ITEM_STATUS_REJECTED
+                    ? ' is-rejected' : ''; ?>"
+                 data-idx="<?php echo esc_attr((string) $idx); ?>">
+
+                <?php /* ── Prévia ── */ ?>
+                <div class="vana-curation-thumb">
+                    <?php if ($thumb !== '') : ?>
+                        <img src="<?php echo esc_url($thumb); ?>"
+                             alt="" loading="lazy">
+                    <?php elseif ($is_video) : ?>
+                        <div class="vana-curation-no-thumb">
+                            <span class="dashicons dashicons-video-alt3"></span>
+                            <small><?php echo esc_html(ucfirst($provider)); ?></small>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($is_guru) : ?>
+                        <span class="vana-curation-badge gurudeva">🙏 Gurudeva</span>
+                    <?php else : ?>
+                        <span class="vana-curation-badge devotee">👤 Devoto</span>
+                    <?php endif; ?>
+                </div>
+
+                <?php /* ── URL do item (somente leitura) ── */ ?>
+                <?php if ($is_video) : ?>
+                <p class="vana-curation-url">
+                    <a href="<?php echo esc_url($url); ?>"
+                       target="_blank" rel="noopener">
+                        <?php echo esc_html($url); ?>
+                    </a>
+                </p>
+                <?php endif; ?>
+
+                <?php /* ── Legenda editável ── */ ?>
+                <label class="vana-curation-label">
+                    Legenda
+                    <input type="text"
+                           name="<?php echo esc_attr($name); ?>[caption]"
+                           value="<?php echo esc_attr($caption); ?>"
+                           placeholder="Opcional…"
+                           class="widefat">
+                </label>
+
+                <?php /* ── Checkbox Gurudeva confirmado ── */ ?>
+                <?php if ($is_guru) : ?>
+                <label class="vana-curation-guru-confirm
+                    <?php echo $guru_ok ? ' is-confirmed' : ''; ?>">
+                    <input type="checkbox"
+                           name="<?php echo esc_attr($name); ?>[gurudeva_confirmed]"
+                           value="1"
+                           <?php checked($guru_ok); ?>>
+                    ✅ Confirmo que Gurudeva está presente nesta foto
+                </label>
+                <?php endif; ?>
+
+                <?php /* ── Status do item ── */ ?>
+                <div class="vana-curation-actions">
+                    <?php foreach ([
+                        self::ITEM_STATUS_PENDING  => ['⏳', 'Pendente',  '#d97706'],
+                        self::ITEM_STATUS_APPROVED => ['✅', 'Aprovado',  '#15803d'],
+                        self::ITEM_STATUS_REJECTED => ['🗑️', 'Rejeitar', '#dc2626'],
+                    ] as $val => [$icon, $lbl, $color]) : ?>
+                    <label class="vana-curation-radio
+                        <?php echo $status === $val ? ' is-active' : ''; ?>"
+                        style="--accent:<?php echo esc_attr($color); ?>">
+                        <input type="radio"
+                               name="<?php echo esc_attr($name); ?>[status]"
+                               value="<?php echo esc_attr($val); ?>"
+                               <?php checked($status, $val); ?>>
+                        <?php echo $icon . ' ' . esc_html($lbl); ?>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php /* ── Hidden fields para preservar dados imutáveis ── */ ?>
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[type]"
+                       value="<?php echo esc_attr($type); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[subtype]"
+                       value="<?php echo esc_attr($subtype); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[url]"
+                       value="<?php echo esc_attr($url); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[attachment_id]"
+                       value="<?php echo esc_attr(
+                           (string) ($item['attachment_id'] ?? '')
+                       ); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[provider]"
+                       value="<?php echo esc_attr($provider); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[video_id]"
+                       value="<?php echo esc_attr(
+                           (string) ($item['video_id'] ?? '')
+                       ); ?>">
+                <input type="hidden"
+                       name="<?php echo esc_attr($name); ?>[order]"
+                       value="<?php echo esc_attr((string) $idx); ?>">
+
+            </div>
+            <?php endforeach; ?>
+            </div>
+
+        <?php endif; ?>
+        </div>
+        <?php
+    }
+
+    public static function save_curation_metabox(
+        int $post_id,
+        WP_Post $post
+    ): void {
+
+        // Verificações de segurança
+        if (
+            !isset($_POST['vana_curation_nonce']) ||
+            !wp_verify_nonce(
+                sanitize_text_field(wp_unslash($_POST['vana_curation_nonce'])),
+                'vana_curation_save'
+            )
+        ) return;
+
+        if (!current_user_can('edit_post', $post_id)) return;
+        if (wp_is_post_autosave($post_id) || wp_is_post_revision($post_id)) return;
+
+        $raw_media = $_POST['vana_media'] ?? [];
+        if (!is_array($raw_media) || empty($raw_media)) return;
+
+        $items = [];
+
+        foreach ($raw_media as $idx => $raw) {
+            $type    = sanitize_text_field((string) ($raw['type']    ?? 'image'));
+            $subtype = sanitize_text_field((string) ($raw['subtype'] ?? 'devotee'));
+            $status  = sanitize_text_field((string) ($raw['status']  ?? self::ITEM_STATUS_PENDING));
+            $caption = sanitize_text_field((string) ($raw['caption'] ?? ''));
+            $url     = esc_url_raw(         (string) ($raw['url']    ?? ''));
+            $att_id  = absint(               $raw['attachment_id'] ?? 0);
+            $prov    = sanitize_text_field((string) ($raw['provider']  ?? ''));
+            $vid_id  = sanitize_text_field((string) ($raw['video_id']  ?? ''));
+
+            // Valida status
+            if (!in_array($status, [
+                self::ITEM_STATUS_PENDING,
+                self::ITEM_STATUS_APPROVED,
+                self::ITEM_STATUS_REJECTED,
+            ], true)) {
+                $status = self::ITEM_STATUS_PENDING;
+            }
+
+            $item = [
+                'type'    => $type,
+                'subtype' => $subtype,
+                'url'     => $url,
+                'caption' => $caption,
+                'status'  => $status,
+                'order'   => (int) $idx,
+            ];
+
+            if ($att_id > 0)   $item['attachment_id']     = $att_id;
+            if ($prov !== '')   $item['provider']          = $prov;
+            if ($vid_id !== '') $item['video_id']          = $vid_id;
+
+            // Gurudeva confirmed
+            if ($subtype === 'gurudeva') {
+                $item['gurudeva_confirmed'] = !empty($raw['gurudeva_confirmed']);
+            }
+
+            $items[] = $item;
+        }
+
+        self::save_media_items($post_id, $items);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  ADMIN — CSS Inline
+    // ════════════════════════════════════════════════════════════
+
+    public static function admin_inline_css(): void {
+        global $typenow;
+        if ($typenow !== 'vana_submission') return;
+        ?>
+        <style>
+        /* ── List Table ─────────────────────────────────── */
+        .vana-count-wrap {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        }
+        .vana-count-badge {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-weight: 700; font-size: .82rem;
+        }
+        .vana-count-badge .dashicons {
+            font-size: 14px; width: 14px; height: 14px;
+        }
+
+        /* ── Curadoria ──────────────────────────────────── */
+        .vana-curation-alert {
+            background: #fef3c7; border: 1px solid #fbbf24;
+            border-radius: 8px; padding: 10px 14px;
+            margin-bottom: 16px; font-size: .9rem; color: #92400e;
+        }
+        .vana-curation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .vana-curation-item {
+            border: 2px solid #e2e8f0; border-radius: 10px;
+            padding: 10px; background: #fff;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .vana-curation-item.is-gurudeva {
+            border-color: #fbbf24; background: #fffbeb;
+        }
+        .vana-curation-item.is-rejected {
+            opacity: .45; border-color: #fca5a5;
+        }
+        .vana-curation-thumb {
+            position: relative; width: 100%;
+            aspect-ratio: 16/9; overflow: hidden;
+            border-radius: 6px; background: #f1f5f9;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .vana-curation-thumb img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .vana-curation-no-thumb {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 4px; color: #94a3b8;
+        }
+        .vana-curation-no-thumb .dashicons {
+            font-size: 32px; width: 32px; height: 32px;
+        }
+        .vana-curation-badge {
+            position: absolute; top: 5px; left: 5px;
+            font-size: .68rem; font-weight: 800;
+            padding: 2px 7px; border-radius: 999px;
+            text-transform: uppercase; letter-spacing: .04em;
+        }
+        .vana-curation-badge.gurudeva {
+            background: #fef3c7; color: #92400e;
+            border: 1px solid #fbbf24;
+        }
+        .vana-curation-badge.devotee {
+            background: #f0fdf4; color: #14532d;
+            border: 1px solid #86efac;
+        }
+        .vana-curation-url {
+            font-size: .75rem; word-break: break-all;
+            color: #64748b; margin: 0;
+        }
+        .vana-curation-label {
+            font-size: .82rem; font-weight: 600;
+            color: #374151; display: flex;
+            flex-direction: column; gap: 3px;
+        }
+        .vana-curation-guru-confirm {
+            font-size: .82rem; font-weight: 700;
+            color: #92400e; background: #fef3c7;
+            border: 1px solid #fbbf24; border-radius: 6px;
+            padding: 6px 8px; display: flex;
+            align-items: center; gap: 6px; cursor: pointer;
+        }
+        .vana-curation-guru-confirm.is-confirmed {
+            background: #f0fdf4; border-color: #86efac; color: #14532d;
+        }
+        .vana-curation-actions {
+            display: flex; gap: 4px; flex-wrap: wrap;
+        }
+        .vana-curation-radio {
+            flex: 1; text-align: center;
+            padding: 5px 4px; border-radius: 6px;
+            font-size: .78rem; font-weight: 700; cursor: pointer;
+            border: 2px solid #e2e8f0; color: #374151;
+            transition: all .15s;
+        }
+        .vana-curation-radio input[type="radio"] {
+            display: none;
+        }
+        .vana-curation-radio.is-active {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #fff;
+        }
+        .vana-curation-radio:hover {
+            border-color: var(--accent);
+        }
+        </style>
+        <script>
+        /* Atualiza visual dos radio buttons de status */
+        document.addEventListener('change', function (e) {
+            if (!e.target.matches('[name*="[status]"]')) return;
+            var wrap = e.target.closest('.vana-curation-actions');
+            if (!wrap) return;
+            wrap.querySelectorAll('.vana-curation-radio').forEach(function (el) {
+                el.classList.toggle('is-active', el.querySelector('input').checked);
+            });
+            /* Dimming do card inteiro se rejeitado */
+            var card = e.target.closest('.vana-curation-item');
+            if (card) {
+                card.classList.toggle('is-rejected',
+                    e.target.value === 'rejected');
+            }
+        });
+        /* Toggle visual do checkbox gurudeva */
+        document.addEventListener('change', function (e) {
+            if (!e.target.matches('[name*="[gurudeva_confirmed]"]')) return;
+            var label = e.target.closest('.vana-curation-guru-confirm');
+            if (label) label.classList.toggle('is-confirmed', e.target.checked);
+        });
+        </script>
+        <?php
+    }
+
+    // ── Enqueue CSS front-end ─────────────────────────────────────
+    public static function enqueue_oferenda_assets(): void {
+        wp_enqueue_style(
+            'vana-oferenda-form',
+            plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/oferenda-form.css',
+            [],
+            '2.0.0'
+        );
+    }
+}
