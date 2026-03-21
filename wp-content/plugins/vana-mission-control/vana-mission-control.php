@@ -180,6 +180,9 @@ final class Vana_Mission_Control {
         Vana_Query_API::register();
         Vana_Hari_Katha_API::register();
         Vana_Ingest_Katha_API::register();
+        // ── FASE 4 — Stage endpoint semantico ───────────────
+        require_once VANA_MC_PATH . "includes/rest/class-vana-rest-stage.php";
+        (new Vana_REST_Stage())->register_routes();
         // ── FASE 5 — Stage Fragment HTMX ──────────────────────
         require_once VANA_MC_PATH . "includes/rest/class-vana-rest-stage-fragment.php";
         Vana_REST_Stage_Fragment::register();

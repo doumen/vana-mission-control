@@ -17,7 +17,8 @@
     'use strict';
 
     // ── Constantes ────────────────────────────────────────
-    const ENDPOINT   = '/wp-json/vana/v1/stage-fragment';
+    const ENDPOINT_V2 = '/wp-json/vana/v1/stage';
+    const ENDPOINT_FALLBACK = '/wp-json/vana/v1/stage-fragment';
     const CLS_ACTIVE = 'vana-event-btn--active';
     const CLS_LOAD   = 'vana-event-btn--loading';
 
@@ -41,8 +42,8 @@
     }
 
     /**
-     * Monta URL do endpoint com query params.
-     * Reutiliza /stage-fragment existente em produção.
+    * Monta URL do endpoint semantico com query params.
+    * /stage-fragment permanece como fallback e nao e removido.
      *
      * @param {string} visitId
      * @param {string} eventKey   (ex: "2026-03-21")
@@ -50,13 +51,30 @@
      * @returns {string}
      */
     function buildUrl( visitId, eventKey, lang ) {
+        const base = ENDPOINT_V2 + '/' + encodeURIComponent( eventKey );
+        const params = new URLSearchParams({
+            visit_id : visitId,
+            lang     : lang,
+        });
+        return base + '?' + params.toString();
+    }
+
+    /**
+     * URL legado para compatibilidade com /stage-fragment.
+     *
+     * @param {string} visitId
+     * @param {string} eventKey
+     * @param {string} lang
+     * @returns {string}
+     */
+    function buildLegacyUrl( visitId, eventKey, lang ) {
         const params = new URLSearchParams({
             visit_id  : visitId,
-            item_id   : eventKey,   // event_key como item_id
-            item_type : 'event',    // novo type reconhecido pelo endpoint
+            item_id   : eventKey,
+            item_type : 'event',
             lang      : lang,
         });
-        return ENDPOINT + '?' + params.toString();
+        return ENDPOINT_FALLBACK + '?' + params.toString();
     }
 
     // ── Feedback visual ───────────────────────────────────
@@ -143,10 +161,19 @@
         setLoading( btn, true );
 
         try {
-            const res = await fetch( buildUrl( visitId, eventKey, lang ), {
+            // Tenta endpoint novo primeiro.
+            let res = await fetch( buildUrl( visitId, eventKey, lang ), {
                 signal  : controller.signal,
                 headers : { 'X-Requested-With': 'XMLHttpRequest' },
             });
+
+            // Fallback automatico para rota legada quando o v2 falhar.
+            if ( ! res.ok ) {
+                res = await fetch( buildLegacyUrl( visitId, eventKey, lang ), {
+                    signal  : controller.signal,
+                    headers : { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+            }
 
             if ( ! res.ok ) {
                 throw new Error( `HTTP ${ res.status }` );
