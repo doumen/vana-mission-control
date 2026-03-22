@@ -87,6 +87,61 @@ $js_data = [
     return 0;
   }
 
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  var _vodIndex = null;
+
+  function getVodIndex() {
+    if (_vodIndex) return _vodIndex;
+
+    _vodIndex = {};
+
+    var timeline = CFG.timeline || {};
+    var days = Array.isArray(timeline.days) ? timeline.days : [];
+
+    function addVod(vod) {
+      if (!vod || typeof vod !== 'object') return;
+
+      var vodId = vod.id || vod.vod_id || '';
+      if (!vodId) return;
+
+      _vodIndex[String(vodId)] = vod;
+    }
+
+    days.forEach(function (day) {
+      var events = [];
+
+      if (Array.isArray(day.active_events)) {
+        events = day.active_events;
+      } else if (Array.isArray(day.events)) {
+        events = day.events;
+      }
+
+      events.forEach(function (event) {
+        var media = event && event.media ? event.media : {};
+        var vods = [];
+
+        if (Array.isArray(media.vods)) {
+          vods = media.vods;
+        } else if (Array.isArray(event.vods)) {
+          vods = event.vods;
+        } else if (event.vod && typeof event.vod === 'object') {
+          vods = [event.vod];
+        }
+
+        vods.forEach(addVod);
+      });
+    });
+
+    return _vodIndex;
+  }
+
   /**
    * Manda postMessage para o iframe do YouTube Stage.
    */
@@ -544,7 +599,7 @@ $js_data = [
 
   /* — Resolve VOD no índice e dispara swap + seek — */
   function loadAndPlay(vodId, segStart) {
-    var vodsIndex = (window.vanaDrawer && window.vanaDrawer.vods) ? window.vanaDrawer.vods : {};
+    var vodsIndex = getVodIndex();
     var vod = vodsIndex[vodId] || null;
 
     if (vod && vod.provider === 'youtube' && vod.video_id) {
@@ -680,7 +735,7 @@ $js_data = [
         }
         li.innerHTML =
           "<button class=\"vana-drawer__tour-btn\">" +
-            "<span class=\"vana-drawer__tour-name\">" + esc(tour.title) + "</span>" +
+            "<span class=\"vana-drawer__tour-name\">" + escHtml(tour.title) + "</span>" +
             "<span class=\"vana-drawer__tour-meta\">" + tour.visit_count +
               " visita" + (tour.visit_count !== 1 ? "s" : "") + "</span>" +
             "<svg class=\"vana-drawer__chevron\" width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" fill=\"none\">" +
@@ -738,9 +793,9 @@ $js_data = [
         var dot  = "vana-drawer__visit-dot" + (v.is_current ? "" : " vana-drawer__visit-dot--empty");
         var date = v.start_date ? fmtDate(v.start_date, wd.lang) : "";
         li.innerHTML =
-          "<a class=\"vana-drawer__visit-link\" href=\"" + esc(href) + "\">" +
+          "<a class=\"vana-drawer__visit-link\" href=\"" + escHtml(href) + "\">" +
             "<span class=\"" + dot + "\" aria-hidden=\"true\"></span>" +
-            "<span class=\"vana-drawer__visit-name\">" + esc(v.title) + "</span>" +
+            "<span class=\"vana-drawer__visit-name\">" + escHtml(v.title) + "</span>" +
             (date ? "<span class=\"vana-drawer__visit-date\">" + date + "</span>" : "") +
           "</a>";
         listEl.appendChild(li);
@@ -748,10 +803,6 @@ $js_data = [
       listEl.style.display = "block";
       var cur = listEl.querySelector(".is-current-visit");
       if (cur) setTimeout(function() { cur.scrollIntoView({ block: "center", behavior: "smooth" }); }, 100);
-    }
-
-    function esc(s) {
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     }
 
     function fmtDate(d, lang) {
@@ -795,6 +846,62 @@ $js_data = [
   }
 
   /* ----------------------------------------------------------
+     10. TITLE POPOVER
+     ---------------------------------------------------------- */
+  function initTitlePopover() {
+    var pop = document.createElement('div');
+    pop.className = 'vana-title-popover';
+    document.body.appendChild(pop);
+
+    var activeWrap = null;
+
+    function show(wrap) {
+      var full = wrap.dataset.titleFull || '';
+      if (!full) return;
+
+      pop.innerHTML = '<strong>' + escHtml(full) + '</strong>';
+
+      var rect = wrap.getBoundingClientRect();
+      var left = rect.left + 100;
+      var top  = rect.top + rect.height / 2;
+
+      if (left + 270 > window.innerWidth) {
+        left = rect.right - 270;
+      }
+
+      pop.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;transform:translateY(-50%);pointer-events:none;';
+      pop.classList.add('is-visible');
+      activeWrap = wrap;
+    }
+
+    function hide() {
+      pop.classList.remove('is-visible');
+      activeWrap = null;
+    }
+
+    document.addEventListener('click', function (e) {
+      var strong = e.target.closest('.vana-schedule-title strong');
+
+      if (strong) {
+        var wrap = strong.closest('.vana-schedule-item-wrap');
+        if (activeWrap === wrap) {
+          hide();
+        } else {
+          show(wrap);
+        }
+        e.stopPropagation();
+        return;
+      }
+
+      hide();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hide();
+    });
+  }
+
+  /* ----------------------------------------------------------
      7. INIT — aguarda DOM pronto
      ---------------------------------------------------------- */
   function init() {
@@ -805,7 +912,9 @@ $js_data = [
     initCopyLink();
     initTabsKeyboard();
     initScheduleVod();
+    initDrawer();
     initNotify();
+    initTitlePopover();
   }
 
   if (document.readyState === 'loading') {
@@ -815,269 +924,6 @@ $js_data = [
   }
 
 }(<?php echo wp_json_encode($js_data); ?>));
-/* =============================================================
-   10. VanaDrawer — gaveta de tours
-   ============================================================= */
-document.addEventListener('DOMContentLoaded', function () {
-
-  var drawer    = document.getElementById('vana-tour-drawer');
-  var overlay   = document.getElementById('vana-drawer-overlay');
-  var btnOpen   = document.querySelector('[data-drawer="vana-tour-drawer"]');
-  var btnClose  = drawer ? drawer.querySelector('.vana-drawer__close') : null;
-  var btnBack   = document.getElementById('vana-drawer-back');
-  var titleEl   = document.getElementById('vana-drawer-title');
-  var bodyL1    = document.getElementById('vana-drawer-body');
-  var bodyL2    = document.getElementById('vana-drawer-visits');
-  var loadingL1 = document.getElementById('vana-drawer-loading');
-  var loadingL2 = document.getElementById('vana-drawer-visits-loading');
-  var listL1    = document.getElementById('vana-drawer-tour-list');
-  var listL2    = document.getElementById('vana-drawer-visit-list');
-
-  if (!drawer || !btnOpen) {
-    console.warn('[VanaDrawer] Elemento não encontrado — abortando.');
-    return;
-  }
-
-  var state = {
-    toursLoaded  : false,
-    currentTourId: null,
-    visitId      : parseInt((window.vanaDrawer && window.vanaDrawer.visitId) || 0),
-    lang         : (window.vanaDrawer && window.vanaDrawer.lang)    || 'pt',
-    ajaxUrl      : (window.vanaDrawer && window.vanaDrawer.ajaxUrl) || '/wp-admin/admin-ajax.php',
-    nonce        : (window.vanaDrawer && window.vanaDrawer.nonce)   || '',
-  };
-
-  /* — Níveis — */
-  function setLevel(level) {
-    if (level === 1) {
-      bodyL1.style.display  = 'block';
-      bodyL2.style.display  = 'none';
-      btnBack.style.display = 'none';
-      titleEl.textContent   = 'Tours';
-    } else {
-      bodyL1.style.display  = 'none';
-      bodyL2.style.display  = 'block';
-      btnBack.style.display = 'flex';
-    }
-  }
-
-  /* — Abrir / Fechar — */
-  function openDrawer() {
-    drawer.classList.add('is-open');
-    overlay.classList.add('is-open');
-    btnOpen.setAttribute('aria-expanded', 'true');
-    document.body.style.overflow = 'hidden';
-    setLevel(1);
-    if (!state.toursLoaded) loadTours();
-  }
-
-  function closeDrawer() {
-    drawer.classList.remove('is-open');
-    overlay.classList.remove('is-open');
-    btnOpen.setAttribute('aria-expanded', 'false');
-    document.body.style.overflow = '';
-  }
-
-  /* — AJAX L1: Tours — */
-  function loadTours() {
-    loadingL1.style.display = 'flex';
-    listL1.style.display    = 'none';
-
-    var fd = new FormData();
-    fd.append('action',   'vana_get_tours');
-    fd.append('visit_id', state.visitId);
-    fd.append('_wpnonce', state.nonce);
-
-    fetch(state.ajaxUrl, { method: 'POST', body: fd })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (!res.success) throw new Error('Erro tours');
-        renderTours(res.data);
-        state.toursLoaded = true;
-      })
-      .catch(function () {
-        listL1.innerHTML     = '<li class="vana-drawer__error">Erro ao carregar tours.</li>';
-        listL1.style.display = 'block';
-      })
-      .finally(function () {
-        loadingL1.style.display = 'none';
-      });
-  }
-
-  /* — Render L1 — */
-  function renderTours(tours) {
-    listL1.innerHTML = '';
-    var autoOpenId   = null;
-
-    tours.forEach(function (tour) {
-      var li = document.createElement('li');
-      li.className = 'vana-drawer__tour-item';
-      if (tour.is_current) {
-        li.classList.add('is-current-tour');
-        autoOpenId = tour.id;
-      }
-      li.innerHTML =
-        '<button class="vana-drawer__tour-btn" data-tour-id="' + tour.id + '">' +
-          '<span class="vana-drawer__tour-name">' + escHtml(tour.title) + '</span>' +
-          '<span class="vana-drawer__tour-meta">' + tour.visit_count + ' visita' + (tour.visit_count !== 1 ? 's' : '') + '</span>' +
-          '<svg class="vana-drawer__chevron" width="12" height="12" viewBox="0 0 12 12" fill="none">' +
-            '<path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
-          '</svg>' +
-        '</button>';
-
-      li.querySelector('button').addEventListener('click', function () {
-        loadVisits(tour.id, tour.title);
-      });
-      listL1.appendChild(li);
-    });
-
-    listL1.style.display = 'block';
-
-    if (autoOpenId) {
-      var autoTitle = '';
-      tours.forEach(function (t) { if (t.id === autoOpenId) autoTitle = t.title; });
-      setTimeout(function () { loadVisits(autoOpenId, autoTitle); }, 120);
-    }
-  }
-
-  /* — AJAX L2: Visitas — */
-  function loadVisits(tourId, tourTitle) {
-    state.currentTourId     = tourId;
-    titleEl.textContent     = tourTitle;
-    setLevel(2);
-    loadingL2.style.display = 'flex';
-    listL2.style.display    = 'none';
-    listL2.innerHTML        = '';
-
-    var fd = new FormData();
-    fd.append('action',   'vana_get_tour_visits');
-    fd.append('tour_id',  tourId);
-    fd.append('visit_id', state.visitId);
-    fd.append('lang',     state.lang);
-    fd.append('_wpnonce', state.nonce);
-
-    fetch(state.ajaxUrl, { method: 'POST', body: fd })
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        if (!res.success) throw new Error('Erro visitas');
-        renderVisits(res.data);
-      })
-      .catch(function () {
-        listL2.innerHTML     = '<li class="vana-drawer__error">Erro ao carregar visitas.</li>';
-        listL2.style.display = 'block';
-      })
-      .finally(function () {
-        loadingL2.style.display = 'none';
-      });
-  }
-
-  /* — Render L2 — */
-  function renderVisits(visits) {
-    listL2.innerHTML = '';
-
-    visits.forEach(function (visit) {
-      var li = document.createElement('li');
-      li.className = 'vana-drawer__visit-item';
-      if (visit.is_current) li.classList.add('is-current-visit');
-
-      var href = state.lang === 'en'
-        ? visit.permalink + '?lang=en'
-        : visit.permalink;
-
-      var dotClass = 'vana-drawer__visit-dot' + (visit.is_current ? '' : ' vana-drawer__visit-dot--empty');
-      var dateHtml = visit.start_date
-        ? '<span class="vana-drawer__visit-date">' + formatDate(visit.start_date, state.lang) + '</span>'
-        : '';
-
-      li.innerHTML =
-        '<a class="vana-drawer__visit-link" href="' + escHtml(href) + '">' +
-          '<span class="' + dotClass + '" aria-hidden="true"></span>' +
-          '<span class="vana-drawer__visit-name">' + escHtml(visit.title) + '</span>' +
-          dateHtml +
-        '</a>';
-
-      listL2.appendChild(li);
-    });
-
-    listL2.style.display = 'block';
-
-    var current = listL2.querySelector('.is-current-visit');
-    if (current) {
-      setTimeout(function () {
-        current.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }, 100);
-    }
-  }
-
-  /* — Utils — */
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  function formatDate(dateStr, lang) {
-    if (!dateStr) return '';
-    try {
-      return new Date(dateStr + 'T12:00:00').toLocaleDateString(
-        lang === 'en' ? 'en-US' : 'pt-BR',
-        { day: 'numeric', month: 'short', year: 'numeric' }
-      );
-    } catch (e) { return dateStr; }
-  }
-
-  /* — Eventos — */
-  btnOpen.addEventListener('click',  openDrawer);
-  btnClose.addEventListener('click', closeDrawer);
-  btnBack.addEventListener('click',  function () { setLevel(1); });
-  overlay.addEventListener('click',  closeDrawer);
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeDrawer();
-  });
-
-
-  /* — Title Popover — */
-  (function () {
-    var pop = document.createElement('div');
-    pop.className = 'vana-title-popover';
-    document.body.appendChild(pop);
-    var _wrap = null;
-
-    function show(wrap) {
-      var full = wrap.dataset.titleFull || '';
-      if (!full) return;
-      pop.innerHTML = '<strong>' + escHtml(full) + '</strong>';
-      var rect = wrap.getBoundingClientRect();
-      var left = rect.left + 100;
-      var top  = rect.top + rect.height / 2;
-      if (left + 270 > window.innerWidth) left = rect.right - 270;
-      pop.style.cssText = 'position:fixed;top:' + top + 'px;left:' + left + 'px;transform:translateY(-50%);pointer-events:none;';
-      pop.classList.add('is-visible');
-      _wrap = wrap;
-    }
-
-    function hide() {
-      pop.classList.remove('is-visible');
-      _wrap = null;
-    }
-
-    document.addEventListener('click', function (e) {
-      var strong = e.target.closest('.vana-schedule-title strong');
-      if (strong) {
-        var wrap = strong.closest('.vana-schedule-item-wrap');
-        if (_wrap === wrap) { hide(); } else { show(wrap); }
-        e.stopPropagation();
-      } else { hide(); }
-    });
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') hide();
-    });
-  })();
-
-}); // fim DOMContentLoaded
-
 </script>
 
 <?php /* ── HARI-KATHĀ LOADER ─────────────────────────────────── */ ?>
