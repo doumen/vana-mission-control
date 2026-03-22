@@ -16,7 +16,11 @@ defined('ABSPATH') || exit;
 
 class Vana_REST_Stage_Fragment {
 
+    private const RAW_HTML_HEADER = 'X-Vana-Raw-HTML';
+
     public static function register(): void {
+        add_filter('rest_pre_serve_request', [__CLASS__, 'serve_raw_html'], 10, 4);
+
         register_rest_route('vana/v1', '/stage-fragment', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [__CLASS__, 'handle'],
@@ -30,8 +34,18 @@ class Vana_REST_Stage_Fragment {
                 'item_id' => [
                     'required'          => false,
                     'default'           => 0,
-                    'validate_callback' => fn($v) => is_numeric($v),
-                    'sanitize_callback' => 'absint',
+                    'validate_callback' => function ($v, WP_REST_Request $request) {
+                        if ((string) $request->get_param('item_type') === 'event') {
+                            return is_string($v) || is_numeric($v);
+                        }
+                        return is_numeric($v);
+                    },
+                    'sanitize_callback' => function ($v, WP_REST_Request $request) {
+                        if ((string) $request->get_param('item_type') === 'event') {
+                            return sanitize_text_field((string) $v);
+                        }
+                        return absint($v);
+                    },
                 ],
                 'item_type' => [
                     'required'          => false,
@@ -49,6 +63,26 @@ class Vana_REST_Stage_Fragment {
                 ],
             ],
         ]);
+    }
+
+    public static function serve_raw_html(bool $served, WP_HTTP_Response $result, WP_REST_Request $request, WP_REST_Server $server): bool {
+        if ($served) {
+            return true;
+        }
+
+        if (! $result instanceof WP_REST_Response) {
+            return false;
+        }
+
+        if ('1' !== (string) ($result->get_headers()[self::RAW_HTML_HEADER] ?? '')) {
+            return false;
+        }
+
+        status_header($result->get_status());
+        $server->send_headers($result->get_headers());
+        echo (string) $result->get_data();
+
+        return true;
     }
 
     // ─────────────────────────────────────────────────────────
@@ -177,6 +211,8 @@ class Vana_REST_Stage_Fragment {
         // 6. Monta variáveis para include
         $visit_tz = get_post_meta($visit_id, '_vana_visit_timezone', true) ?: 'UTC';
         $visit_status = $timeline['visit_status'] ?? 'scheduled';
+        $visit_city_ref = (string) (($timeline['location_meta']['city_ref'] ?? '') ?: '');
+        $active_day_date = (string) ($active_day['date_local'] ?? $active_day['date'] ?? '');
         $active_vod = $stage_content;
         $vod_list = $event['vod_list'] ?? [];
         
@@ -189,7 +225,9 @@ class Vana_REST_Stage_Fragment {
         // phpcs:disable WordPress.PHP.DontExtract
         extract(compact(
             'lang', 'visit_id', 'visit_tz',
-            'active_day', 'active_vod', 'vod_list'
+            'visit_city_ref', 'visit_status',
+            'active_day', 'active_day_date',
+            'active_vod', 'vod_list'
         ));
         // phpcs:enable
 
@@ -240,6 +278,7 @@ class Vana_REST_Stage_Fragment {
         $response = new WP_REST_Response($html, $status);
         $response->header('Content-Type', 'text/html; charset=UTF-8');
         $response->header('X-Vana-Fragment', '1');
+        $response->header(self::RAW_HTML_HEADER, '1');
         $response->header('Cache-Control', 'no-store');
         return $response;
     }

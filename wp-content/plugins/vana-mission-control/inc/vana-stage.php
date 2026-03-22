@@ -16,6 +16,102 @@
 
 defined( 'ABSPATH' ) || exit;
 
+if ( ! function_exists( 'vana_make_event_key' ) ) {
+    /**
+     * Gera uma event_key estável para itens de agenda que não trazem chave explícita.
+     *
+     * @param string $date_local Data local no formato YYYY-MM-DD.
+     * @param string $time_local Hora local HH:MM.
+     * @param string $title      Título livre do item.
+     * @return string
+     */
+    function vana_make_event_key( string $date_local, string $time_local = '', string $title = '' ): string {
+        $slugify = static function ( string $value ): string {
+            $value = strtolower( trim( $value ) );
+            $value = preg_replace( '/[^a-z0-9\-]+/', '-', $value );
+            return trim( (string) $value, '-' );
+        };
+
+        $parts = array_filter(
+            [
+                $slugify( $date_local ),
+                $slugify( str_replace( ':', '-', $time_local ) ),
+                $slugify( $title ),
+            ],
+            static function ( $part ) {
+                return $part !== '';
+            }
+        );
+
+        $key = implode( '-', $parts );
+        if ( $key === '' ) {
+            $key = 'event';
+        }
+
+        return substr( $key, 0, 80 );
+    }
+}
+
+if ( ! function_exists( 'vana_visit_url' ) ) {
+    /**
+     * Monta URL canônica da visita preservando idioma e estado navegável.
+     *
+     * @param int    $visit_id    ID do post vana_visit.
+     * @param string $day_local   Dia ativo (query param v_day).
+     * @param int    $vod_index   Índice do VOD ativo. Use -1 para omitir.
+     * @param string $lang        Idioma pt|en.
+     * @param array  $extra_query Query params extras opcionais.
+     * @return string
+     */
+    function vana_visit_url(
+        int $visit_id,
+        string $day_local = '',
+        int $vod_index = -1,
+        string $lang = 'pt',
+        array $extra_query = []
+    ): string {
+        $base_url = get_permalink( $visit_id );
+        if ( ! $base_url ) {
+            $base_url = home_url( '/?p=' . $visit_id );
+        }
+
+        $query = [];
+        if ( $day_local !== '' ) {
+            $query['v_day'] = $day_local;
+        }
+        if ( $vod_index >= 0 ) {
+            $query['vod'] = $vod_index;
+        }
+        if ( in_array( $lang, [ 'pt', 'en' ], true ) ) {
+            $query['lang'] = $lang;
+        }
+
+        foreach ( $extra_query as $key => $value ) {
+            if ( $value === null || $value === '' ) {
+                continue;
+            }
+            $query[ sanitize_key( (string) $key ) ] = is_scalar( $value ) ? (string) $value : '';
+        }
+
+        return $query ? add_query_arg( $query, $base_url ) : $base_url;
+    }
+}
+
+if ( ! function_exists( 'vana_drive_file_id' ) ) {
+    /**
+     * Extrai o file id de URLs do Google Drive.
+     */
+    function vana_drive_file_id( string $url ): string {
+        if ( preg_match( '#/file/d/([^/]+)#', $url, $m ) ) {
+            return $m[1];
+        }
+        if ( preg_match( '/[?&]id=([^&]+)/', $url, $m ) ) {
+            return $m[1];
+        }
+        return '';
+    }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  0. MEDIA RESOLVER — Detecta provider, video_id, url
 // ═══════════════════════════════════════════════════════════
@@ -278,7 +374,7 @@ function vana_render_vod_player( array $vod, string $lang = 'pt' ): string {
             if ( $video_id ) : ?>
                 <iframe
                     id="vanaStageIframe"
-                    src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr( $video_id ); ?>?rel=0"
+                    src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr( $video_id ); ?>?rel=0&amp;enablejsapi=1&amp;origin=<?php echo esc_attr( home_url() ); ?>"
                     title="<?php echo $title_attr; ?>"
                     style="position:absolute;inset:0;width:100%;height:100%;border:0;"
                     allowfullscreen

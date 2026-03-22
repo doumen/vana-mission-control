@@ -7,7 +7,7 @@ final class Vana_Utils {
     /**
      * Regista logs de sistema no debug.log do WordPress de forma segura.
      */
-    public static function log($message): void {
+    public static function log(string $message, string $level = 'info', array $context = []): void {
         $debug     = defined('WP_DEBUG') && WP_DEBUG;
         $debug_log = defined('WP_DEBUG_LOG') && WP_DEBUG_LOG;
         
@@ -15,8 +15,12 @@ final class Vana_Utils {
             return;
         }
 
-        // Suporta strings planas ou arrays complexos sem quebrar
-        error_log(is_scalar($message) ? (string) $message : print_r($message, true));
+        $prefix = strtoupper($level);
+        $ctx    = !empty($context)
+          ? ' ' . wp_json_encode($context, JSON_UNESCAPED_UNICODE)
+          : '';
+
+        error_log("[Vana/{$prefix}] {$message}{$ctx}");
     }
     
     /**
@@ -70,7 +74,7 @@ final class Vana_Utils {
     }
 
   public static function lang_from_request(): string {
-    $lang = isset($_GET['lang']) ? strtolower((string)$_GET['lang']) : 'pt';
+    $lang = isset($_GET['lang']) ? strtolower(sanitize_key((string)$_GET['lang'])) : 'pt';
     return ($lang === 'en') ? 'en' : 'pt';
   }
 
@@ -84,8 +88,8 @@ final class Vana_Utils {
         'embed_fail_hint'  => 'Sem problema — você pode abrir no navegador.',
         'video_label'      => 'Vídeo',
         'photo_label'      => 'Foto',
-        'offerings_title'  => 'Oferendas da Sangha',
-        'share_prompt'     => 'Envie sua oferenda (foto, mensagem, vídeo).',
+        'offerings_title_legacy' => 'Oferendas da Sangha',
+        'share_prompt_offering'  => 'Envie sua oferenda (foto, mensagem, vídeo).',
         'form_title'       => 'Enviar oferenda',
         'name_label'       => 'Nome',
         'message_label'    => 'Mensagem',
@@ -95,10 +99,7 @@ final class Vana_Utils {
         'privacy_note'     => 'Não publique dados pessoais sensíveis. Obrigado por servir a sangha.',
         'offerings_title' => 'Momentos da Sangha',
         'share_prompt'    => 'Partilhe os seus momentos e relatos desta visita.',
-        'video_label'     => 'Vídeo',
-        'photo_label'     => 'Foto',
-        'close'           => 'Fechar',
-        'watch_link'      => 'Abrir link',
+        'watch_link_short'=> 'Abrir link',
       ],
       'en' => [
         'devotee_fallback' => 'Devotee',
@@ -108,8 +109,8 @@ final class Vana_Utils {
         'embed_fail_hint'  => 'No worries — you can open it in your browser.',
         'video_label'      => 'Video',
         'photo_label'      => 'Photo',
-        'offerings_title'  => 'Sangha Offerings',
-        'share_prompt'     => 'Send your offering (photo, message, video).',
+        'offerings_title_legacy' => 'Sangha Offerings',
+        'share_prompt_offering'  => 'Send your offering (photo, message, video).',
         'form_title'       => 'Submit offering',
         'name_label'       => 'Name',
         'message_label'    => 'Message',
@@ -119,10 +120,7 @@ final class Vana_Utils {
         'privacy_note'     => 'Please don’t include sensitive personal data. Thank you for serving the sangha.',
         'offerings_title' => 'Sangha Moments',
         'share_prompt'    => 'Share your moments and reflections of this visit.',
-        'video_label'     => 'Video',
-        'photo_label'     => 'Photo',
-        'close'           => 'Close',
-        'watch_link'      => 'Open link',
+        'watch_link_short'=> 'Open link',
       ],
     ];
 
@@ -166,6 +164,8 @@ final class Vana_Utils {
       'youtube.com','www.youtube.com',
       'youtu.be','www.youtu.be',
       'drive.google.com','www.drive.google.com',
+      'facebook.com','www.facebook.com',
+      'fb.watch',
     ];
     if (!in_array($host, $allowed, true)) {
       return new WP_Error('vana_url_host', ($lang==='en')

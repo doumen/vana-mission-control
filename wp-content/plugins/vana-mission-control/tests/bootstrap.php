@@ -60,6 +60,20 @@ if ( ! function_exists( 'esc_html__' ) ) {
     }
 }
 
+if ( ! function_exists( 'add_action' ) ) {
+    function add_action( string $hook, $callback, int $priority = 10, int $args = 1 ): void {}
+}
+
+if ( ! function_exists( 'add_filter' ) ) {
+    function add_filter( string $hook, $callback, int $priority = 10, int $args = 1 ): void {}
+}
+
+if ( ! function_exists( 'apply_filters' ) ) {
+    function apply_filters( string $hook, mixed $value, mixed ...$args ): mixed {
+        return $value;
+    }
+}
+
 // ── Classes de produção ───────────────────────────────────────────────────────
 
 require_once dirname( __DIR__ ) . '/includes/class-visit-event-resolver.php';

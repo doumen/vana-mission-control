@@ -43,6 +43,16 @@ if ( isset( $vana_bootstrap_loaded ) && $vana_bootstrap_loaded === true ) {
 }
 $vana_bootstrap_loaded = true;
 
+// ── PRE-LOAD: Carrega funções utilitárias do Stage antes das parts ─────────────
+// (sempre carrega, não condicional, pois múltiplas funções são necessárias)
+$vana_stage_file = defined( 'VANA_MC_PATH' )
+    ? VANA_MC_PATH . 'inc/vana-stage.php'
+    : dirname( __DIR__, 2 ) . '/inc/vana-stage.php';
+
+if ( file_exists( $vana_stage_file ) ) {
+    require_once $vana_stage_file;
+}
+
 // ── Dependências do plugin ────────────────────────────────────────────────────
 if ( ! class_exists( 'VisitStageResolver' ) ) {
     wp_die(

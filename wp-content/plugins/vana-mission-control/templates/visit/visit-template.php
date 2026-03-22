@@ -65,14 +65,30 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
     }
     ?>
 
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         STAGE (VOD Player + Stage Fragment)
-         ───────────────────────────────────────────────────────────────────────── -->
-    <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/stage.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/stage.php';
-    }
-    ?>
+    <!-- ── STAGE + VOD GRID ──────────────────────────────────────────────────── -->
+    <div class="vana-stage-grid">
+      <div class="vana-stage-grid__main">
+        <!-- ─────────────────────────────────────────────────────────────────────────
+             STAGE (VOD Player + Stage Fragment)
+             ───────────────────────────────────────────────────────────────────────── -->
+        <?php
+        if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/stage.php' ) ) {
+            include VANA_MC_PATH . 'templates/visit/parts/stage.php';
+        }
+        ?>
+      </div><!-- /vana-stage-grid__main -->
+
+      <aside class="vana-stage-grid__sidebar">
+        <!-- ─────────────────────────────────────────────────────────────────────────
+             VOD LIST SECTION
+             ───────────────────────────────────────────────────────────────────────── -->
+        <?php
+        if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/vod-list.php' ) ) {
+            include VANA_MC_PATH . 'templates/visit/parts/vod-list.php';
+        }
+        ?>
+      </aside><!-- /vana-stage-grid__sidebar -->
+    </div><!-- /vana-stage-grid -->
 
     <!-- ─────────────────────────────────────────────────────────────────────────
          HARI KATHA SECTION
@@ -110,14 +126,6 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
     }
     ?>
 
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         VOD LIST SECTION
-         ───────────────────────────────────────────────────────────────────────── -->
-    <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/vod-list.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/vod-list.php';
-    }
-    ?>
 
     <!-- ─────────────────────────────────────────────────────────────────────────
          REVISTA CARD SECTION

@@ -121,7 +121,7 @@ $lbl_seg_jump    = vana_t('stage.seg_jump',    $lang);
 
       <iframe
         id="vanaStageIframe"
-        src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr($stage_video_id); ?>?rel=0&autoplay=1"
+        src="https://www.youtube-nocookie.com/embed/<?php echo esc_attr($stage_video_id); ?>?rel=0&amp;autoplay=1&amp;enablejsapi=1&amp;origin=<?php echo esc_attr( home_url() ); ?>"
         title="<?php echo esc_attr($stage_title ?: $lbl_class); ?>"
         style="position:absolute;inset:0;width:100%;height:100%;border:0;"
         allowfullscreen

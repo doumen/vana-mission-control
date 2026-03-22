@@ -28,6 +28,7 @@ $js_data = [
     'timeline'        => $data ?? [],
     'i18n'            => [
         'lightbox_close'  => $lang === 'en' ? 'Close'          : 'Fechar',
+      'lightbox_dialog' => $lang === 'en' ? 'Image viewer'   : 'Visualizador de imagens',
         'lightbox_prev'   => $lang === 'en' ? 'Previous photo'  : 'Foto anterior',
         'lightbox_next'   => $lang === 'en' ? 'Next photo'      : 'Próxima foto',
         'lightbox_of'     => $lang === 'en' ? 'of'              : 'de',
@@ -39,7 +40,17 @@ $js_data = [
                                : 'O player do Facebook não carregou.',
     ],
 ];
+
+  $drawer_data = [
+    'visitId' => (int) $visit_id,
+    'lang'    => $lang,
+    'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+    'nonce'   => wp_create_nonce( 'vana_visit_drawer' ),
+  ];
 ?>
+  <script>
+  window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
+  </script>
 <script>
 /* ============================================================
    VANA VISIT PAGE — scripts v2.6
@@ -82,7 +93,7 @@ $js_data = [
   function ytPostMessage(msg) {
     var iframe = document.getElementById('vanaStageIframe');
     if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage(JSON.stringify(msg), '*');
+      iframe.contentWindow.postMessage(JSON.stringify(msg), 'https://www.youtube-nocookie.com');
     }
   }
 
@@ -134,7 +145,7 @@ $js_data = [
     ov.id              = 'vanaLightbox';
     ov.setAttribute('role',            'dialog');
     ov.setAttribute('aria-modal',      'true');
-    ov.setAttribute('aria-label',      CFG.i18n.lightbox_close);
+    ov.setAttribute('aria-label',      CFG.i18n.lightbox_dialog);
     ov.style.cssText = [
       'position:fixed', 'inset:0', 'z-index:9999',
       'background:rgba(0,0,0,.92)',
@@ -301,16 +312,17 @@ $js_data = [
     var btns = document.querySelectorAll('[data-vana-stage-seg="1"]');
     if (!btns.length) return;
 
-    // Garante que o iframe do YT usa enablejsapi=1
+    // Garante que o iframe do YT usa enablejsapi=1 e origin explícito
     var iframe = document.getElementById('vanaStageIframe');
     if (iframe) {
       var src = iframe.getAttribute('src') || '';
       if (src.indexOf('enablejsapi') === -1) {
-        iframe.setAttribute(
-          'src',
-          src + (src.indexOf('?') > -1 ? '&' : '?') + 'enablejsapi=1'
-        );
+        src += (src.indexOf('?') > -1 ? '&' : '?') + 'enablejsapi=1';
       }
+      if (src.indexOf('origin=') === -1) {
+        src += (src.indexOf('?') > -1 ? '&' : '?') + 'origin=' + encodeURIComponent(window.location.origin);
+      }
+      iframe.setAttribute('src', src);
     }
 
     btns.forEach(function (btn) {
@@ -346,7 +358,7 @@ $js_data = [
     var fallback = document.getElementById('vanaFbFallback');
     if (!iframe || !fallback) return;
 
-    var TIMEOUT = 8000; // ms para considerar falha
+    var TIMEOUT = 5000; // ms para considerar falha
 
     var timer = setTimeout(function () {
       // Tenta checar se o iframe tem conteúdo
@@ -561,7 +573,7 @@ $js_data = [
 
     if (iframe) {
       var src = 'https://www.youtube-nocookie.com/embed/' + videoId
-        + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1';
+        + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
       if (sec > 0) src += '&start=' + sec;
       iframe.src = src;
     }
@@ -589,7 +601,6 @@ $js_data = [
       console.warn("[VanaDrawer] elemento nao encontrado", { btn: btn, drawer: drawer });
       return;
     }
-    console.log("[VanaDrawer] init OK", { btn: btn, drawer: drawer, vanaDrawer: window.vanaDrawer });
 
     function openDrawer() {
       drawer.classList.add("is-open");
@@ -794,7 +805,6 @@ $js_data = [
     initCopyLink();
     initTabsKeyboard();
     initScheduleVod();
-    initDrawer();
     initNotify();
   }
 
@@ -1075,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
   'use strict';
 
-  var API_BASE = '/wp-json/vana/v1';
+  var API_BASE = <?php echo wp_json_encode( rest_url( 'vana/v1' ) ); ?>;
 
   var state = {
     visitId     : null,
@@ -1304,13 +1314,17 @@ function renderPassages(passages, container) {
         ? '<p class="vana-hk-passage__hook">'             + esc(hookVal)  + '</p>'    : '') +
       (quoteVal
         ? '<blockquote class="vana-hk-passage__quote">"'  + esc(quoteVal) + '"</blockquote>' : '') +
-      (contentVal
-        ? '<div class="vana-hk-passage__content">'        + contentVal    + '</div>'  : '') +
+      (contentVal ? '<div class="vana-hk-passage__content"></div>' : '') +
       '<footer class="vana-hk-passage__footer">'                                              +
       '  <a class="vana-hk-passage__link" href="' + esc(p.permalink || '') + '">'            +
       '    🔗 permalink'                                                                       +
       '  </a>'                                                                                 +
       '</footer>';
+
+    if (contentVal) {
+      var contentEl = article.querySelector('.vana-hk-passage__content');
+      if (contentEl) contentEl.textContent = contentVal;
+    }
 
     /* ── Timestamp → seek no Stage ── */
     var tsEl = article.querySelector('.vana-hk-passage__ts');
@@ -1325,7 +1339,7 @@ function renderPassages(passages, container) {
         if (iframe && iframe.contentWindow) {
           iframe.contentWindow.postMessage(
             JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
-            '*'
+            'https://www.youtube-nocookie.com'
           );
           var target = iframe.closest('section') || iframe;
           target.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1340,27 +1354,6 @@ function renderPassages(passages, container) {
     container.appendChild(article);
   });
 }
-
-  function seekStage(timeStr) {
-    // Converte "H:MM:SS" ou "MM:SS" para segundos
-    var parts = String(timeStr).split(':').map(Number);
-    var sec   = parts.length === 3
-      ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-      : parts[0] * 60  + parts[1];
-
-    // PostMessage para o iframe do YouTube Stage
-    var iframe = document.getElementById('vanaStageIframe');
-    if (iframe && iframe.contentWindow) {
-      iframe.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
-        '*'
-      );
-      // Scroll suave até o player
-      iframe.closest('section')
-        ? iframe.closest('section').scrollIntoView({ behavior: 'smooth', block: 'start' })
-        : iframe.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
 
   function loadMore() {
     if (!state.activeKatha || !state.hasMore || state.loading) return;

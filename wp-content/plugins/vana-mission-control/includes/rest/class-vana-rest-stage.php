@@ -13,8 +13,11 @@ class Vana_REST_Stage {
 
     private const REST_NAMESPACE = 'vana/v1';
     private const ROUTE = '/stage/(?P<event_key>[a-zA-Z0-9_-]+)';
+    private const RAW_HTML_HEADER = 'X-Vana-Raw-HTML';
 
     public function register_routes(): void {
+        add_filter('rest_pre_serve_request', [$this, 'serve_raw_html'], 10, 4);
+
         register_rest_route(
             self::REST_NAMESPACE,
             self::ROUTE,
@@ -25,6 +28,26 @@ class Vana_REST_Stage {
                 'args'                => $this->get_args(),
             ]
         );
+    }
+
+    public function serve_raw_html(bool $served, WP_HTTP_Response $result, WP_REST_Request $request, WP_REST_Server $server): bool {
+        if ($served) {
+            return true;
+        }
+
+        if (! $result instanceof WP_REST_Response) {
+            return false;
+        }
+
+        if ('1' !== (string) ($result->get_headers()[self::RAW_HTML_HEADER] ?? '')) {
+            return false;
+        }
+
+        status_header($result->get_status());
+        $server->send_headers($result->get_headers());
+        echo (string) $result->get_data();
+
+        return true;
     }
 
     private function get_args(): array {
@@ -211,6 +234,7 @@ class Vana_REST_Stage {
         $response = new WP_REST_Response($html, 200);
         $response->header('Content-Type', 'text/html; charset=utf-8');
         $response->header('X-Vana-Endpoint', 'stage-v2');
+        $response->header(self::RAW_HTML_HEADER, '1');
         $response->header('Cache-Control', 'no-store');
         return $response;
     }
@@ -223,6 +247,7 @@ class Vana_REST_Stage {
             $status
         );
         $response->header('Content-Type', 'text/html; charset=utf-8');
+        $response->header(self::RAW_HTML_HEADER, '1');
         return $response;
     }
 }

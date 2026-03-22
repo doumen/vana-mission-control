@@ -9,12 +9,19 @@ defined('ABSPATH') || exit;
 $schedule = is_array($active_day['schedule'] ?? null) ? $active_day['schedule'] : [];
 if (empty($schedule)) return;
 
-// ── Índice de VODs do dia: id → objeto completo (O(1) lookup) ──
-$vod_index = [];
-if (!empty($active_day['vod']) && is_array($active_day['vod'])) {
-    foreach ($active_day['vod'] as $v) {
-        if (!empty($v['id'])) $vod_index[$v['id']] = $v;
+// ── Índice de VODs do schema 5.1: id → objeto completo (O(1) lookup) ──
+$vod_index = isset( $vana_vods_index ) && is_array( $vana_vods_index ) ? $vana_vods_index : [];
+if ( empty( $vod_index ) && ! empty( $active_events ) && is_array( $active_events ) ) {
+  foreach ( $active_events as $_evt ) {
+    if ( ! is_array( $_evt ) ) {
+      continue;
     }
+    foreach ( $_evt['media']['vods'] ?? [] as $_v ) {
+      if ( is_array( $_v ) && ! empty( $_v['id'] ) ) {
+        $vod_index[ $_v['id'] ] = $_v;
+      }
+    }
+  }
 }
 
 $status_labels = [
@@ -105,6 +112,12 @@ foreach ($schedule as $item) {
       $location_it = Vana_Utils::pick_i18n_key($item, 'location', $lang);
 
       if ($event_key === '' && $active_day_date !== '' && $time_local !== '') {
+          // Fallback defensivo — nunca deveria chegar aqui, mas previne fatal
+          if ( ! function_exists( 'vana_make_event_key' ) ) {
+              function vana_make_event_key( string $date_local, string $time_local = '', string $title = '' ): string {
+                  return md5( $date_local . $time_local . $title );
+              }
+          }
           $event_key = vana_make_event_key($active_day_date, $time_local, $title_item);
       }
 

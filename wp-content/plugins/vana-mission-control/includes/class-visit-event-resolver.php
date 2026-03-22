@@ -12,6 +12,24 @@ if (!defined('ABSPATH')) {
 
 class VisitEventResolver {
     /**
+     * Retorna os eventos do dia aceitando tanto events quanto active_events.
+     *
+     * @param array $day
+     * @return array
+     */
+    private static function dayEvents(array $day): array {
+        if (!empty($day['events']) && is_array($day['events'])) {
+            return $day['events'];
+        }
+
+        if (!empty($day['active_events']) && is_array($day['active_events'])) {
+            return $day['active_events'];
+        }
+
+        return [];
+    }
+
+    /**
      * Resolve eventos e hero do dia ativo
      *
      * @param array $timeline Timeline completo (schema 5.1 merged)
@@ -39,7 +57,7 @@ class VisitEventResolver {
         // 2.1 Prioridade 1: requested_event_key → dia que contém o evento
         if ($requested_event_key) {
             foreach ($timeline['days'] ?? [] as $day) {
-                foreach ($day['events'] ?? [] as $event) {
+                foreach (self::dayEvents(is_array($day) ? $day : []) as $event) {
                     if (($event['event_key'] ?? '') === $requested_event_key) {
                         $active_day = $day;
                         break 2;
@@ -78,7 +96,7 @@ class VisitEventResolver {
         $active_day = $active_day ?: ($timeline['days'][0] ?? []);
 
         // 3. Eventos do dia ativo
-        $active_events = $active_day['events'] ?? [];
+        $active_events = self::dayEvents(is_array($active_day) ? $active_day : []);
 
         // 4. Evento ativo
         $active_event = null;

@@ -99,8 +99,9 @@
     // ── Swap do Stage ─────────────────────────────────────
 
     /**
-     * Injeta o HTML recebido no #vana-stage via innerHTML.
-     * Executa <script> inline presentes no fragmento.
+     * Troca o stage atual pelo HTML retornado pelo endpoint.
+     * Quando o fragmento ja vem com #vana-stage na raiz, substitui o no inteiro
+     * para evitar nesting e IDs duplicados.
      *
      * @param {string} html
      */
@@ -116,20 +117,32 @@
         target.style.transition = 'opacity .15s ease';
 
         setTimeout( () => {
-            target.innerHTML = html;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString( html, 'text/html' );
+            const incomingStage = doc.body.querySelector( '#vana-stage' );
+            let mountedStage = target;
+
+            if ( incomingStage ) {
+                incomingStage.style.opacity = '0';
+                incomingStage.style.transition = 'opacity .15s ease';
+                target.replaceWith( incomingStage );
+                mountedStage = document.getElementById( 'vana-stage' ) || incomingStage;
+            } else {
+                target.innerHTML = html;
+            }
 
             // Re-executa scripts inline no fragmento
-            target.querySelectorAll( 'script' ).forEach( oldScript => {
+            mountedStage.querySelectorAll( 'script' ).forEach( oldScript => {
                 const s   = document.createElement( 'script' );
                 s.textContent = oldScript.textContent;
                 oldScript.replaceWith( s );
             });
 
             // Animação de entrada
-            target.style.opacity = '1';
+            mountedStage.style.opacity = '1';
 
             // Dispara evento customizado para outros módulos
-            target.dispatchEvent( new CustomEvent( 'vana:stage:swapped', {
+            mountedStage.dispatchEvent( new CustomEvent( 'vana:stage:swapped', {
                 bubbles : true,
                 detail  : { eventKey: currentEventKey },
             }));

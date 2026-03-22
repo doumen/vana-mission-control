@@ -5,25 +5,30 @@
  *
  * Requer (do _bootstrap.php):
  *   $lang, $visit_id, $visit_tz, $visit_city_ref
- *   $active_day, $active_day_date
- *   $active_vod, $vod_list, $visit_status
+ *   $active_day, $active_day_date, $active_event, $visit_status
  *
- * @since 5.1.0
+ * @since 5.1.1
  */
 defined( 'ABSPATH' ) || exit;
 
-// ── 1. Normaliza para schema 5.1 ──────────────────────────
+// ── 1. Normaliza para schema 5.1 a partir de $active_event ─
+$_evt       = is_array( $active_event ) ? $active_event : [];
+$_vods      = is_array( $_evt['media']['vods']            ?? null ) ? $_evt['media']['vods']            : [];
+$_gallery   = is_array( $_evt['media']['gallery']         ?? null ) ? $_evt['media']['gallery']         : ( $active_day['gallery']          ?? [] );
+$_sangha    = is_array( $_evt['media']['sangha_moments']  ?? null ) ? $_evt['media']['sangha_moments']  : ( $active_day['sangha_moments']   ?? [] );
+$_vod_first = $_vods[0] ?? [];
+
 $current_event = vana_normalize_event([
-    'active_vod'   => $active_vod   ?? [],
-    'vod_list'     => $vod_list     ?? [],
-    'hero'         => $active_day['hero']            ?? [],
-    'gallery'      => $active_day['gallery']         ?? [],
-    'sangha'       => $active_day['sangha_moments']  ?? [],
-    'event_key'    => $active_day['date_local']      ?? '',
-    'title_pt'     => Vana_Utils::pick_i18n_key( $active_vod ?? [], 'title', 'pt' ),
-    'title_en'     => Vana_Utils::pick_i18n_key( $active_vod ?? [], 'title', 'en' ),
-    'time_start'   => $active_day['date_local']      ?? '',
-    'status'       => $visit_status ?? '',
+    'active_vod'   => $_vod_first,
+    'vod_list'     => array_slice( $_vods, 1 ),
+    'hero'         => $active_day['hero']  ?? [],
+    'gallery'      => $_gallery,
+    'sangha'       => $_sangha,
+    'event_key'    => $_evt['event_key']   ?? '',
+    'title_pt'     => Vana_Utils::pick_i18n_key( $_vod_first, 'title', 'pt' ),
+    'title_en'     => Vana_Utils::pick_i18n_key( $_vod_first, 'title', 'en' ),
+    'time_start'   => $_evt['time_start']  ?? ( $active_day['date_local'] ?? '' ),
+    'status'       => $_evt['status']      ?? ( $visit_status ?? '' ),
 ]);
 
 // ── 2. Resolve conteúdo via hierarquia ────────────────────

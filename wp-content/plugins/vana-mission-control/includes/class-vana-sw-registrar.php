@@ -60,6 +60,9 @@ final class Vana_SW_Registrar {
         // Só em páginas vana_visit
         if (!is_singular('vana_visit')) return;
 
+      $sw_asset = VANA_MC_PATH . 'assets/js/vana-sw.js';
+      if (!file_exists($sw_asset)) return;
+
         $sw_url      = esc_url(add_query_arg('vana_sw', '1', home_url('/')));
         $visit_data  = $GLOBALS['_vana_visit'] ?? [];
         $origin_key  = esc_js((string) ($visit_data['origin_key'] ?? ''));

@@ -157,6 +157,12 @@ final class Vana_Mission_Control {
         add_action("wp_head",             [$this, "inject_css"], 5);
         add_action("wp_enqueue_scripts",  [$this, "enqueue_frontend_scripts"]);
 
+        // ── AJAX público da página de visita ──────────────
+        add_action('wp_ajax_vana_get_tours',        [$this, 'ajax_get_tours']);
+        add_action('wp_ajax_nopriv_vana_get_tours', [$this, 'ajax_get_tours']);
+        add_action('wp_ajax_vana_get_tour_visits',        [$this, 'ajax_get_tour_visits']);
+        add_action('wp_ajax_nopriv_vana_get_tour_visits', [$this, 'ajax_get_tour_visits']);
+
         // ── Admin ─────────────────────────────────────────
         add_action("admin_enqueue_scripts", [$this, "admin_enqueue_scripts"]);
         add_action("admin_init",            [$this, "maybe_upgrade_db"]);
@@ -186,6 +192,107 @@ final class Vana_Mission_Control {
         // ── FASE 5 — Stage Fragment HTMX ──────────────────────
         require_once VANA_MC_PATH . "includes/rest/class-vana-rest-stage-fragment.php";
         Vana_REST_Stage_Fragment::register();
+    }
+
+    public function ajax_get_tours(): void {
+        check_ajax_referer('vana_visit_drawer', '_wpnonce');
+
+        $visit_id = absint($_POST['visit_id'] ?? 0);
+        $current_tour_id = (int) wp_get_post_parent_id($visit_id);
+        if (!$current_tour_id && $visit_id > 0) {
+            $current_tour_id = (int) get_post_meta($visit_id, '_vana_tour_id', true);
+        }
+
+        $query = new \WP_Query([
+            'post_type'      => 'vana_tour',
+            'post_status'    => 'publish',
+            'posts_per_page' => 100,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'fields'         => 'all',
+            'no_found_rows'  => true,
+        ]);
+
+        $items = [];
+        foreach ($query->posts as $tour_post) {
+            $tour_id = (int) $tour_post->ID;
+            $origin_key = (string) get_post_meta($tour_id, '_vana_origin_key', true);
+
+            $visit_query = new \WP_Query([
+                'post_type'      => 'vana_visit',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'no_found_rows'  => true,
+                'meta_query'     => [[
+                    'key'     => '_vana_parent_tour_origin_key',
+                    'value'   => $origin_key,
+                    'compare' => '=',
+                ]],
+            ]);
+
+            $items[] = [
+                'id'          => $tour_id,
+                'title'       => get_the_title($tour_id),
+                'permalink'   => get_permalink($tour_id),
+                'is_current'  => $tour_id === $current_tour_id,
+                'visit_count' => count($visit_query->posts),
+            ];
+        }
+
+        wp_send_json_success($items);
+    }
+
+    public function ajax_get_tour_visits(): void {
+        check_ajax_referer('vana_visit_drawer', '_wpnonce');
+
+        $tour_id  = absint($_POST['tour_id'] ?? 0);
+        $visit_id = absint($_POST['visit_id'] ?? 0);
+        $lang     = sanitize_key((string) ($_POST['lang'] ?? 'pt'));
+        $lang     = in_array($lang, ['pt', 'en'], true) ? $lang : 'pt';
+
+        if ($tour_id <= 0) {
+            wp_send_json_error(['message' => 'Tour inválido.'], 400);
+        }
+
+        $origin_key = (string) get_post_meta($tour_id, '_vana_origin_key', true);
+        if ($origin_key === '') {
+            wp_send_json_error(['message' => 'Tour sem origin_key.'], 404);
+        }
+
+        $query = new \WP_Query([
+            'post_type'      => 'vana_visit',
+            'post_status'    => 'publish',
+            'posts_per_page' => 100,
+            'orderby'        => 'meta_value',
+            'order'          => 'ASC',
+            'meta_key'       => '_vana_start_date',
+            'fields'         => 'all',
+            'no_found_rows'  => true,
+            'meta_query'     => [[
+                'key'     => '_vana_parent_tour_origin_key',
+                'value'   => $origin_key,
+                'compare' => '=',
+            ]],
+        ]);
+
+        $items = [];
+        foreach ($query->posts as $visit_post) {
+            $id = (int) $visit_post->ID;
+            $json = get_post_meta($id, '_vana_visit_timeline_json', true);
+            $data = $json ? json_decode($json, true) : [];
+            $data = is_array($data) ? $data : [];
+
+            $items[] = [
+                'id'         => $id,
+                'title'      => (string) ($data['title_' . $lang] ?? $data['title_pt'] ?? get_the_title($id)),
+                'permalink'  => (string) get_permalink($id),
+                'start_date' => (string) get_post_meta($id, '_vana_start_date', true),
+                'is_current' => $id === $visit_id,
+            ];
+        }
+
+        wp_send_json_success($items);
     }
 
     // ── Meta Boxes ────────────────────────────────────────
@@ -297,20 +404,29 @@ final class Vana_Mission_Control {
     // ── Frontend ──────────────────────────────────────────
 
     public function inject_css(): void {
+          $asset_css = static function (string $relative): string {
+            return VANA_MC_PATH . ltrim($relative, '/\\');
+          };
         ?>
         <link rel="stylesheet" id="vana-fonts-css"
               href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=Questrial&display=swap"
               type="text/css" media="all" />
+          <?php if (file_exists($asset_css('assets/css/vana-ui.tokens.css'))) : ?>
         <link rel="stylesheet" id="vana-ui-tokens-css"
               href="<?php echo esc_url(VANA_MC_URL . 'assets/css/vana-ui.tokens.css'); ?>?ver=<?php echo VANA_MC_VERSION; ?>"
               type="text/css" media="all" />
+          <?php endif; ?>
+          <?php if (file_exists($asset_css('assets/css/vana-ui.components.css'))) : ?>
         <link rel="stylesheet" id="vana-ui-components-css"
               href="<?php echo esc_url(VANA_MC_URL . 'assets/css/vana-ui.components.css'); ?>?ver=<?php echo VANA_MC_VERSION; ?>"
               type="text/css" media="all" />
+          <?php endif; ?>
+          <?php if (file_exists($asset_css('assets/css/vana-ui.hierarchy.css'))) : ?>
         <link rel="stylesheet" id="vana-ui-hierarchy-css"
               href="<?php echo esc_url(VANA_MC_URL . 'assets/css/vana-ui.hierarchy.css'); ?>?ver=<?php echo VANA_MC_VERSION; ?>"
               type="text/css" media="all" />
-        <?php if ($this->is_astra_active()) : ?>
+          <?php endif; ?>
+          <?php if ($this->is_astra_active() && file_exists($asset_css('assets/css/vana-ui.astra-bridge.css'))) : ?>
         <link rel="stylesheet" id="vana-ui-astra-bridge-css"
               href="<?php echo esc_url(VANA_MC_URL . 'assets/css/vana-ui.astra-bridge.css'); ?>?ver=<?php echo VANA_MC_VERSION; ?>"
               type="text/css" media="all" />
@@ -330,26 +446,23 @@ final class Vana_Mission_Control {
 
     public function enqueue_frontend_scripts(): void {
         if (is_singular("vana_visit")) {
+            $vana_ec_path = VANA_MC_PATH . "assets/js/VanaEventController.js";
+            $vana_ec_ver  = file_exists($vana_ec_path)
+                ? (string) filemtime($vana_ec_path)
+                : VANA_MC_VERSION;
+
             wp_enqueue_style(
                 "vana-ui-visit-hub",
                 VANA_MC_URL . "assets/css/vana-ui.visit-hub.css",
                 [],
                 VANA_MC_VERSION
             );
-            // ── FASE 5 — HTMX ─────────────────────────────────
-            wp_enqueue_script(
-                "htmx",
-                "https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js",
-                [],
-                "2.0.4",
-                true
-            );
 
             wp_enqueue_script(
                 "vana-event-controller",
-                VANA_MC_URL . "assets/js/vana-event-controller.js",
+                VANA_MC_URL . "assets/js/VanaEventController.js",
                 [],                  // sem dependência jQuery
-                VANA_MC_VERSION,
+                $vana_ec_ver,
                 true                 // footer
             );
         }

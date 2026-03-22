@@ -255,7 +255,7 @@ $section_label = vana_t('vod.section_label', $lang);
                 <span>·</span>
                 <span>
                   <?php printf(
-                    esc_html(_n('%d capítulo', '%d capítulos', $segments_count, 'vana')),
+                    esc_html(_n('%d capítulo', '%d capítulos', $segments_count, 'vana-mission-control')),
                     $segments_count
                   ); ?>
                 </span>

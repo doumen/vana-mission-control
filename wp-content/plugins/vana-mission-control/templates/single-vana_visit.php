@@ -45,21 +45,15 @@ $timeline_hash   = (string) get_post_meta( $post_id, '_vana_timeline_hash',     
 
 
 /* ============================================================
-   4. IDIOMA
-   ============================================================ */
-
-$lang = ( isset( $_GET['lang'] ) && $_GET['lang'] === 'en' ) ? 'en' : 'pt';
-
-/* ============================================================
-   5. DADOS DE VISITA
-   ============================================================ */
+  4. DADOS DE VISITA
+  ============================================================ */
 
 $visit_data = $timeline;
 $days       = (array) ( $visit_data['days'] ?? [] );
 
 /* ============================================================
-   6. ACTIVE VOD INDEX
-   ============================================================ */
+  5. ACTIVE VOD INDEX
+  ============================================================ */
 
 $active_vod_index = max(
     0,
@@ -67,8 +61,8 @@ $active_vod_index = max(
 );
 
 /* ============================================================
-   7. META DADOS PARA <head>
-   ============================================================ */
+  6. META DADOS PARA <head>
+  ============================================================ */
 
 $page_title_pt = (string) ( $visit_data['title_pt'] ?? get_the_title() );
 $page_title_en = (string) ( $visit_data['title_en'] ?? $page_title_pt );
@@ -91,7 +85,21 @@ $og_desc = $lang === 'en'
     : (string) ( $visit_data['description_pt'] ?? $visit_data['description_en'] ?? '' );
 $og_desc = wp_strip_all_tags( $og_desc );
 
-$seal_url        = apply_filters( 'vana_seal_url', plugins_url( 'assets/images/vana-seal.png', VANA_MC_FILE ) );
+$seal_path       = VANA_MC_PATH . 'assets/images/vana-seal.png';
+$seal_fallback   = "data:image/svg+xml;utf8," . rawurlencode(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">'
+  . '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+  . '<stop offset="0%" stop-color="#FFD906"/><stop offset="100%" stop-color="#D4AF37"/>'
+  . '</linearGradient></defs>'
+  . '<rect width="180" height="180" rx="32" fill="#0f172a"/>'
+  . '<circle cx="90" cy="90" r="58" fill="url(#g)" opacity="0.92"/>'
+  . '<text x="90" y="103" text-anchor="middle" font-size="48" font-family="Arial, sans-serif" fill="#0f172a">V</text>'
+  . '</svg>'
+);
+$seal_url        = apply_filters(
+  'vana_seal_url',
+  file_exists( $seal_path ) ? plugins_url( 'assets/images/vana-seal.png', VANA_MC_FILE ) : $seal_fallback
+);
 $pwa_theme_color = apply_filters( 'vana_pwa_theme_color', '#0f172a' );
 
 /* ============================================================
@@ -272,6 +280,8 @@ $GLOBALS['_vana_visit'] = [
     body.vana-splash-active #vana-page-root { visibility: hidden; }
   </style>
 
+  <?php wp_head(); ?>
+
 </head>
 <body class="vana-splash-active vana-visit-page"
       data-stage-mode="<?php echo esc_attr( $stage_mode ); ?>"
@@ -342,6 +352,8 @@ $GLOBALS['_vana_visit'] = [
   }
 }());
 </script>
+
+<?php wp_footer(); ?>
 
 </body>
 </html>
