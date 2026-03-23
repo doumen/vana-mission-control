@@ -933,9 +933,7 @@ function showKathaList() {
         var inner2 = document.getElementById('vana-hk-passages-inner');
         if (inner2) inner2.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
       }).finally(function () {
-        // Safety: sempre esconder ambos os spinners ao final
-        if (tourLoading) tourLoading.hidden = true;
-        if (visitsLoading) visitsLoading.hidden = true;
+        // Fix 2: Removed out-of-scope tourLoading/visitsLoading references
       });
     }
   }
@@ -1395,6 +1393,13 @@ function renderPassages(passages, container) {
         loadDrawerTours();
       };
     } // ← fecha initDrawer()
+
+    // Fix 1: Call initDrawer after DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDrawer);
+    } else {
+      initDrawer();
+    }
 
 }());
 </script>
