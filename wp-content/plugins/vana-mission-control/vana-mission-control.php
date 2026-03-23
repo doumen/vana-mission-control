@@ -221,25 +221,79 @@ final class Vana_Mission_Control {
             $tour_id = (int) $tour_post->ID;
             $origin_key = (string) get_post_meta($tour_id, '_vana_origin_key', true);
 
-            $visit_query = new \WP_Query([
-                'post_type'      => 'vana_visit',
-                'post_status'    => 'publish',
-                'posts_per_page' => -1,
-                'fields'         => 'ids',
-                'no_found_rows'  => true,
-                'meta_query'     => [[
-                    'key'     => '_vana_parent_tour_origin_key',
-                    'value'   => $origin_key,
-                    'compare' => '=',
-                ]],
-            ]);
+            // Mesmo sistema de fallback que em ajax_get_tour_visits
+            $visit_count = 0;
+            
+            // Fallback 1: Com prefixo "tour:"
+            if ($origin_key !== '') {
+                $visit_query = new \WP_Query([
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'fields'         => 'ids',
+                    'no_found_rows'  => true,
+                    'meta_query'     => [[
+                        'key'     => '_vana_parent_tour_origin_key',
+                        'value'   => 'tour:' . $origin_key,
+                        'compare' => '=',
+                    ]],
+                ]);
+                $visit_count = count($visit_query->posts);
+            }
+            
+            // Fallback 2: Sem prefixo
+            if ($visit_count === 0 && $origin_key !== '') {
+                $visit_query = new \WP_Query([
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'fields'         => 'ids',
+                    'no_found_rows'  => true,
+                    'meta_query'     => [[
+                        'key'     => '_vana_parent_tour_origin_key',
+                        'value'   => $origin_key,
+                        'compare' => '=',
+                    ]],
+                ]);
+                $visit_count = count($visit_query->posts);
+            }
+            
+            // Fallback 3: Por tour_id direto
+            if ($visit_count === 0) {
+                $visit_query = new \WP_Query([
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'fields'         => 'ids',
+                    'no_found_rows'  => true,
+                    'meta_query'     => [[
+                        'key'     => '_vana_tour_id',
+                        'value'   => $tour_id,
+                        'compare' => '=',
+                    ]],
+                ]);
+                $visit_count = count($visit_query->posts);
+            }
+            
+            // Fallback 4: Por post_parent
+            if ($visit_count === 0) {
+                $visit_query = new \WP_Query([
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => -1,
+                    'fields'         => 'ids',
+                    'no_found_rows'  => true,
+                    'post_parent'    => $tour_id,
+                ]);
+                $visit_count = count($visit_query->posts);
+            }
 
             $items[] = [
                 'id'          => $tour_id,
                 'title'       => get_the_title($tour_id),
                 'permalink'   => get_permalink($tour_id),
                 'is_current'  => $tour_id === $current_tour_id,
-                'visit_count' => count($visit_query->posts),
+                'visit_count' => $visit_count,
             ];
         }
 

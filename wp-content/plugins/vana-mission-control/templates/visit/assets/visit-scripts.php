@@ -1172,7 +1172,7 @@ function renderPassages(passages, container) {
     function loadDrawerTours() {
       if (!tourList) return;
 
-      tourList.innerHTML = '<li style="padding:16px; text-align:center; color:#999;">Carregando tours...</li>';
+      tourList.innerHTML = '';
       tourList.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
@@ -1221,7 +1221,9 @@ function renderPassages(passages, container) {
     function renderToursList(tours) {
       if (!tourList) return;
 
-      tourList.innerHTML = tours.map(function (t) {
+      console.log('[VANA-DRAWER] Rendering', tours.length, 'tours');
+      
+      var html = tours.map(function (t) {
         var isCurrentTour = t.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
         var visitLabel = t.visit_count > 1 ? t.visit_count + ' visitas' : t.visit_count + ' visita';
         
@@ -1230,6 +1232,9 @@ function renderPassages(passages, container) {
           '<div style="font-size:0.75rem; color:#999;">' + visitLabel + '</div>' +
           '</li>';
       }).join('');
+
+      tourList.innerHTML = html;
+      console.log('[VANA-DRAWER] Tours rendered successfully');
     }
 
     // ════════════════════════════════════════════════════════════════════════════════
@@ -1243,7 +1248,7 @@ function renderPassages(passages, container) {
     function loadDrawerVisits(tourId) {
       if (!tourList) return;
 
-      tourList.innerHTML = '<li style="padding:16px; text-align:center; color:#999;">Carregando visitas...</li>';
+      tourList.innerHTML = '';
       tourList.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
@@ -1294,6 +1299,8 @@ function renderPassages(passages, container) {
     function renderVisitsList(visits) {
       if (!tourList) return;
 
+      console.log('[VANA-DRAWER] Rendering', visits.length, 'visits with back button');
+      
       var html = '<li style="padding:12px 16px; background:#f5f5f5; border-bottom: 2px solid #ddd;">' +
         '<button onclick="window.__vanaDrawerBackToTours()" style="background:none; border:none; cursor:pointer; color:#0066cc; font-weight:bold; padding:0; font-size:14px;">' +
         '← Voltar para Tours' +
@@ -1309,6 +1316,7 @@ function renderPassages(passages, container) {
       }).join('');
 
       tourList.innerHTML = html;
+      console.log('[VANA-DRAWER] Visits rendered successfully');
     }
 
     // Função para voltar ao nível de tours
