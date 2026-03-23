@@ -1112,6 +1112,8 @@ function renderPassages(passages, container) {
     if (!drawer || !btn) return;
 
     var drawerLoaded = false;
+    var currentLevel = null; // 'tours' ou 'visits'
+    var selectedTourId = null;
 
     // Função utilitária para escapar HTML
     function escHtml(str) {
@@ -1140,6 +1142,7 @@ function renderPassages(passages, container) {
         // Carregar tours na primeira abertura
         if (!drawerLoaded && tourList) {
           loadDrawerTours();
+          drawerLoaded = true;
         }
       }
     });
@@ -1163,32 +1166,26 @@ function renderPassages(passages, container) {
       });
     }
 
-    // Carregar lista de tours
+    // ════════════════════════════════════════════════════════════════════════════════
+    // NÍVEL 1: Listar todas as tours
+    // ════════════════════════════════════════════════════════════════════════════════
     function loadDrawerTours() {
       if (!tourList) return;
 
-      tourList.innerHTML = '<li style="padding:16px; text-align:center; color:#999;">Carregando...</li>';
+      tourList.innerHTML = '<li style="padding:16px; text-align:center; color:#999;">Carregando tours...</li>';
       tourList.hidden = false;
 
-      var tourId = window.vanaDrawer ? window.vanaDrawer.tourId : null;
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
-      var lang = window.vanaDrawer ? window.vanaDrawer.lang : 'pt';
+      var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
 
-      if (!tourId) {
-        tourList.innerHTML = '<li style="padding:16px; color:#666;">Selecione uma tour.</li>';
-        return;
-      }
-
-      console.log('[VANA-DRAWER] Loading tours for tour_id:', tourId, 'nonce:', nonce ? 'present' : 'MISSING');
+      console.log('[VANA-DRAWER] Loading all tours...');
 
       fetch(window.vanaDrawer.ajaxUrl || '/wp-admin/admin-ajax.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          action: 'vana_get_tour_visits',
-          tour_id: tourId,
-          visit_id: window.vanaDrawer.visitId || 0,
-          lang: lang,
+          action: 'vana_get_tours',
+          visit_id: visitId,
           _wpnonce: nonce
         })
       })
@@ -1198,47 +1195,128 @@ function renderPassages(passages, container) {
       })
       .then(function (text) {
         console.log('[VANA-DRAWER] Raw response length:', text.length);
-        console.log('[VANA-DRAWER] Raw response first 300 chars:', text.substring(0, 300));
         
         try {
           var res = JSON.parse(text);
           if (res.success && Array.isArray(res.data) && res.data.length) {
-            console.log('[VANA-DRAWER] Success! Data items:', res.data.length);
-            renderDrawerTours(res.data);
-            drawerLoaded = true;
-          } else if (res.success && res.data && res.data.length === 0) {
-            console.log('[VANA-DRAWER] Success but no data');
-            tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+            console.log('[VANA-DRAWER] Success! Tours count:', res.data.length);
+            currentLevel = 'tours';
+            renderToursList(res.data);
           } else {
-            console.error('[VANA-DRAWER] Response not successful:', res);
-            tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas. (success=false)</li>';
+            console.error('[VANA-DRAWER] No tours found:', res);
+            tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma tour encontrada.</li>';
           }
         } catch (parseErr) {
           console.error('[VANA-DRAWER] JSON parse error:', parseErr);
-          console.error('[VANA-DRAWER] Trying to parse:', text.substring(0, 100));
-          // Show more detailed error
-          var errorDetail = parseErr.message || parseErr.toString();
-          tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas. (' + errorDetail + ')</li>';
+          tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
         }
       })
       .catch(function (e) {
-        tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas. (fetch error)</li>';
+        tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
         console.error('[VANA-DRAWER] Fetch error:', e);
       });
     }
 
-    // Renderizar lista de tours
-    function renderDrawerTours(tours) {
+    // Renderizar lista de tours (NÍVEL 1)
+    function renderToursList(tours) {
       if (!tourList) return;
 
       tourList.innerHTML = tours.map(function (t) {
-        var isCurrent = t.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
-        return '<li' + isCurrent + '><a href="' + escHtml(t.permalink) + '" style="display:block; padding:12px 16px; color:inherit; text-decoration:none; border:none;">' +
+        var isCurrentTour = t.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
+        var visitLabel = t.visit_count > 1 ? t.visit_count + ' visitas' : t.visit_count + ' visita';
+        
+        return '<li' + isCurrentTour + ' style="cursor:pointer; padding:12px 16px; border-bottom: 1px solid #eee;" onclick="window.__vanaDrawerSelectTour(' + t.id + ')">' +
           '<div style="font-weight:500;">' + escHtml(t.title) + '</div>' +
-          (t.start_date ? '<div style="font-size:0.875rem; color:#666; margin-top:4px;">' + escHtml(t.start_date) + '</div>' : '') +
-          '</a></li>';
+          '<div style="font-size:0.75rem; color:#999;">' + visitLabel + '</div>' +
+          '</li>';
       }).join('');
     }
+
+    // ════════════════════════════════════════════════════════════════════════════════
+    // NÍVEL 2: Listar visitas da tour selecionada
+    // ════════════════════════════════════════════════════════════════════════════════
+    window.__vanaDrawerSelectTour = function(tourId) {
+      selectedTourId = tourId;
+      loadDrawerVisits(tourId);
+    };
+
+    function loadDrawerVisits(tourId) {
+      if (!tourList) return;
+
+      tourList.innerHTML = '<li style="padding:16px; text-align:center; color:#999;">Carregando visitas...</li>';
+      tourList.hidden = false;
+
+      var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
+      var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
+
+      console.log('[VANA-DRAWER] Loading visits for tour_id:', tourId);
+
+      fetch(window.vanaDrawer.ajaxUrl || '/wp-admin/admin-ajax.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          action: 'vana_get_tour_visits',
+          tour_id: tourId,
+          visit_id: visitId,
+          lang: window.vanaDrawer ? window.vanaDrawer.lang : 'pt',
+          _wpnonce: nonce
+        })
+      })
+      .then(function (r) {
+        console.log('[VANA-DRAWER] HTTP Response status:', r.status);
+        return r.text();
+      })
+      .then(function (text) {
+        console.log('[VANA-DRAWER] Raw response length:', text.length);
+        
+        try {
+          var res = JSON.parse(text);
+          if (res.success && Array.isArray(res.data) && res.data.length) {
+            console.log('[VANA-DRAWER] Success! Visits count:', res.data.length);
+            currentLevel = 'visits';
+            renderVisitsList(res.data);
+          } else {
+            console.error('[VANA-DRAWER] No visits found:', res);
+            tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+          }
+        } catch (parseErr) {
+          console.error('[VANA-DRAWER] JSON parse error:', parseErr);
+          tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+        }
+      })
+      .catch(function (e) {
+        tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+        console.error('[VANA-DRAWER] Fetch error:', e);
+      });
+    }
+
+    // Renderizar lista de visitas com botão de voltar (NÍVEL 2)
+    function renderVisitsList(visits) {
+      if (!tourList) return;
+
+      var html = '<li style="padding:12px 16px; background:#f5f5f5; border-bottom: 2px solid #ddd;">' +
+        '<button onclick="window.__vanaDrawerBackToTours()" style="background:none; border:none; cursor:pointer; color:#0066cc; font-weight:bold; padding:0; font-size:14px;">' +
+        '← Voltar para Tours' +
+        '</button>' +
+        '</li>';
+
+      html += visits.map(function (v) {
+        var isCurrent = v.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
+        return '<li' + isCurrent + '><a href="' + escHtml(v.permalink) + '" style="display:block; padding:12px 16px; color:inherit; text-decoration:none; border:none;">' +
+          '<div style="font-weight:500;">' + escHtml(v.title) + '</div>' +
+          (v.start_date ? '<div style="font-size:0.875rem; color:#666; margin-top:4px;">' + escHtml(v.start_date) + '</div>' : '') +
+          '</a></li>';
+      }).join('');
+
+      tourList.innerHTML = html;
+    }
+
+    // Função para voltar ao nível de tours
+    window.__vanaDrawerBackToTours = function() {
+      currentLevel = 'tours';
+      selectedTourId = null;
+      loadDrawerTours();
+    };
   }());
 
 }());
