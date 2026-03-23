@@ -1251,7 +1251,10 @@ function renderPassages(passages, container) {
 
       tourList.innerHTML = html;
       tourList.hidden = false;
+      if (tourBody) tourBody.hidden = false;
+      if (visitsBody) visitsBody.hidden = true;
       if (tourLoading) tourLoading.hidden = true;
+      if (visitsLoading) visitsLoading.hidden = true;
       console.log('[VANA-DRAWER] Tours rendered successfully');
     }
 
@@ -1351,13 +1354,12 @@ function renderPassages(passages, container) {
       console.log('[VANA-DRAWER] Visits rendered successfully');
     }
 
-    // Função para fechar a gaveta (botão "Voltar para Tours")
+    // Função para voltar ao nível de tours
     window.__vanaDrawerBackToTours = function() {
+      console.log('[VANA-DRAWER] Voltando para tours...');
       currentLevel = 'tours';
       selectedTourId = null;
-      drawer.classList.remove('is-open');
-      if (overlay) overlay.classList.remove('is-open');
-      btn.setAttribute('aria-expanded', 'false');
+      loadDrawerTours();
     };
   }());
 
