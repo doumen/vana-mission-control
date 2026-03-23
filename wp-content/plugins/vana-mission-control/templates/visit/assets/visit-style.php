@@ -262,7 +262,7 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   width:           38px;
   height:          38px;
   cursor:          pointer;
-  color:           var(--vana-text);
+  color:           var(--vana-gold);
   transition:      background .2s, border-color .2s, color .2s;
 }
 .vana-header__notify-btn:hover        { background: var(--vana-gold);  border-color: var(--vana-gold);  color: #0f172a; }

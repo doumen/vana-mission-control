@@ -108,6 +108,9 @@ require_once VANA_MC_PATH . "includes/class-vana-hk-passage-cpt.php";
 require_once VANA_MC_PATH . "includes/class-vana-hari-katha.php";
 require_once VANA_MC_PATH . "api/class-vana-hari-katha-api.php";
 
+// ── Visit REST API — Fase 1 ───────────────────────────────
+require_once VANA_MC_PATH . "includes/class-vana-rest-api.php";
+Vana_REST_API::init();
 
 // ═══════════════════════════════════════════════════════════
 //  CLASSE PRINCIPAL
@@ -244,23 +247,39 @@ final class Vana_Mission_Control {
     }
 
     public function ajax_get_tour_visits(): void {
-        check_ajax_referer('vana_visit_drawer', '_wpnonce');
+        // Limpar qualquer output anterior ou buffer sujo
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Log debug info
+        error_log('[VANA-DRAWER-DEBUG] AJAX called. POST data: ' . print_r($_POST, true));
+        
+        $check_result = check_ajax_referer('vana_visit_drawer', '_wpnonce', false);
+        error_log('[VANA-DRAWER-DEBUG] Nonce check result: ' . var_export($check_result, true));
+        
+        if (!$check_result) {
+            error_log('[VANA-DRAWER-DEBUG] Nonce check FAILED');
+            wp_send_json_error(['message' => 'Nonce inválida.'], 400);
+        }
 
         $tour_id  = absint($_POST['tour_id'] ?? 0);
         $visit_id = absint($_POST['visit_id'] ?? 0);
         $lang     = sanitize_key((string) ($_POST['lang'] ?? 'pt'));
         $lang     = in_array($lang, ['pt', 'en'], true) ? $lang : 'pt';
 
+        error_log('[VANA-DRAWER-DEBUG] Parameters - tour_id:' . $tour_id . ', visit_id:' . $visit_id . ', lang:' . $lang);
+
         if ($tour_id <= 0) {
+            error_log('[VANA-DRAWER-DEBUG] Invalid tour_id');
             wp_send_json_error(['message' => 'Tour inválido.'], 400);
         }
 
+        // ── TENTATIVA 1: Por origin_key com prefixo "tour:" ─────────────────────
         $origin_key = (string) get_post_meta($tour_id, '_vana_origin_key', true);
-        if ($origin_key === '') {
-            wp_send_json_error(['message' => 'Tour sem origin_key.'], 404);
-        }
-
-        $query = new \WP_Query([
+        error_log('[VANA-DRAWER-DEBUG] Tour origin_key: ' . $origin_key);
+        
+        $query_args = [
             'post_type'      => 'vana_visit',
             'post_status'    => 'publish',
             'posts_per_page' => 100,
@@ -269,12 +288,88 @@ final class Vana_Mission_Control {
             'meta_key'       => '_vana_start_date',
             'fields'         => 'all',
             'no_found_rows'  => true,
-            'meta_query'     => [[
+        ];
+
+        // Tenta com prefixo "tour:"
+        if ($origin_key !== '') {
+            $query_args['meta_query'] = [[
+                'key'     => '_vana_parent_tour_origin_key',
+                'value'   => 'tour:' . $origin_key,
+                'compare' => '=',
+            ]];
+            $query = new \WP_Query($query_args);
+            error_log('[VANA-DRAWER-DEBUG] Fallback 0 (with "tour:" prefix) - Found: ' . count($query->posts) . ' visits');
+        } else {
+            $query = new \WP_Query($query_args);
+        }
+
+        // ── FALLBACK 1: Se sem prefixo não funcionar, tenta sem prefixo ──────────
+        if (empty($query->posts) && $origin_key !== '') {
+            $query_args['meta_query'] = [[
                 'key'     => '_vana_parent_tour_origin_key',
                 'value'   => $origin_key,
                 'compare' => '=',
-            ]],
-        ]);
+            ]];
+            $query = new \WP_Query($query_args);
+            error_log('[VANA-DRAWER-DEBUG] Fallback 1 (without "tour:" prefix) - Found: ' . count($query->posts) . ' visits');
+        }
+
+        // ── FALLBACK 2: Tenta por tour_id direto ──────────────────────────────
+        if (empty($query->posts)) {
+            $query_args['meta_query'] = [[
+                'key'     => '_vana_tour_id',
+                'value'   => $tour_id,
+                'compare' => '=',
+            ]];
+            $query = new \WP_Query($query_args);
+            error_log('[VANA-DRAWER-DEBUG] Fallback 2 (_vana_tour_id) - Found: ' . count($query->posts) . ' visits');
+        }
+
+        // ── FALLBACK 3: Tenta por post_parent ─────────────────────────────────
+        if (empty($query->posts)) {
+            unset($query_args['meta_query']);
+            $query_args['post_parent'] = $tour_id;
+            $query = new \WP_Query($query_args);
+            error_log('[VANA-DRAWER-DEBUG] Fallback 3 (post_parent) - Found: ' . count($query->posts) . ' visits');
+        }
+
+        // ── FALLBACK 4 (FINAL): Se ainda sem resultados, retorna visita atual + irmãs ─
+        if (empty($query->posts) && $visit_id > 0) {
+            error_log('[VANA-DRAWER-DEBUG] Fallback 4 (FINAL) - trying with visit_id: ' . $visit_id);
+            $current_parent = wp_get_post_parent_id($visit_id);
+            error_log('[VANA-DRAWER-DEBUG] Current visit parent: ' . $current_parent);
+            
+            if ($current_parent > 0) {
+                $query_args = [
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'post_parent'    => $current_parent,
+                    'posts_per_page' => 100,
+                    'orderby'        => 'meta_value',
+                    'order'          => 'ASC',
+                    'meta_key'       => '_vana_start_date',
+                    'fields'         => 'all',
+                    'no_found_rows'  => true,
+                ];
+                $query = new \WP_Query($query_args);
+                error_log('[VANA-DRAWER-DEBUG] Fallback 4a (siblings) - Found: ' . count($query->posts) . ' visits');
+            }
+            
+            if (empty($query->posts)) {
+                $query_args = [
+                    'post_type'      => 'vana_visit',
+                    'post_status'    => 'publish',
+                    'posts_per_page' => 1,
+                    'orderby'        => 'date',
+                    'order'          => 'DESC',
+                    'post__in'       => [$visit_id],
+                    'fields'         => 'all',
+                    'no_found_rows'  => true,
+                ];
+                $query = new \WP_Query($query_args);
+                error_log('[VANA-DRAWER-DEBUG] Fallback 4b (current visit only) - Found: ' . count($query->posts) . ' visits');
+            }
+        }
 
         $items = [];
         foreach ($query->posts as $visit_post) {
@@ -292,6 +387,14 @@ final class Vana_Mission_Control {
             ];
         }
 
+        error_log('[VANA-DRAWER-DEBUG] Final items count: ' . count($items));
+        error_log('[VANA-DRAWER-DEBUG] Items: ' . print_r($items, true));
+        
+        // Limpar output antes de enviar JSON
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
         wp_send_json_success($items);
     }
 
@@ -450,6 +553,18 @@ final class Vana_Mission_Control {
             $vana_ec_ver  = file_exists($vana_ec_path)
                 ? (string) filemtime($vana_ec_path)
                 : VANA_MC_VERSION;
+            $vana_vc_path = VANA_MC_PATH . "assets/js/VanaVisitController.js";
+            $vana_vc_ver  = file_exists($vana_vc_path)
+                ? (string) filemtime($vana_vc_path)
+                : VANA_MC_VERSION;
+            $vana_cc_path = VANA_MC_PATH . "assets/js/VanaChipController.js";
+            $vana_cc_ver  = file_exists($vana_cc_path)
+                ? (string) filemtime($vana_cc_path)
+                : VANA_MC_VERSION;
+            $vana_ac_path = VANA_MC_PATH . "assets/js/VanaAgendaController.js";
+            $vana_ac_ver  = file_exists($vana_ac_path)
+                ? (string) filemtime($vana_ac_path)
+                : VANA_MC_VERSION;
 
             wp_enqueue_style(
                 "vana-ui-visit-hub",
@@ -464,6 +579,30 @@ final class Vana_Mission_Control {
                 [],                  // sem dependência jQuery
                 $vana_ec_ver,
                 true                 // footer
+            );
+
+            wp_enqueue_script(
+                "vana-visit-controller",
+                VANA_MC_URL . "assets/js/VanaVisitController.js",
+                [],
+                $vana_vc_ver,
+                true
+            );
+
+            wp_enqueue_script(
+                "vana-chip-controller",
+                VANA_MC_URL . "assets/js/VanaChipController.js",
+                [],
+                $vana_cc_ver,
+                true
+            );
+
+            wp_enqueue_script(
+                "vana-agenda-controller",
+                VANA_MC_URL . "assets/js/VanaAgendaController.js",
+                [],
+                $vana_ac_ver,
+                true
             );
         }
     }
