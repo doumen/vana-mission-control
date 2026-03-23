@@ -1394,12 +1394,11 @@ function renderPassages(passages, container) {
       };
     } // ← fecha initDrawer()
 
-    // Fix 1: Call initDrawer after DOMContentLoaded
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initDrawer);
     } else {
       initDrawer();
     }
 
-}());
+  }()); // ← fecha (function(){ ... }())
 </script>
