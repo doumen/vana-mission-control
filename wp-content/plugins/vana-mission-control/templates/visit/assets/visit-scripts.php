@@ -1181,6 +1181,8 @@ function renderPassages(passages, container) {
       tourList.hidden = true;
       if (tourBody) tourBody.hidden = false;
       if (visitsBody) visitsBody.hidden = true;
+      if (visitsList) visitsList.hidden = true;
+      if (visitsLoading) visitsLoading.hidden = true;
       if (tourLoading) tourLoading.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
@@ -1213,14 +1215,20 @@ function renderPassages(passages, container) {
           } else {
             console.error('[VANA-DRAWER] No tours found:', res);
             tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma tour encontrada.</li>';
+            tourList.hidden = false;
+            if (tourLoading) tourLoading.hidden = true;
           }
         } catch (parseErr) {
           console.error('[VANA-DRAWER] JSON parse error:', parseErr);
           tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
+          tourList.hidden = false;
+          if (tourLoading) tourLoading.hidden = true;
         }
       })
       .catch(function (e) {
         tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
+        tourList.hidden = false;
+        if (tourLoading) tourLoading.hidden = true;
         console.error('[VANA-DRAWER] Fetch error:', e);
       });
     }
@@ -1262,7 +1270,9 @@ function renderPassages(passages, container) {
       tourList.hidden = true;
       visitsList.innerHTML = '';
       visitsList.hidden = true;
+      if (tourBody) tourBody.hidden = true;
       if (visitsBody) visitsBody.hidden = false;
+      if (tourLoading) tourLoading.hidden = true;
       if (visitsLoading) visitsLoading.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
@@ -1296,15 +1306,21 @@ function renderPassages(passages, container) {
             renderVisitsList(res.data);
           } else {
             console.error('[VANA-DRAWER] No visits found:', res);
-            tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+            visitsList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+            visitsList.hidden = false;
+            if (visitsLoading) visitsLoading.hidden = true;
           }
         } catch (parseErr) {
           console.error('[VANA-DRAWER] JSON parse error:', parseErr);
-          tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+          visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+          visitsList.hidden = false;
+          if (visitsLoading) visitsLoading.hidden = true;
         }
       })
       .catch(function (e) {
-        tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+        visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
+        visitsList.hidden = false;
+        if (visitsLoading) visitsLoading.hidden = true;
         console.error('[VANA-DRAWER] Fetch error:', e);
       });
     }
@@ -1335,11 +1351,13 @@ function renderPassages(passages, container) {
       console.log('[VANA-DRAWER] Visits rendered successfully');
     }
 
-    // Função para voltar ao nível de tours
+    // Função para fechar a gaveta (botão "Voltar para Tours")
     window.__vanaDrawerBackToTours = function() {
       currentLevel = 'tours';
       selectedTourId = null;
-      loadDrawerTours();
+      drawer.classList.remove('is-open');
+      if (overlay) overlay.classList.remove('is-open');
+      btn.setAttribute('aria-expanded', 'false');
     };
   }());
 
