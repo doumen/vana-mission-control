@@ -1,0 +1,12 @@
+UPLOAD OK: /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/templates/visit/parts/stage.php
+
+===== VERIFY =====
+8: *   $active_day, $active_day_date, $active_event, $visit_status
+14:// ── 1. Normaliza para schema 5.1 a partir de $active_event ─
+15:$_evt       = is_array( $active_event ) ? $active_event : [];
+16:$_vods      = is_array( $_evt['media']['vods']            ?? null ) ? $_evt['media']['vods']            : [];
+19:$_vod_first = $_vods[0] ?? [];
+22:    'active_vod'   => $_vod_first,
+23:    'vod_list'     => array_slice( $_vods, 1 ),
+28:    'title_pt'     => Vana_Utils::pick_i18n_key( $_vod_first, 'title', 'pt' ),
+29:    'title_en'     => Vana_Utils::pick_i18n_key( $_vod_first, 'title', 'en' ),

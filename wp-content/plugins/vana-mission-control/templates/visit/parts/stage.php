@@ -76,13 +76,21 @@ foreach ( is_array( $active_day['schedule'] ?? null ) ? $active_day['schedule'] 
         break;
     }
 }
+
+// ── 6. Detecção de modo ──────────────────────────────────
+// Modo neutro: sem evento selecionado ainda
+// (usado na carga inicial ou quando não há eventos neste dia)
+$is_neutral_mode = empty( $current_event['event_key'] ) || empty( $stage['type'] );
+$is_transitioning = false; // será controlado pelo JS em Fase E
 ?>
 
 <section
-    class="vana-stage"
+    class="vana-stage <?php echo $is_neutral_mode ? 'vana-stage--neutral' : ''; ?>"
     id="vana-stage"
     data-event-key="<?php echo esc_attr( $current_event['event_key'] ); ?>"
     aria-label="<?php echo esc_attr( vana_t( 'stage.aria', $lang ) ); ?>"
+    data-is-neutral="<?php echo $is_neutral_mode ? '1' : '0'; ?>"
+    data-transitioning="<?php echo $is_transitioning ? '1' : '0'; ?>"
 >
 
   <!-- ══════════════════════════════════════════════════════
@@ -164,6 +172,34 @@ foreach ( is_array( $active_day['schedule'] ?? null ) ? $active_day['schedule'] 
         <?php echo esc_html( $stage_title ?: vana_t( 'stage.recording', $lang ) ); ?>
       </h2>
     </div>
+
+    <!-- Botões: Share + Open Hari-Katha -->
+    <?php if ( ! $is_neutral_mode ): ?>
+      <div class="vana-stage-actions" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap;">
+        <button
+          type="button"
+          class="vana-stage-action-btn vana-stage-action-btn--share"
+          id="vana-stage-share-btn"
+          aria-label="<?php echo esc_attr( vana_t( 'stage.share', $lang ) ?: 'Compartilhar' ); ?>"
+          title="<?php echo esc_attr( vana_t( 'stage.share', $lang ) ?: 'Compartilhar evento' ); ?>"
+        >
+          <span aria-hidden="true">📤</span>
+          <span><?php echo esc_html( vana_t( 'stage.share', $lang ) ?: 'Compartilhar' ); ?></span>
+        </button>
+
+        <button
+          type="button"
+          class="vana-stage-action-btn vana-stage-action-btn--hk"
+          id="vana-stage-hk-btn"
+          data-drawer="vana-hk-drawer"
+          aria-label="<?php echo esc_attr( vana_t( 'stage.open_hk', $lang ) ?: 'Abrir Hari-Katha' ); ?>"
+          title="<?php echo esc_attr( vana_t( 'stage.open_hk', $lang ) ?: 'Abrir Hari-Katha do evento' ); ?>"
+        >
+          <span aria-hidden="true">🙏</span>
+          <span><?php echo esc_html( vana_t( 'stage.open_hk', $lang ) ?: 'Hari-Katha' ); ?></span>
+        </button>
+      </div>
+    <?php endif; ?>
 
     <?php if ( $stage_desc ) : ?>
       <div class="vana-stage-desc"

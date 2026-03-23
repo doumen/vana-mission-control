@@ -926,11 +926,16 @@ function showKathaList() {
         var pag = document.getElementById('vana-hk-pagination');
         if (pag) pag.hidden = !body.has_more;
       })
-      .catch(function () {
+      .catch(function (e) {
         state.loading = false;
         var inner2 = document.getElementById('vana-hk-passages-inner');
         if (inner2) inner2.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
+      }).finally(function () {
+        // Safety: sempre esconder ambos os spinners ao final
+        if (tourLoading) tourLoading.hidden = true;
+        if (visitsLoading) visitsLoading.hidden = true;
       });
+    }
   }
 
 function renderPassages(passages, container) {
@@ -1229,7 +1234,12 @@ function renderPassages(passages, container) {
         tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
         tourList.hidden = false;
         if (tourLoading) tourLoading.hidden = true;
+        if (visitsLoading) visitsLoading.hidden = true;
         console.error('[VANA-DRAWER] Fetch error:', e);
+      }).finally(function () {
+        // Safety: sempre esconder ambos os spinners ao final
+        if (tourLoading) tourLoading.hidden = true;
+        if (visitsLoading) visitsLoading.hidden = true;
       });
     }
 
@@ -1324,7 +1334,12 @@ function renderPassages(passages, container) {
         visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
         visitsList.hidden = false;
         if (visitsLoading) visitsLoading.hidden = true;
+        if (tourLoading) tourLoading.hidden = true;
         console.error('[VANA-DRAWER] Fetch error:', e);
+      }).finally(function () {
+        // Safety: sempre esconder ambos os spinners ao final
+        if (tourLoading) tourLoading.hidden = true;
+        if (visitsLoading) visitsLoading.hidden = true;
       });
     }
 

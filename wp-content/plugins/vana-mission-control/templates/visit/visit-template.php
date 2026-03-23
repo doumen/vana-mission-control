@@ -33,6 +33,15 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
   ?>
 
   <!-- ─────────────────────────────────────────────────────────────────────────
+       AGENDA DRAWER
+       ───────────────────────────────────────────────────────────────────────── -->
+  <?php
+  if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php' ) ) {
+      include VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php';
+  }
+  ?>
+
+  <!-- ─────────────────────────────────────────────────────────────────────────
        ANCRE SHORTCUTS (Hari Katha, Schedule, VOD, etc)
        ───────────────────────────────────────────────────────────────────────── -->
   <?php
@@ -91,11 +100,12 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
     </div><!-- /vana-stage-grid -->
 
     <!-- ─────────────────────────────────────────────────────────────────────────
-         HARI KATHA SECTION
+         UNIFIED SECTIONS PANEL
+         (Hari-Katha | Galeria | Sangha | Revista)
          ───────────────────────────────────────────────────────────────────────── -->
     <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/hari-katha.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/hari-katha.php';
+    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/sections.php' ) ) {
+        include VANA_MC_PATH . 'templates/visit/parts/sections.php';
     }
     ?>
 
@@ -105,34 +115,6 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
     <?php
     if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/schedule.php' ) ) {
         include VANA_MC_PATH . 'templates/visit/parts/schedule.php';
-    }
-    ?>
-
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         SANGHA MOMENTS SECTION
-         ───────────────────────────────────────────────────────────────────────── -->
-    <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/sangha-moments.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/sangha-moments.php';
-    }
-    ?>
-
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         GALLERY SECTION
-         ───────────────────────────────────────────────────────────────────────── -->
-    <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/gallery.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/gallery.php';
-    }
-    ?>
-
-
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         REVISTA CARD SECTION
-         ───────────────────────────────────────────────────────────────────────── -->
-    <?php
-    if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/revista-card.php' ) ) {
-        include VANA_MC_PATH . 'templates/visit/parts/revista-card.php';
     }
     ?>
 

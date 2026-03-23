@@ -115,7 +115,11 @@ try {
 
 // ── 7. Navegação Prev / Next ──────────────────────────────────────────────────
 if ( ! function_exists( 'vana_visit_prev_next_ids' ) ) {
-    function vana_visit_prev_next_ids( int $current_id ): array {
+    function vana_visit_prev_next_ids( int $current_id, int $tour_id = 0 ): array {
+        // DT-004: Navegação é sempre cronológica global.
+        // Parâmetro $tour_id aceito por compatibilidade, mas não usado no resolver.
+        // Tour é contexto para o hero, nunca fronteira de navegação.
+
         if ( function_exists( 'vana_get_chronological_visits' ) ) {
             $sequence = vana_get_chronological_visits();
             if ( ! empty( $sequence ) ) {
@@ -180,6 +184,6 @@ if ( ! function_exists( '_vana_build_nav_visit' ) ) {
     }
 }
 
-[ $prev_id, $next_id ] = vana_visit_prev_next_ids( $visit_id );
+[ $prev_id, $next_id ] = vana_visit_prev_next_ids( $visit_id, $tour_id );
 $prev_visit = _vana_build_nav_visit( $prev_id, $lang );
 $next_visit = _vana_build_nav_visit( $next_id, $lang );

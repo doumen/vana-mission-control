@@ -1,0 +1,20 @@
+Conectando 149.62.37.117:65002...
+Conexão OK.
+Upload: c:\Users\marce\Desktop\vanamadhuryamdaily\vmc-vscode\wp-content\plugins\vana-mission-control\assets\js\VanaEventController.js -> /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/assets/js/VanaEventController.js
+Upload OK.
+
+===== GREP ENQUEUE =====
+grep -n 'wp_enqueue\|wp_register\|visit-script\|assets/js\|vana-event\|vana_visit_script' /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/vana-mission-control.php | head -30
+158:        add_action("wp_enqueue_scripts",  [$this, "enqueue_frontend_scripts"]);
+342:            $event_controller_path = VANA_MC_PATH . "assets/js/vana-event-controller.js";
+347:            wp_enqueue_style(
+354:            wp_enqueue_script(
+362:            wp_enqueue_script(
+363:                "vana-event-controller",
+364:                VANA_MC_URL . "assets/js/vana-event-controller.js",
+374:        wp_enqueue_style("vana-admin", VANA_MC_URL . "assets/css/admin.css", [], VANA_MC_VERSION);
+
+===== VERIFY UPLOAD =====
+-rw-r--r-- 1 u419701790 o1008312175 1195 Mar 22 01:09 /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/assets/js/VanaEventController.js
+
+DONE

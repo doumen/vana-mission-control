@@ -1,0 +1,99 @@
+
+============================================================
+BUG1 — _bootstrap.php: active_vod / active_event / vod_list
+============================================================
+12: *       $active_day, $active_day_date, $active_events, $active_event,
+
+============================================================
+BUG2 — visit-template.php: active_vod / vod_list / extract / compact
+============================================================
+(sem output)
+
+============================================================
+BUG3 — functions-visit-helpers.php: vana_render_vod_player / vana_get_stage_content / vana_normalize_event
+============================================================
+(sem output)
+
+============================================================
+BONUS — stage.php completo (primeiras 80 linhas)
+============================================================
+<?php
+/**
+ * Partial: Stage (Palco Principal) — schema 5.1
+ * Arquivo: templates/visit/parts/stage.php
+ *
+ * Requer (do _bootstrap.php):
+ *   $lang, $visit_id, $visit_tz, $visit_city_ref
+ *   $active_day, $active_day_date
+ *   $active_vod, $vod_list, $visit_status
+ *
+ * @since 5.1.0
+ */
+defined( 'ABSPATH' ) || exit;
+
+// ── 1. Normaliza para schema 5.1 ──────────────────────────
+$current_event = vana_normalize_event([
+    'active_vod'   => $active_vod   ?? [],
+    'vod_list'     => $vod_list     ?? [],
+    'hero'         => $active_day['hero']            ?? [],
+    'gallery'      => $active_day['gallery']         ?? [],
+    'sangha'       => $active_day['sangha_moments']  ?? [],
+    'event_key'    => $active_day['date_local']      ?? '',
+    'title_pt'     => Vana_Utils::pick_i18n_key( $active_vod ?? [], 'title', 'pt' ),
+    'title_en'     => Vana_Utils::pick_i18n_key( $active_vod ?? [], 'title', 'en' ),
+    'time_start'   => $active_day['date_local']      ?? '',
+    'status'       => $visit_status ?? '',
+]);
+
+// ── 2. Resolve conteúdo via hierarquia ────────────────────
+$stage = vana_get_stage_content( $current_event );
+
+// ── 3. Metadados de apoio ─────────────────────────────────
+$stage_title = Vana_Utils::pick_i18n_key(
+    $stage['data'] ?? $current_event,
+    'title',
+    $lang
+);
+$stage_desc = Vana_Utils::pick_i18n_key(
+    $stage['data'] ?? $current_event,
+    'description',
+    $lang
+);
+$stage_segments = is_array( ( $stage['data'] ?? [] )['segments'] ?? null )
+                  ? $stage['data']['segments']
+                  : [];
+$stage_loc      = is_array( ( $stage['data'] ?? [] )['location'] ?? null )
+                  ? $stage['data']['location']
+                  : ( is_array( $active_day['hero']['location'] ?? null )
+                      ? $active_day['hero']['location']
+                      : [] );
+
+// ── 4. Mapa ───────────────────────────────────────────────
+$lat        = is_numeric( $stage_loc['lat'] ?? '' ) ? (string) $stage_loc['lat'] : '';
+$lng        = is_numeric( $stage_loc['lng'] ?? '' ) ? (string) $stage_loc['lng'] : '';
+$has_coords = ( $lat !== '' && $lng !== '' );
+$maps_embed = $has_coords
+    ? 'https://maps.google.com/maps?q=' . rawurlencode( "$lat,$lng" )
+      . '&hl=' . ( $lang === 'en' ? 'en' : 'pt' ) . '&z=15&output=embed'
+    : '';
+
+// IDs únicos para o mapa
+$map_btn_id    = 'vanaLoadMapBtn_'  . esc_attr( $active_day_date );
+$map_wrap_id   = 'vanaMapWrap_'     . esc_attr( $active_day_date );
+$map_iframe_id = 'vanaMapIframe_'   . esc_attr( $active_day_date );
+
+// ── 5. Live badge ─────────────────────────────────────────
+$has_live = false;
+foreach ( is_array( $active_day['schedule'] ?? null ) ? $active_day['schedule'] : [] as $_item ) {
+    if ( is_array( $_item ) && ( $_item['status'] ?? '' ) === 'live' ) {
+        $has_live = true;
+        break;
+    }
+}
+?>
+
+<section
+    class="vana-stage"
+    id="vana-stage"
+    data-event-key="<?php echo esc_attr( $current_event['event_key'] ); ?>"
+    aria-label="<?php echo esc_attr( vana_t( 'stage.aria', $lang ) ); ?>"

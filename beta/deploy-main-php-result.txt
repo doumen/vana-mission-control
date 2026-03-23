@@ -1,0 +1,6 @@
+UPLOAD OK: /home/u419701790/domains/vanamadhuryamdaily.com/public_html/beta_html/wp-content/plugins/vana-mission-control/vana-mission-control.php
+===== VERIFY ENQUEUE =====
+342:            $vana_ec_path = VANA_MC_PATH . "assets/js/VanaEventController.js";
+355:                "vana-event-controller",
+356:                VANA_MC_URL . "assets/js/VanaEventController.js",
+

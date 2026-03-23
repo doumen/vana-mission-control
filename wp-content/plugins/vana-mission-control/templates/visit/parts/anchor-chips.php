@@ -72,8 +72,8 @@ endif;
 
 if ($has_hari_katha):
     $chips[] = [
-        'id'    => 'vana-section-hari-katha',
-        'icon'  => '📖',
+        'id'    => 'vana-section-hk',
+        'icon'  => '🙏',
         'label' => vana_t('anchor.hari_katha', $lang),
     ];
 endif;
@@ -81,7 +81,7 @@ endif;
 if ($has_gallery):
     $chips[] = [
         'id'    => 'vana-section-gallery',
-        'icon'  => '📸',
+        'icon'  => '📷',
         'label' => vana_t('anchor.photos', $lang),
     ];
 endif;
@@ -97,7 +97,7 @@ endif;
 if ($has_moments):
     $chips[] = [
         'id'    => 'vana-section-sangha',
-        'icon'  => '💛',
+        'icon'  => '💬',
         'label' => vana_t('anchor.sangha', $lang),
     ];
 endif;
@@ -109,6 +109,7 @@ if (empty($chips)) return;
 <nav
   id="vana-anchor-chips"
   class="vana-anchor-chips"
+  data-vana-chip-bar
   aria-label="<?php echo esc_attr(vana_t('anchor.nav_aria', $lang)); ?>"
   style="
     position:        sticky;
@@ -136,6 +137,8 @@ if (empty($chips)) return;
       <a
         href="#<?php echo esc_attr($chip['id']); ?>"
         class="vana-anchor-chip"
+        data-vana-chip="<?php echo esc_attr($chip['id']); ?>"
+        data-vana-section="<?php echo esc_attr($chip['id']); ?>"
         data-target="<?php echo esc_attr($chip['id']); ?>"
         style="
           display:         inline-flex;
@@ -182,83 +185,3 @@ if (empty($chips)) return;
   color:        var(--vana-text);
 }
 </style>
-
-<script>
-(function () {
-  'use strict';
-
-  // ── Scroll suave (previne o salto brusco) ──────────────────
-  document.querySelectorAll('.vana-anchor-chip').forEach(function (chip) {
-    chip.addEventListener('click', function (e) {
-      e.preventDefault();
-      var targetId = this.getAttribute('data-target');
-      var target   = document.getElementById(targetId);
-      if (!target) return;
-
-      // Offset = header (56px) + chips (45px) + folga (8px)
-      var offset = 56 + 45 + 8;
-      var top    = target.getBoundingClientRect().top
-                   + window.pageYOffset
-                   - offset;
-
-      window.scrollTo({ top: top, behavior: 'smooth' });
-
-      // Atualiza aria-current imediatamente (feedback visual)
-      setActive(this);
-    });
-  });
-
-  // ── Intersection Observer: chip ativo no scroll ────────────
-  var chips    = document.querySelectorAll('.vana-anchor-chip');
-  var sections = [];
-
-  chips.forEach(function (chip) {
-    var id  = chip.getAttribute('data-target');
-    var sec = document.getElementById(id);
-    if (sec) sections.push({ chip: chip, section: sec });
-  });
-
-  if (!sections.length || !window.IntersectionObserver) return;
-
-  var activeChip = null;
-
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
-      if (!entry.isIntersecting) return;
-      sections.forEach(function (item) {
-        if (item.section === entry.target) {
-          setActive(item.chip);
-        }
-      });
-    });
-  }, {
-    rootMargin: '-56px 0px -60% 0px', // considera o header sticky
-    threshold:  0,
-  });
-
-  sections.forEach(function (item) {
-    observer.observe(item.section);
-  });
-
-  function setActive(chip) {
-    chips.forEach(function (c) {
-      c.classList.remove('is-active');
-      c.removeAttribute('aria-current');
-    });
-    chip.classList.add('is-active');
-    chip.setAttribute('aria-current', 'true');
-
-    // Scroll horizontal dos chips para centralizar o ativo
-    var nav = document.getElementById('vana-anchor-chips');
-    if (!nav) return;
-    var chipLeft  = chip.offsetLeft;
-    var chipWidth = chip.offsetWidth;
-    var navWidth  = nav.offsetWidth;
-    nav.scrollTo({
-      left:     chipLeft - (navWidth / 2) + (chipWidth / 2),
-      behavior: 'smooth',
-    });
-  }
-
-}());
-</script>

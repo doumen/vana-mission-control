@@ -55,7 +55,44 @@ $lang_url = add_query_arg('lang', $lang_alt);
 
 // $prev_visit e $next_visit chegam prontos do _bootstrap.php.
 // Nenhuma WP_Query adicional necessária aqui.
+
+// ── 4. Tour Counter — Visita X de Y ────────────────────
+// Fase B expõe $tour_id se a visita pertence a uma tour
+$tour_counter_label = '';
+if (!empty($tour_id) && $tour_id > 0) {
+    // Contar visitas nesta tour (mesma lógica de Fase B)
+    $tour_visits = get_posts([
+        'post_type'      => 'vana_visit',
+        'post_status'    => 'publish',
+        'posts_per_page' => -1,
+        'fields'         => 'ids',
+        'meta_key'       => '_vana_start_date',
+        'orderby'        => 'meta_value',
+        'order'          => 'ASC',
+        'meta_query'     => [[
+            'key'     => '_vana_tour_id',
+            'value'   => $tour_id,
+            'compare' => '=',
+            'type'    => 'NUMERIC',
+        ]],
+    ]);
+
+    if (!empty($tour_visits)) {
+        $position = array_search($visit_id, $tour_visits, true);
+        if ($position !== false) {
+            $pos_number = $position + 1; // 1-indexed
+            $total      = count($tour_visits);
+            // i18n: "Visita 3 de 7"
+            $tour_counter_label = sprintf(
+                esc_html__('Visita %d de %d', 'vana'),
+                $pos_number,
+                $total
+            );
+        }
+    }
+}
 ?>
+
 
 <!-- ════════════════════════════════════════════════════════
      HEADER FIXO CONTEXTUAL
@@ -83,9 +120,13 @@ $lang_url = add_query_arg('lang', $lang_alt);
             </span>
         </button>
 
-        <!-- Centro: título contextual -->
+        <!-- Centro: título + contexto (dia + tour) -->
         <div class="vana-header__context">
             <span class="vana-header__title"><?php echo esc_html($title); ?></span>
+            <?php if ($tour_counter_label): ?>
+                <span class="vana-header__sep" aria-hidden="true">·</span>
+                <span class="vana-header__tour-counter"><?php echo esc_html($tour_counter_label); ?></span>
+            <?php endif; ?>
             <?php if ($active_label): ?>
                 <span class="vana-header__sep" aria-hidden="true">·</span>
                 <span class="vana-header__day"><?php echo esc_html($active_label); ?></span>
@@ -94,6 +135,19 @@ $lang_url = add_query_arg('lang', $lang_alt);
 
         <!-- Direita: notificações + idioma -->
         <div class="vana-header__actions">
+            <button
+                type="button"
+                class="vana-header__notify-btn vana-header__agenda-btn"
+                id="vana-agenda-open-btn"
+                data-vana-agenda-open
+                aria-expanded="false"
+                aria-controls="vana-agenda-drawer"
+                aria-label="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
+                title="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
+            >
+                <span aria-hidden="true">📅</span>
+            </button>
+
             <button
                 class="vana-header__notify-btn"
                 id="vana-notify-btn"
@@ -117,48 +171,9 @@ $lang_url = add_query_arg('lang', $lang_alt);
 </header>
 
 <!-- ════════════════════════════════════════════════════════
-     TOUR DRAWER
+     TOUR DRAWER — incluído de tour-drawer.php
      ════════════════════════════════════════════════════════ -->
-<div
-    id="vana-tour-drawer"
-    class="vana-drawer"
-    role="dialog"
-    aria-modal="true"
-    aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"
-    hidden
->
-    <div class="vana-drawer__header">
-        <button class="vana-drawer__back" id="vana-drawer-back" hidden aria-label="Voltar">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </button>
-        <span class="vana-drawer__header-title" id="vana-drawer-title">
-            <?php echo esc_html(vana_t('hero.tours', $lang)); ?>
-        </span>
-        <button class="vana-drawer__close" aria-label="Fechar">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-        </button>
-    </div>
-
-    <div class="vana-drawer__body" id="vana-drawer-body">
-        <div class="vana-drawer__loading" id="vana-drawer-loading">
-            <span class="vana-drawer__spinner"></span>
-        </div>
-        <ul class="vana-drawer__tour-list" id="vana-drawer-tour-list" role="list" hidden></ul>
-    </div>
-
-    <div class="vana-drawer__body vana-drawer__body--visits" id="vana-drawer-visits" hidden>
-        <div class="vana-drawer__loading" id="vana-drawer-visits-loading">
-            <span class="vana-drawer__spinner"></span>
-        </div>
-        <ul class="vana-drawer__visit-list" id="vana-drawer-visit-list" role="list" hidden></ul>
-    </div>
-</div>
-
-<div class="vana-drawer__overlay" id="vana-drawer-overlay" hidden></div>
+<?php require VANA_MC_PATH . 'templates/visit/parts/tour-drawer.php'; ?>
 
 <!-- ════════════════════════════════════════════════════════
      HERO SECTION
@@ -185,6 +200,50 @@ $lang_url = add_query_arg('lang', $lang_alt);
             <p class="vana-hero__desc"><?php echo esc_html($desc); ?></p>
         <?php endif; ?>
 
+        <!-- Day Selector — só exibe em multi-dia -->
+        <?php
+        $days_count = count($data['days'] ?? []);
+        if ($days_count > 1):
+            // Agrupar dias por mês para header
+            $days_by_month = [];
+            foreach (($data['days'] ?? []) as $day) {
+                $ts = strtotime($day['date'] ?? '');
+                if ($ts === false) {
+                    continue;
+                }
+                $month_key = date('Y-m', $ts);
+                if (!isset($days_by_month[$month_key])) {
+                    $days_by_month[$month_key] = [];
+                }
+                $days_by_month[$month_key][] = $day;
+            }
+        ?>
+        <nav class="vana-hero__day-selector" aria-label="<?php echo esc_attr('Seletor de dias'); ?>">
+            <?php foreach ($days_by_month as $month_key => $month_days): ?>
+                <?php if (count($days_by_month) > 1): ?>
+                    <span class="vana-hero__day-selector-month"><?php echo esc_html(date('M/Y', strtotime($month_key))); ?></span>
+                <?php endif; ?>
+                <div class="vana-hero__day-selector-group">
+                    <?php foreach ($month_days as $day): ?>
+                        <?php
+                        $day_date = $day['date'] ?? '';
+                        $day_label = $day['label_' . $lang] ?? $day['label_pt'] ?? '';
+                        $is_active = $active_day && ($active_day['date'] ?? '') === $day_date;
+                        ?>
+                        <button
+                            class="vana-hero__day-btn <?php echo $is_active ? 'vana-hero__day-btn--active' : ''; ?>"
+                            data-day-date="<?php echo esc_attr($day_date); ?>"
+                            aria-label="<?php echo esc_attr($day_label); ?>"
+                            <?php echo $is_active ? 'aria-current="date"' : ''; ?>
+                        >
+                            <?php echo esc_html($day_label); ?>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        </nav>
+        <?php endif; ?>
+
         <!-- Prev / Next — dados vindos do _bootstrap.php -->
         <nav class="vana-hero__nav"
              aria-label="<?php echo esc_attr(vana_t('hero.nav_aria', $lang)); ?>">
@@ -193,6 +252,8 @@ $lang_url = add_query_arg('lang', $lang_alt);
                 <a
                     href="<?php echo esc_url($prev_visit['permalink']); ?>"
                     class="vana-hero__nav-btn vana-hero__nav-btn--prev"
+                    data-vana-prev-visit
+                    data-vana-visit-url="<?php echo esc_url($prev_visit['permalink']); ?>"
                     rel="prev"
                     aria-label="<?php echo esc_attr(
                         vana_t('hero.prev_aria', $lang) . $prev_visit['title']
@@ -216,6 +277,8 @@ $lang_url = add_query_arg('lang', $lang_alt);
                 <a
                     href="<?php echo esc_url($next_visit['permalink']); ?>"
                     class="vana-hero__nav-btn vana-hero__nav-btn--next"
+                    data-vana-next-visit
+                    data-vana-visit-url="<?php echo esc_url($next_visit['permalink']); ?>"
                     rel="next"
                     aria-label="<?php echo esc_attr(
                         vana_t('hero.next_aria', $lang) . $next_visit['title']
