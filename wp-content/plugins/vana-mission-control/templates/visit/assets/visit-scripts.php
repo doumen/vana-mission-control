@@ -1108,6 +1108,11 @@ function renderPassages(passages, container) {
     var overlay = document.getElementById('vana-drawer-overlay');
     var btn = document.querySelector('[data-drawer="vana-tour-drawer"]');
     var tourList = document.getElementById('vana-drawer-tour-list');
+    var tourBody = document.getElementById('vana-drawer-body');
+    var tourLoading = document.getElementById('vana-drawer-loading');
+    var visitsBody = document.getElementById('vana-drawer-visits');
+    var visitsLoading = document.getElementById('vana-drawer-visits-loading');
+    var visitsList = document.getElementById('vana-drawer-visit-list');
 
     if (!drawer || !btn) return;
 
@@ -1173,7 +1178,10 @@ function renderPassages(passages, container) {
       if (!tourList) return;
 
       tourList.innerHTML = '';
-      tourList.hidden = false;
+      tourList.hidden = true;
+      if (tourBody) tourBody.hidden = false;
+      if (visitsBody) visitsBody.hidden = true;
+      if (tourLoading) tourLoading.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
       var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
@@ -1234,6 +1242,8 @@ function renderPassages(passages, container) {
       }).join('');
 
       tourList.innerHTML = html;
+      tourList.hidden = false;
+      if (tourLoading) tourLoading.hidden = true;
       console.log('[VANA-DRAWER] Tours rendered successfully');
     }
 
@@ -1246,10 +1256,14 @@ function renderPassages(passages, container) {
     };
 
     function loadDrawerVisits(tourId) {
-      if (!tourList) return;
+      if (!tourList || !visitsBody) return;
 
       tourList.innerHTML = '';
-      tourList.hidden = false;
+      tourList.hidden = true;
+      visitsList.innerHTML = '';
+      visitsList.hidden = true;
+      if (visitsBody) visitsBody.hidden = false;
+      if (visitsLoading) visitsLoading.hidden = false;
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
       var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
@@ -1297,7 +1311,7 @@ function renderPassages(passages, container) {
 
     // Renderizar lista de visitas com botão de voltar (NÍVEL 2)
     function renderVisitsList(visits) {
-      if (!tourList) return;
+      if (!visitsList) return;
 
       console.log('[VANA-DRAWER] Rendering', visits.length, 'visits with back button');
       
@@ -1315,7 +1329,9 @@ function renderPassages(passages, container) {
           '</a></li>';
       }).join('');
 
-      tourList.innerHTML = html;
+      visitsList.innerHTML = html;
+      visitsList.hidden = false;
+      if (visitsLoading) visitsLoading.hidden = true;
       console.log('[VANA-DRAWER] Visits rendered successfully');
     }
 
