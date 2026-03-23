@@ -754,7 +754,7 @@ $js_data = [
 </script>
 
 
-<?php /* ── HARI-KATHĀ LOADER ─────────────────────────────────── */ ?>
+<?php /* ── HARI-KATHĀ LOADER + TOUR DRAWER ───────────────────── */ ?>
 <script>
 (function () {
   'use strict';
@@ -768,7 +768,7 @@ $js_data = [
     activeKatha : null,
     page        : 1,
     hasMore     : false,
-    loading     : false,
+    loading     : false
   };
 
   var root, introEl, listEl, passagesEl;
@@ -781,9 +781,9 @@ $js_data = [
     listEl     = root.querySelector('[data-role="katha-list"]');
     passagesEl = root.querySelector('[data-role="passage-list"]');
 
-    state.visitId   = root.getAttribute('data-visit-id')  || '';
-    state.activeDay = root.getAttribute('data-day')        || '';
-    state.lang      = root.getAttribute('data-lang')       || 'pt';
+    state.visitId   = root.getAttribute('data-visit-id') || '';
+    state.activeDay = root.getAttribute('data-day') || '';
+    state.lang      = root.getAttribute('data-lang') || 'pt';
 
     if (!state.visitId || !state.activeDay) return;
 
@@ -793,7 +793,7 @@ $js_data = [
   function fetchKathas() {
     var url = API_BASE
       + '/kathas?visit_id=' + encodeURIComponent(state.visitId)
-      + '&day='             + encodeURIComponent(state.activeDay);
+      + '&day=' + encodeURIComponent(state.activeDay);
 
     fetch(url)
       .then(function (r) { return r.json(); })
@@ -809,104 +809,108 @@ $js_data = [
       });
   }
 
-function renderKathaList(kathas) {
-  if (!kathas.length) {
-    introEl.textContent = t('empty');
-    return;
+  function renderKathaList(kathas) {
+    if (!kathas.length) {
+      introEl.textContent = t('empty');
+      return;
+    }
+
+    introEl.hidden = true;
+    listEl.innerHTML = '';
+
+    var periodLabel = {
+      morning: '🌅 ' + t('morning'),
+      midday:  '☀️ ' + t('midday'),
+      night:   '🌙 ' + t('night'),
+      other:   '📌 ' + t('other')
+    };
+
+    kathas.forEach(function (katha) {
+      var title   = pickLang(katha, 'title') || t('untitled');
+      var excerpt = pickLang(katha, 'excerpt') || '';
+      var badge   = periodLabel[katha.period] || '';
+      var count   = katha.passage_count || 0;
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vana-hk-card';
+      btn.setAttribute('aria-pressed', 'false');
+      btn.dataset.kathaId = katha.id;
+
+      btn.innerHTML =
+        '<span class="vana-hk-card__period">' + esc(badge) + '</span>' +
+        '<span class="vana-hk-card__count">' + count + ' ' + t('passages') + '</span>' +
+        '<span class="vana-hk-card__title">' + esc(title) + '</span>' +
+        (excerpt
+          ? '<span class="vana-hk-card__excerpt">' + esc(excerpt) + '</span>'
+          : '');
+
+      btn.addEventListener('click', function () {
+        openKatha(katha);
+      });
+
+      listEl.appendChild(btn);
+    });
   }
 
-  introEl.hidden   = true;
-  listEl.innerHTML = '';
+  function openKatha(katha) {
+    listEl.querySelectorAll('.vana-hk-card').forEach(function (el) {
+      var active = String(el.dataset.kathaId) === String(katha.id);
+      el.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
 
-  var periodLabel = {
-    morning: '🌅 ' + t('morning'),
-    midday:  '☀️ ' + t('midday'),
-    night:   '🌙 ' + t('night'),
-    other:   '📌 ' + t('other'),
-  };
+    state.activeKatha = katha;
+    state.page = 1;
+    state.hasMore = false;
 
-  kathas.forEach(function (katha) {
-    var title   = pickLang(katha, 'title')   || t('untitled');
-    var excerpt = pickLang(katha, 'excerpt') || '';
-    var badge   = periodLabel[katha.period]  || '';
-    var count   = katha.passage_count        || 0;
-
-    var btn = document.createElement('button');
-    btn.type      = 'button';
-    btn.className = 'vana-hk-card';
-    btn.setAttribute('aria-pressed', 'false');
-    btn.dataset.kathaId = katha.id;
-
-    btn.innerHTML =
-      '<span class="vana-hk-card__period">'  + esc(badge)  + '</span>' +
-      '<span class="vana-hk-card__count">'   + count + ' ' + t('passages') + '</span>' +
-      '<span class="vana-hk-card__title">'   + esc(title)  + '</span>' +
-      (excerpt
-        ? '<span class="vana-hk-card__excerpt">' + esc(excerpt) + '</span>'
-        : '');
-
-    btn.addEventListener('click', function () { openKatha(katha); });
-    listEl.appendChild(btn);
-  });
-}
-
-function openKatha(katha) {
-  listEl.querySelectorAll('.vana-hk-card').forEach(function (el) {
-    var active = String(el.dataset.kathaId) === String(katha.id);
-    el.setAttribute('aria-pressed', active ? 'true' : 'false');
-  });
-
-  state.activeKatha = katha;
-  state.page        = 1;
-  state.hasMore     = false;
-
-  listEl.hidden     = true;
-  passagesEl.hidden = false;
-  passagesEl.innerHTML =
-    '<button type="button" class="vana-hk-back" id="vana-hk-back">' +
-      '← ' + t('backToList') +
-    '</button>' +
-    '<h3 class="vana-hk-katha-title">' +
-      esc(pickLang(katha, 'title') || '') +
-    '</h3>' +
-    '<div id="vana-hk-passages-inner">' +
-      '<p class="vana-hk__intro">' + t('loading') + '</p>' +
-    '</div>' +
-    '<div id="vana-hk-pagination" hidden>' +
-      '<button type="button" class="vana-hk-load-more" id="vana-hk-load-more">' +
-        t('loadMore') +
+    listEl.hidden = true;
+    passagesEl.hidden = false;
+    passagesEl.innerHTML =
+      '<button type="button" class="vana-hk-back" id="vana-hk-back">' +
+        '← ' + t('backToList') +
       '</button>' +
-    '</div>';
+      '<h3 class="vana-hk-katha-title">' +
+        esc(pickLang(katha, 'title') || '') +
+      '</h3>' +
+      '<div id="vana-hk-passages-inner">' +
+        '<p class="vana-hk__intro">' + t('loading') + '</p>' +
+      '</div>' +
+      '<div id="vana-hk-pagination" hidden>' +
+        '<button type="button" class="vana-hk-load-more" id="vana-hk-load-more">' +
+          t('loadMore') +
+        '</button>' +
+      '</div>';
 
-  document.getElementById('vana-hk-back')
-    .addEventListener('click', showKathaList);
-  document.getElementById('vana-hk-load-more')
-    .addEventListener('click', loadMore);
+    document.getElementById('vana-hk-back')
+      .addEventListener('click', showKathaList);
 
-  fetchPassages(katha.id, 1);
-}
+    document.getElementById('vana-hk-load-more')
+      .addEventListener('click', loadMore);
 
-function showKathaList() {
-  state.activeKatha    = null;
-  state.page           = 1;
-  state.hasMore        = false;
-  passagesEl.innerHTML = '';
-  passagesEl.hidden    = true;
-  listEl.hidden        = false;
+    fetchPassages(katha.id, 1);
+  }
 
-  listEl.querySelectorAll('.vana-hk-card').forEach(function (el) {
-    el.setAttribute('aria-pressed', 'false');
-  });
-}
+  function showKathaList() {
+    state.activeKatha = null;
+    state.page = 1;
+    state.hasMore = false;
+    passagesEl.innerHTML = '';
+    passagesEl.hidden = true;
+    listEl.hidden = false;
+
+    listEl.querySelectorAll('.vana-hk-card').forEach(function (el) {
+      el.setAttribute('aria-pressed', 'false');
+    });
+  }
 
   function fetchPassages(kathaId, page) {
     if (state.loading) return;
     state.loading = true;
 
     var inner = document.getElementById('vana-hk-passages-inner');
-    var url   = API_BASE
+    var url = API_BASE
       + '/passages?katha_id=' + encodeURIComponent(kathaId)
-      + '&page='              + page;
+      + '&page=' + page;
 
     fetch(url)
       .then(function (r) { return r.json(); })
@@ -914,187 +918,220 @@ function showKathaList() {
         state.loading = false;
 
         if (!json.success || !json.data || !json.data.items) {
-          if (inner) inner.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
+          if (inner) {
+            inner.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
+          }
           return;
         }
 
         var body = json.data;
-        if (page === 1 && inner) inner.innerHTML = '';
+
+        if (page === 1 && inner) {
+          inner.innerHTML = '';
+        }
+
         renderPassages(body.items, inner);
 
-        state.page    = page;
-        state.hasMore = body.has_more;
+        state.page = page;
+        state.hasMore = !!body.has_more;
 
         var pag = document.getElementById('vana-hk-pagination');
-        if (pag) pag.hidden = !body.has_more;
+        if (pag) {
+          pag.hidden = !body.has_more;
+        }
       })
-      .catch(function (e) {
+      .catch(function () {
         state.loading = false;
         var inner2 = document.getElementById('vana-hk-passages-inner');
-        if (inner2) inner2.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
-      }).finally(function () {
-        // Fix 2: Removed out-of-scope tourLoading/visitsLoading references
-      });
-    }
-    // --- Funções utilitárias e renderPassages agora dentro da IIFE ---
-    function renderPassages(passages, container) {
-      if (!container) return;
-      var kindIcon = {
-        narrative:           '📖',
-        instruction:         '📘',
-        verse_commentary:    '🕉️',
-        dialogue:            '💬',
-        anecdote:            '📜',
-        prayer:              '🙏',
-        'gaura-lila':        '🌸',
-        story:               '📖',
-        teaching:            '📘',
-        other:               '•',
-      };
-      passages.forEach(function (p) {
-        var kind       = p.passage_kind || 'other';
-        var icon       = kindIcon[kind] || '•';
-        var hookVal    = pickLangField(p, 'hook');
-        var quoteVal   = pickLangField(p, 'key_quote');
-        var contentVal = pickLangField(p, 'content');
-        var article = document.createElement('article');
-        article.className    = 'vana-hk-passage';
-        article.id           = 'hk-passage-' + p.id;
-        article.dataset.kind = kind;
-        var tsHtml = p.t_start
-          ? '<span class="vana-hk-passage__ts" role="button" tabindex="0"' +
-              ' title="' + t('seekTo') + '" data-t="' + esc(p.t_start) + '">' +
-              esc(p.t_start) +
-            '</span>'
-          : '';
-        var badges =
-          (p.reel_worthy
-            ? '<span class="vana-hk-passage__badge" title="' + t('reelWorthy') + '">🎬</span>'
-            : '') +
-          (p.contains_confidential_content
-            ? '<span class="vana-hk-passage__badge" title="' + t('confidential') + '">🔒</span>'
-            : '');
-        article.innerHTML =
-          '<header class="vana-hk-passage__header">'                                             +
-          '  <span class="vana-hk-passage__index">#' + (p.index || '') + '</span>'               +
-          '  <span class="vana-hk-passage__kind">'   + icon + ' ' + esc(kind) + '</span>'        +
-          badges + tsHtml                                                                          +
-          '</header>'                                                                              +
-          (hookVal
-            ? '<p class="vana-hk-passage__hook">'             + esc(hookVal)  + '</p>'    : '') +
-          (quoteVal
-            ? '<blockquote class="vana-hk-passage__quote">"'  + esc(quoteVal) + '"</blockquote>' : '') +
-          (contentVal ? '<div class="vana-hk-passage__content"></div>' : '') +
-          '<footer class="vana-hk-passage__footer">'                                              +
-          '  <a class="vana-hk-passage__link" href="' + esc(p.permalink || '') + '">'            +
-          '    🔗 permalink'                                                                       +
-          '  </a>'                                                                                 +
-          '</footer>';
-        if (contentVal) {
-          var contentEl = article.querySelector('.vana-hk-passage__content');
-          if (contentEl) contentEl.textContent = contentVal;
+        if (inner2) {
+          inner2.innerHTML = '<p class="vana-hk__error">' + t('errP') + '</p>';
         }
-        /* ── Timestamp → seek no Stage ── */
-        var tsEl = article.querySelector('.vana-hk-passage__ts');
-        if (tsEl) {
-          var doSeek = function () {
-            var parts = String(tsEl.dataset.t).split(':').map(Number);
-            var sec   = parts.length === 3
-              ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-              : parts[0] * 60 + parts[1];
-            var iframe = document.getElementById('vanaStageIframe');
-            if (iframe && iframe.contentWindow) {
-              iframe.contentWindow.postMessage(
-                JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
-                'https://www.youtube-nocookie.com'
-              );
-              var target = iframe.closest('section') || iframe;
-              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          };
-          tsEl.addEventListener('click', doSeek);
-          tsEl.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doSeek(); }
-          });
-        }
-        container.appendChild(article);
       });
+  }
+
+  function renderPassages(passages, container) {
+    if (!container) return;
+
+    var kindIcon = {
+      narrative:        '📖',
+      instruction:      '📘',
+      verse_commentary: '🕉️',
+      dialogue:         '💬',
+      anecdote:         '📜',
+      prayer:           '🙏',
+      'gaura-lila':     '🌸',
+      story:            '📖',
+      teaching:         '📘',
+      other:            '•'
+    };
+
+    passages.forEach(function (p) {
+      var kind       = p.passage_kind || 'other';
+      var icon       = kindIcon[kind] || '•';
+      var hookVal    = pickLangField(p, 'hook');
+      var quoteVal   = pickLangField(p, 'key_quote');
+      var contentVal = pickLangField(p, 'content');
+
+      var article = document.createElement('article');
+      article.className = 'vana-hk-passage';
+      article.id = 'hk-passage-' + p.id;
+      article.dataset.kind = kind;
+
+      var tsHtml = p.t_start
+        ? '<span class="vana-hk-passage__ts" role="button" tabindex="0" title="' + t('seekTo') + '" data-t="' + esc(p.t_start) + '">' + esc(p.t_start) + '</span>'
+        : '';
+
+      var badges =
+        (p.reel_worthy
+          ? '<span class="vana-hk-passage__badge" title="' + t('reelWorthy') + '">🎬</span>'
+          : '') +
+        (p.contains_confidential_content
+          ? '<span class="vana-hk-passage__badge" title="' + t('confidential') + '">🔒</span>'
+          : '');
+
+      article.innerHTML =
+        '<header class="vana-hk-passage__header">' +
+        '  <span class="vana-hk-passage__index">#' + (p.index || '') + '</span>' +
+        '  <span class="vana-hk-passage__kind">' + icon + ' ' + esc(kind) + '</span>' +
+        badges + tsHtml +
+        '</header>' +
+        (hookVal
+          ? '<p class="vana-hk-passage__hook">' + esc(hookVal) + '</p>'
+          : '') +
+        (quoteVal
+          ? '<blockquote class="vana-hk-passage__quote">"' + esc(quoteVal) + '"</blockquote>'
+          : '') +
+        (contentVal
+          ? '<div class="vana-hk-passage__content"></div>'
+          : '') +
+        '<footer class="vana-hk-passage__footer">' +
+        '  <a class="vana-hk-passage__link" href="' + esc(p.permalink || '') + '">' +
+        '    🔗 permalink' +
+        '  </a>' +
+        '</footer>';
+
+      if (contentVal) {
+        var contentEl = article.querySelector('.vana-hk-passage__content');
+        if (contentEl) {
+          contentEl.textContent = contentVal;
+        }
+      }
+
+      var tsEl = article.querySelector('.vana-hk-passage__ts');
+      if (tsEl) {
+        var doSeek = function () {
+          var parts = String(tsEl.dataset.t).split(':').map(Number);
+          var sec = parts.length === 3
+            ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+            : parts[0] * 60 + parts[1];
+
+          var iframe = document.getElementById('vanaStageIframe');
+          if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage(
+              JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
+              'https://www.youtube-nocookie.com'
+            );
+            var target = iframe.closest('section') || iframe;
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        };
+
+        tsEl.addEventListener('click', doSeek);
+        tsEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            doSeek();
+          }
+        });
+      }
+
+      container.appendChild(article);
+    });
+  }
+
+  function loadMore() {
+    if (!state.activeKatha || !state.hasMore || state.loading) return;
+    fetchPassages(state.activeKatha.id, state.page + 1);
+  }
+
+  function pickLang(obj, field) {
+    if (state.lang === 'en') {
+      return obj[field + '_en'] || obj[field + '_pt'] || '';
     }
-    function loadMore() {
-      if (!state.activeKatha || !state.hasMore || state.loading) return;
-      fetchPassages(state.activeKatha.id, state.page + 1);
+    return obj[field + '_pt'] || obj[field + '_en'] || '';
+  }
+
+  function pickLangField(obj, field) {
+    if (state.lang === 'en') {
+      return obj[field + '_en'] || obj[field + '_pt'] || '';
     }
-    function pickLang(obj, field) {
-      if (state.lang === 'en') return obj[field + '_en'] || obj[field + '_pt'] || '';
-      return obj[field + '_pt'] || obj[field + '_en'] || '';
-    }
-    function pickLangField(p, field) {
-      if (state.lang === 'en') return p[field + '_en'] || p[field + '_pt'] || '';
-      return p[field + '_pt'] || p[field + '_en'] || '';
-    }
-    function esc(str) {
-      return String(str || '')
-        .replace(/&/g,  '&amp;')
-        .replace(/</g,  '&lt;')
-        .replace(/>/g,  '&gt;')
-        .replace(/"/g,  '&quot;')
-        .replace(/'/g,  '&#039;');
-    }
-    function t(key) {
-      var strings = {
-          pt: {
-            errK:          'Erro ao carregar kathās.',
-            errP:          'Erro ao carregar passages.',
-            empty:         'Nenhuma kathā registrada para este dia.',
-            loading:       'Carregando…',
-            loadMore:      'Carregar mais',
-            backToList:    'Kathās do dia',
-            untitled:      'Sem título',
-            passages:      'passages',
-            pendingReview: 'Revisão pendente',
-            reelWorthy:    'Potencial para Reels',
-            confidential:  'Conteúdo confidencial',
-            morning:       'Manhã',
-            midday:        'Tarde',
-            night:         'Noite',
-            other:         'Outro',
-            seekTo:        'Ir para este trecho no player',
-          },
-          en: {
-            errK:          'Error loading kathās.',
-            errP:          'Error loading passages.',
-            empty:         'No kathā registered for this day.',
-            loading:       'Loading…',
-            loadMore:      'Load more',
-            backToList:    'Day kathās',
-            untitled:      'Untitled',
-            passages:      'passages',
-            pendingReview: 'Pending review',
-            reelWorthy:    'Reel potential',
-            confidential:  'Confidential content',
-            morning:       'Morning',
-            midday:        'Afternoon',
-            night:         'Night',
-            other:         'Other',
-            seekTo:        'Jump to this moment in the player',
-          },
-      };
-      return (strings[state.lang] || strings.pt)[key] || key;
-    }
+    return obj[field + '_pt'] || obj[field + '_en'] || '';
+  }
+
+  function esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function t(key) {
+    var strings = {
+      pt: {
+        errK:          'Erro ao carregar kathās.',
+        errP:          'Erro ao carregar passages.',
+        empty:         'Nenhuma kathā registrada para este dia.',
+        loading:       'Carregando…',
+        loadMore:      'Carregar mais',
+        backToList:    'Kathās do dia',
+        untitled:      'Sem título',
+        passages:      'passages',
+        pendingReview: 'Revisão pendente',
+        reelWorthy:    'Potencial para Reels',
+        confidential:  'Conteúdo confidencial',
+        morning:       'Manhã',
+        midday:        'Tarde',
+        night:         'Noite',
+        other:         'Outro',
+        seekTo:        'Ir para este trecho no player'
+      },
+      en: {
+        errK:          'Error loading kathās.',
+        errP:          'Error loading passages.',
+        empty:         'No kathā registered for this day.',
+        loading:       'Loading…',
+        loadMore:      'Load more',
+        backToList:    'Day kathās',
+        untitled:      'Untitled',
+        passages:      'passages',
+        pendingReview: 'Pending review',
+        reelWorthy:    'Reel potential',
+        confidential:  'Confidential content',
+        morning:       'Morning',
+        midday:        'Afternoon',
+        night:         'Night',
+        other:         'Other',
+        seekTo:        'Jump to this moment in the player'
+      }
+    };
+
+    return (strings[state.lang] || strings.pt)[key] || key;
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
+}());
 
-  /* ----------------------------------------------------------
-     TOUR DRAWER LISTENER
-     Abre/fecha drawer ao clicar no botão Tours
-     ---------------------------------------------------------- */
-  (function() {
-    function initDrawer() {
-      var drawer = document.getElementById('vana-tour-drawer');
+(function () {
+  'use strict';
+
+  function initDrawer() {
+    var drawer = document.getElementById('vana-tour-drawer');
     var overlay = document.getElementById('vana-drawer-overlay');
     var btn = document.querySelector('[data-drawer="vana-tour-drawer"]');
     var tourList = document.getElementById('vana-drawer-tour-list');
@@ -1107,78 +1144,62 @@ function showKathaList() {
     if (!drawer || !btn) return;
 
     var drawerLoaded = false;
-    var currentLevel = null; // 'tours' ou 'visits'
+    var currentLevel = null;
     var selectedTourId = null;
 
-    // Função utilitária para escapar HTML
     function escHtml(str) {
-      return String(str)
+      return String(str || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
 
+    function closeDrawer() {
+      drawer.classList.remove('is-open');
+      drawer.setAttribute('hidden', '');
+      if (overlay) {
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('hidden', '');
+      }
+      btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function openDrawer() {
+      drawer.classList.add('is-open');
+      drawer.removeAttribute('hidden');
+      if (overlay) {
+        overlay.classList.add('is-open');
+        overlay.removeAttribute('hidden');
+      }
+      btn.setAttribute('aria-expanded', 'true');
+
+      if (!drawerLoaded && tourList) {
+        loadDrawerTours();
+        drawerLoaded = true;
+      }
+    }
 
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
 
-      var isOpen = drawer.classList.contains('is-open');
-
-      if (isOpen) {
-        drawer.classList.remove('is-open');
-        drawer.setAttribute('hidden', '');
-        if (overlay) {
-          overlay.classList.remove('is-open');
-          overlay.setAttribute('hidden', '');
-        }
-        btn.setAttribute('aria-expanded', 'false');
+      if (drawer.classList.contains('is-open')) {
+        closeDrawer();
       } else {
-        drawer.classList.add('is-open');
-        drawer.removeAttribute('hidden');
-        if (overlay) {
-          overlay.classList.add('is-open');
-          overlay.removeAttribute('hidden');
-        }
-        btn.setAttribute('aria-expanded', 'true');
-
-        // Carregar tours na primeira abertura
-        if (!drawerLoaded && tourList) {
-          loadDrawerTours();
-          drawerLoaded = true;
-        }
+        openDrawer();
       }
     });
 
-    // Fechar ao clicar em overlay
     if (overlay) {
-      overlay.addEventListener('click', function () {
-        drawer.classList.remove('is-open');
-        drawer.setAttribute('hidden', '');
-        overlay.classList.remove('is-open');
-        overlay.setAttribute('hidden', '');
-        btn.setAttribute('aria-expanded', 'false');
-      });
+      overlay.addEventListener('click', closeDrawer);
     }
 
-    // Fechar ao clicar em botão fechar
     var closeBtn = drawer.querySelector('.vana-drawer__close');
     if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
-        drawer.classList.remove('is-open');
-        drawer.setAttribute('hidden', '');
-        if (overlay) {
-          overlay.classList.remove('is-open');
-          overlay.setAttribute('hidden', '');
-        }
-        btn.setAttribute('aria-expanded', 'false');
-      });
+      closeBtn.addEventListener('click', closeDrawer);
     }
 
-    // ════════════════════════════════════════════════════════════════════════════════
-    // NÍVEL 1: Listar todas as tours
-    // ════════════════════════════════════════════════════════════════════════════════
     function loadDrawerTours() {
       if (!tourList) return;
 
@@ -1192,10 +1213,11 @@ function showKathaList() {
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
       var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
+      var ajaxUrl = window.vanaDrawer ? window.vanaDrawer.ajaxUrl : '/wp-admin/admin-ajax.php';
 
       console.log('[VANA-DRAWER] Loading all tours...');
 
-      fetch(window.vanaDrawer.ajaxUrl || '/wp-admin/admin-ajax.php', {
+      fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -1204,56 +1226,59 @@ function showKathaList() {
           _wpnonce: nonce
         })
       })
-      .then(function (r) {
-        console.log('[VANA-DRAWER] HTTP Response status:', r.status);
-        return r.text();
-      })
-      .then(function (text) {
-        console.log('[VANA-DRAWER] Raw response length:', text.length);
-        
-        try {
-          var res = JSON.parse(text);
-          if (res.success && Array.isArray(res.data) && res.data.length) {
-            console.log('[VANA-DRAWER] Success! Tours count:', res.data.length);
-            currentLevel = 'tours';
-            renderToursList(res.data);
-          } else {
-            console.error('[VANA-DRAWER] No tours found:', res);
-            tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma tour encontrada.</li>';
+        .then(function (r) {
+          console.log('[VANA-DRAWER] HTTP Response status:', r.status);
+          return r.text();
+        })
+        .then(function (text) {
+          console.log('[VANA-DRAWER] Raw response length:', text.length);
+
+          try {
+            var res = JSON.parse(text);
+            if (res.success && Array.isArray(res.data) && res.data.length) {
+              console.log('[VANA-DRAWER] Success! Tours count:', res.data.length);
+              currentLevel = 'tours';
+              renderToursList(res.data);
+            } else {
+              console.error('[VANA-DRAWER] No tours found:', res);
+              tourList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma tour encontrada.</li>';
+              tourList.hidden = false;
+              if (tourLoading) tourLoading.hidden = true;
+            }
+          } catch (parseErr) {
+            console.error('[VANA-DRAWER] JSON parse error:', parseErr);
+            tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
             tourList.hidden = false;
             if (tourLoading) tourLoading.hidden = true;
           }
-        } catch (parseErr) {
-          console.error('[VANA-DRAWER] JSON parse error:', parseErr);
+        })
+        .catch(function (e) {
           tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
           tourList.hidden = false;
           if (tourLoading) tourLoading.hidden = true;
-        }
-      })
-      .catch(function (e) {
-        tourList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar tours.</li>';
-        tourList.hidden = false;
-        if (tourLoading) tourLoading.hidden = true;
-        if (visitsLoading) visitsLoading.hidden = true;
-        console.error('[VANA-DRAWER] Fetch error:', e);
-      }).finally(function () {
-        // Safety: sempre esconder ambos os spinners ao final
-        if (tourLoading) tourLoading.hidden = true;
-        if (visitsLoading) visitsLoading.hidden = true;
-      });
+          if (visitsLoading) visitsLoading.hidden = true;
+          console.error('[VANA-DRAWER] Fetch error:', e);
+        })
+        .finally(function () {
+          if (tourLoading) tourLoading.hidden = true;
+          if (visitsLoading) visitsLoading.hidden = true;
+        });
     }
 
-    // Renderizar lista de tours (NÍVEL 1)
     function renderToursList(tours) {
       if (!tourList) return;
 
       console.log('[VANA-DRAWER] Rendering', tours.length, 'tours');
-      
+
       var html = tours.map(function (t) {
-        var isCurrentTour = t.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
-        var visitLabel = t.visit_count > 1 ? t.visit_count + ' visitas' : t.visit_count + ' visita';
-        
-        return '<li' + isCurrentTour + ' style="cursor:pointer; padding:12px 16px; border-bottom: 1px solid #eee;" onclick="window.__vanaDrawerSelectTour(' + t.id + ')">' +
+        var isCurrentTour = t.is_current
+          ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"'
+          : '';
+        var visitLabel = t.visit_count > 1
+          ? t.visit_count + ' visitas'
+          : t.visit_count + ' visita';
+
+        return '<li' + isCurrentTour + ' style="cursor:pointer; padding:12px 16px; border-bottom:1px solid #eee;" onclick="window.__vanaDrawerSelectTour(' + t.id + ')">' +
           '<div style="font-weight:500;">' + escHtml(t.title) + '</div>' +
           '<div style="font-size:0.75rem; color:#999;">' + visitLabel + '</div>' +
           '</li>';
@@ -1265,19 +1290,12 @@ function showKathaList() {
       if (visitsBody) visitsBody.hidden = true;
       if (tourLoading) tourLoading.hidden = true;
       if (visitsLoading) visitsLoading.hidden = true;
+
       console.log('[VANA-DRAWER] Tours rendered successfully');
     }
 
-    // ════════════════════════════════════════════════════════════════════════════════
-    // NÍVEL 2: Listar visitas da tour selecionada
-    // ════════════════════════════════════════════════════════════════════════════════
-    window.__vanaDrawerSelectTour = function(tourId) {
-      selectedTourId = tourId;
-      loadDrawerVisits(tourId);
-    };
-
     function loadDrawerVisits(tourId) {
-      if (!tourList || !visitsBody) return;
+      if (!tourList || !visitsBody || !visitsList) return;
 
       tourList.innerHTML = '';
       tourList.hidden = true;
@@ -1290,10 +1308,11 @@ function showKathaList() {
 
       var nonce = window.vanaDrawer ? window.vanaDrawer.nonce : '';
       var visitId = window.vanaDrawer ? window.vanaDrawer.visitId : 0;
+      var ajaxUrl = window.vanaDrawer ? window.vanaDrawer.ajaxUrl : '/wp-admin/admin-ajax.php';
 
       console.log('[VANA-DRAWER] Loading visits for tour_id:', tourId);
 
-      fetch(window.vanaDrawer.ajaxUrl || '/wp-admin/admin-ajax.php', {
+      fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -1304,85 +1323,93 @@ function showKathaList() {
           _wpnonce: nonce
         })
       })
-      .then(function (r) {
-        console.log('[VANA-DRAWER] HTTP Response status:', r.status);
-        return r.text();
-      })
-      .then(function (text) {
-        console.log('[VANA-DRAWER] Raw response length:', text.length);
-        
-        try {
-          var res = JSON.parse(text);
-          if (res.success && Array.isArray(res.data) && res.data.length) {
-            console.log('[VANA-DRAWER] Success! Visits count:', res.data.length);
-            currentLevel = 'visits';
-            renderVisitsList(res.data);
-          } else {
-            console.error('[VANA-DRAWER] No visits found:', res);
-            visitsList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+        .then(function (r) {
+          console.log('[VANA-DRAWER] HTTP Response status:', r.status);
+          return r.text();
+        })
+        .then(function (text) {
+          console.log('[VANA-DRAWER] Raw response length:', text.length);
+
+          try {
+            var res = JSON.parse(text);
+            if (res.success && Array.isArray(res.data) && res.data.length) {
+              console.log('[VANA-DRAWER] Success! Visits count:', res.data.length);
+              currentLevel = 'visits';
+              renderVisitsList(res.data);
+            } else {
+              console.error('[VANA-DRAWER] No visits found:', res);
+              visitsList.innerHTML = '<li style="padding:16px; color:#999;">Nenhuma visita encontrada.</li>';
+              visitsList.hidden = false;
+              if (visitsLoading) visitsLoading.hidden = true;
+            }
+          } catch (parseErr) {
+            console.error('[VANA-DRAWER] JSON parse error:', parseErr);
+            visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
             visitsList.hidden = false;
             if (visitsLoading) visitsLoading.hidden = true;
           }
-        } catch (parseErr) {
-          console.error('[VANA-DRAWER] JSON parse error:', parseErr);
+        })
+        .catch(function (e) {
           visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
           visitsList.hidden = false;
           if (visitsLoading) visitsLoading.hidden = true;
-        }
-      })
-      .catch(function (e) {
-        visitsList.innerHTML = '<li style="padding:16px; color:#d32f2f;">Erro ao carregar visitas.</li>';
-        visitsList.hidden = false;
-        if (visitsLoading) visitsLoading.hidden = true;
-        if (tourLoading) tourLoading.hidden = true;
-        console.error('[VANA-DRAWER] Fetch error:', e);
-      }).finally(function () {
-        // Safety: sempre esconder ambos os spinners ao final
-        if (tourLoading) tourLoading.hidden = true;
-        if (visitsLoading) visitsLoading.hidden = true;
-      });
+          if (tourLoading) tourLoading.hidden = true;
+          console.error('[VANA-DRAWER] Fetch error:', e);
+        })
+        .finally(function () {
+          if (tourLoading) tourLoading.hidden = true;
+          if (visitsLoading) visitsLoading.hidden = true;
+        });
     }
 
-    // Renderizar lista de visitas com botão de voltar (NÍVEL 2)
     function renderVisitsList(visits) {
       if (!visitsList) return;
 
       console.log('[VANA-DRAWER] Rendering', visits.length, 'visits with back button');
-      
-      var html = '<li style="padding:12px 16px; background:#f5f5f5; border-bottom: 2px solid #ddd;">' +
+
+      var html = '<li style="padding:12px 16px; background:#f5f5f5; border-bottom:2px solid #ddd;">' +
         '<button onclick="window.__vanaDrawerBackToTours()" style="background:none; border:none; cursor:pointer; color:#0066cc; font-weight:bold; padding:0; font-size:14px;">' +
         '← Voltar para Tours' +
         '</button>' +
         '</li>';
 
       html += visits.map(function (v) {
-        var isCurrent = v.is_current ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"' : '';
+        var isCurrent = v.is_current
+          ? ' style="background: rgba(251,146,60,0.1); border-left: 3px solid #fb923c;"'
+          : '';
+
         return '<li' + isCurrent + '><a href="' + escHtml(v.permalink) + '" style="display:block; padding:12px 16px; color:inherit; text-decoration:none; border:none;">' +
           '<div style="font-weight:500;">' + escHtml(v.title) + '</div>' +
-          (v.start_date ? '<div style="font-size:0.875rem; color:#666; margin-top:4px;">' + escHtml(v.start_date) + '</div>' : '') +
+          (v.start_date
+            ? '<div style="font-size:0.875rem; color:#666; margin-top:4px;">' + escHtml(v.start_date) + '</div>'
+            : '') +
           '</a></li>';
       }).join('');
 
       visitsList.innerHTML = html;
       visitsList.hidden = false;
       if (visitsLoading) visitsLoading.hidden = true;
+
       console.log('[VANA-DRAWER] Visits rendered successfully');
     }
 
-    // Função para voltar ao nível de tours
-      window.__vanaDrawerBackToTours = function() {
-        console.log('[VANA-DRAWER] Voltando para tours...');
-        currentLevel = 'tours';
-        selectedTourId = null;
-        loadDrawerTours();
-      };
-    } // ← fecha initDrawer()
+    window.__vanaDrawerSelectTour = function (tourId) {
+      selectedTourId = tourId;
+      loadDrawerVisits(tourId);
+    };
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initDrawer);
-    } else {
-      initDrawer();
-    }
+    window.__vanaDrawerBackToTours = function () {
+      console.log('[VANA-DRAWER] Voltando para tours...');
+      currentLevel = 'tours';
+      selectedTourId = null;
+      loadDrawerTours();
+    };
+  }
 
-  }()); // ← fecha (function(){ ... }())
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initDrawer);
+  } else {
+    initDrawer();
+  }
+}());
 </script>

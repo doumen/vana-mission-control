@@ -69,7 +69,7 @@ final class Vana_Manifest {
         $site_name      = get_bloginfo('name')        ?: 'Vana Madhuryam';
         $site_desc      = get_bloginfo('description') ?: 'Bhakti Chakor — Hari-kathā';
         $site_url       = trailingslashit(home_url('/'));
-        $theme_dir      = get_template_directory_uri();
+        $theme_dir      = get_stylesheet_directory_uri();
 
         // ── Cores ─────────────────────────────────────────────────
         $bg_color       = apply_filters('vana_pwa_bg_color',    '#0f172a');
@@ -255,7 +255,7 @@ final class Vana_Manifest {
                                     ? '?visit_id=' . $visit_id . '&pwa=1'
                                     : ''),
                 'icons'       => [[
-                    'src'   => get_template_directory_uri()
+                    'src'   => get_stylesheet_directory_uri()
                                . '/assets/images/shortcut-live.png',
                     'sizes' => '96x96',
                 ]],
@@ -266,7 +266,7 @@ final class Vana_Manifest {
                 'description' => 'Canal oficial no YouTube',
                 'url'         => 'https://www.youtube.com/@vanamadhuryamofficial',
                 'icons'       => [[
-                    'src'   => get_template_directory_uri()
+                    'src'   => get_stylesheet_directory_uri()
                                . '/assets/images/shortcut-youtube.png',
                     'sizes' => '96x96',
                 ]],
@@ -277,7 +277,7 @@ final class Vana_Manifest {
                 'description' => 'Comunidade no Facebook',
                 'url'         => 'https://www.facebook.com/vanamadhuryamofficial',
                 'icons'       => [[
-                    'src'   => get_template_directory_uri()
+                    'src'   => get_stylesheet_directory_uri()
                                . '/assets/images/shortcut-facebook.png',
                     'sizes' => '96x96',
                 ]],
@@ -288,7 +288,7 @@ final class Vana_Manifest {
                 'description' => 'Descoberta e Hooks no Instagram',
                 'url'         => 'https://www.instagram.com/vanamadhuryamofficial/',
                 'icons'       => [[
-                    'src'   => get_template_directory_uri()
+                    'src'   => get_stylesheet_directory_uri()
                                . '/assets/images/shortcut-instagram.png',
                     'sizes' => '96x96',
                 ]],
