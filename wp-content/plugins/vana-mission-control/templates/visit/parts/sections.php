@@ -42,35 +42,17 @@ $sangha_items  = $active_day['sangha_moments'] ?? [];
         data-section-id="section-hk"
         role="tabpanel"
         aria-labelledby="vana-chip-hk"
+        data-visit-id="<?php echo (int) $visit_id; ?>"
+        data-day="<?php echo esc_attr($active_day_date); ?>"
+        data-lang="<?php echo esc_attr($lang); ?>"
     >
         <div class="vana-section-header">
             <h3 class="vana-section-title">🙏 <?php echo esc_html( vana_t( 'sections.hari_katha', $lang ) ?: 'Hari-Katha' ); ?></h3>
         </div>
         <div class="vana-section-body">
-            <?php if (!empty($hk_items)): ?>
-                <ul class="vana-section-list">
-                    <?php foreach ($hk_items as $item): ?>
-                        <?php if (!is_array($item)) continue; ?>
-                        <li class="vana-section-item">
-                            <h4 class="vana-section-item-title">
-                                <?php echo esc_html( $item['title_' . $lang] ?? $item['title_pt'] ?? $item['title'] ?? '' ); ?>
-                            </h4>
-                            <?php if (!empty($item['excerpt_' . $lang] ?? $item['excerpt_pt'] ?? '')): ?>
-                                <p class="vana-section-item-excerpt">
-                                    <?php echo esc_html( $item['excerpt_' . $lang] ?? $item['excerpt_pt'] ?? '' ); ?>
-                                </p>
-                            <?php endif; ?>
-                            <?php if (!empty($item['url'])): ?>
-                                <a href="<?php echo esc_url($item['url']); ?>" class="vana-section-item-link">
-                                    <?php echo esc_html( vana_t( 'sections.read_more', $lang ) ?: 'Leia mais' ); ?> →
-                                </a>
-                            <?php endif; ?>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php else: ?>
-                <p class="vana-section-empty"><?php echo esc_html( vana_t( 'sections.empty', $lang ) ?: 'Sem hari-katha para este dia' ); ?></p>
-            <?php endif; ?>
+            <div class="vana-hk__intro"><?php echo esc_html( vana_t( 'hk.loading', $lang ) ?: 'Carregando hari-katha...' ); ?></div>
+            <div data-role="katha-list" class="vana-hk__list" hidden></div>
+            <div data-role="passage-list" class="vana-hk__passages" hidden></div>
         </div>
     </section>
 

@@ -759,6 +759,22 @@ $js_data = [
 (function () {
   'use strict';
 
+  function findRoot() {
+    var el = document.getElementById('vana-section-hari-katha');
+    if (el) return el;
+    el = document.getElementById('vana-section-hk');
+    return el;
+  }
+
+  function getAttrAny(el, names) {
+    if (!el || !names || !names.length) return '';
+    for (var i = 0; i < names.length; ++i) {
+      var v = el.getAttribute(names[i]);
+      if (v) return v;
+    }
+    return '';
+  }
+
   var API_BASE = <?php echo wp_json_encode( rest_url( 'vana/v1' ) ); ?>;
 
   var state = {
@@ -774,15 +790,15 @@ $js_data = [
   var root, introEl, listEl, passagesEl;
 
   function init() {
-    root = document.getElementById('vana-section-hari-katha');
+    root = findRoot();
     if (!root) return;
 
-    introEl    = root.querySelector('.vana-hk__intro');
-    listEl     = root.querySelector('[data-role="katha-list"]');
-    passagesEl = root.querySelector('[data-role="passage-list"]');
+    introEl    = root.querySelector('.vana-hk__intro') || root.querySelector('[data-role="hk-intro"]');
+    listEl     = root.querySelector('[data-role="katha-list"]') || root.querySelector('.vana-hk__list');
+    passagesEl = root.querySelector('[data-role="passage-list"]') || root.querySelector('.vana-hk__passages');
 
-    state.visitId   = root.getAttribute('data-visit-id') || '';
-    state.activeDay = root.getAttribute('data-day') || '';
+    state.visitId   = getAttrAny(root, ['data-visit-id', 'data-v-visit-id', 'data-visit']);
+    state.activeDay = getAttrAny(root, ['data-day', 'data-v-day', 'data-day-date']);
     state.lang      = root.getAttribute('data-lang') || 'pt';
 
     if (!state.visitId || !state.activeDay) return;
