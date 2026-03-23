@@ -749,8 +749,10 @@ $js_data = [
     init();
   }
 
+
 }(<?php echo wp_json_encode($js_data); ?>));
 </script>
+
 
 <?php /* ── HARI-KATHĀ LOADER ─────────────────────────────────── */ ?>
 <script>
@@ -1109,7 +1111,8 @@ function renderPassages(passages, container) {
      Abre/fecha drawer ao clicar no botão Tours
      ---------------------------------------------------------- */
   (function() {
-    var drawer = document.getElementById('vana-tour-drawer');
+    function initDrawer() {
+      var drawer = document.getElementById('vana-tour-drawer');
     var overlay = document.getElementById('vana-drawer-overlay');
     var btn = document.querySelector('[data-drawer="vana-tour-drawer"]');
     var tourList = document.getElementById('vana-drawer-tour-list');
@@ -1134,6 +1137,7 @@ function renderPassages(passages, container) {
         .replace(/"/g, '&quot;');
     }
 
+
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -1142,11 +1146,19 @@ function renderPassages(passages, container) {
 
       if (isOpen) {
         drawer.classList.remove('is-open');
-        if (overlay) overlay.classList.remove('is-open');
+        drawer.setAttribute('hidden', '');
+        if (overlay) {
+          overlay.classList.remove('is-open');
+          overlay.setAttribute('hidden', '');
+        }
         btn.setAttribute('aria-expanded', 'false');
       } else {
         drawer.classList.add('is-open');
-        if (overlay) overlay.classList.add('is-open');
+        drawer.removeAttribute('hidden');
+        if (overlay) {
+          overlay.classList.add('is-open');
+          overlay.removeAttribute('hidden');
+        }
         btn.setAttribute('aria-expanded', 'true');
 
         // Carregar tours na primeira abertura
@@ -1161,7 +1173,9 @@ function renderPassages(passages, container) {
     if (overlay) {
       overlay.addEventListener('click', function () {
         drawer.classList.remove('is-open');
+        drawer.setAttribute('hidden', '');
         overlay.classList.remove('is-open');
+        overlay.setAttribute('hidden', '');
         btn.setAttribute('aria-expanded', 'false');
       });
     }
@@ -1171,7 +1185,11 @@ function renderPassages(passages, container) {
     if (closeBtn) {
       closeBtn.addEventListener('click', function () {
         drawer.classList.remove('is-open');
-        if (overlay) overlay.classList.remove('is-open');
+        drawer.setAttribute('hidden', '');
+        if (overlay) {
+          overlay.classList.remove('is-open');
+          overlay.setAttribute('hidden', '');
+        }
         btn.setAttribute('aria-expanded', 'false');
       });
     }
@@ -1370,13 +1388,13 @@ function renderPassages(passages, container) {
     }
 
     // Função para voltar ao nível de tours
-    window.__vanaDrawerBackToTours = function() {
-      console.log('[VANA-DRAWER] Voltando para tours...');
-      currentLevel = 'tours';
-      selectedTourId = null;
-      loadDrawerTours();
-    };
-  }());
+      window.__vanaDrawerBackToTours = function() {
+        console.log('[VANA-DRAWER] Voltando para tours...');
+        currentLevel = 'tours';
+        selectedTourId = null;
+        loadDrawerTours();
+      };
+    } // ← fecha initDrawer()
 
 }());
 </script>
