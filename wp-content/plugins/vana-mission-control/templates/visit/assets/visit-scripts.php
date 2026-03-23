@@ -936,167 +936,151 @@ function showKathaList() {
         // Fix 2: Removed out-of-scope tourLoading/visitsLoading references
       });
     }
-  }
-
-function renderPassages(passages, container) {
-  if (!container) return;
-
-  var kindIcon = {
-    narrative:           '📖',
-    instruction:         '📘',
-    verse_commentary:    '🕉️',
-    dialogue:            '💬',
-    anecdote:            '📜',
-    prayer:              '🙏',
-    'gaura-lila':        '🌸',
-    story:               '📖',
-    teaching:            '📘',
-    other:               '•',
-  };
-
-  passages.forEach(function (p) {
-    var kind       = p.passage_kind || 'other';
-    var icon       = kindIcon[kind] || '•';
-    var hookVal    = pickLangField(p, 'hook');
-    var quoteVal   = pickLangField(p, 'key_quote');
-    var contentVal = pickLangField(p, 'content');
-
-    var article = document.createElement('article');
-    article.className    = 'vana-hk-passage';
-    article.id           = 'hk-passage-' + p.id;
-    article.dataset.kind = kind;
-
-    var tsHtml = p.t_start
-      ? '<span class="vana-hk-passage__ts" role="button" tabindex="0"' +
-          ' title="' + t('seekTo') + '" data-t="' + esc(p.t_start) + '">' +
-          esc(p.t_start) +
-        '</span>'
-      : '';
-
-    var badges =
-      (p.reel_worthy
-        ? '<span class="vana-hk-passage__badge" title="' + t('reelWorthy') + '">🎬</span>'
-        : '') +
-      (p.contains_confidential_content
-        ? '<span class="vana-hk-passage__badge" title="' + t('confidential') + '">🔒</span>'
-        : '');
-
-    article.innerHTML =
-      '<header class="vana-hk-passage__header">'                                             +
-      '  <span class="vana-hk-passage__index">#' + (p.index || '') + '</span>'               +
-      '  <span class="vana-hk-passage__kind">'   + icon + ' ' + esc(kind) + '</span>'        +
-      badges + tsHtml                                                                          +
-      '</header>'                                                                              +
-      (hookVal
-        ? '<p class="vana-hk-passage__hook">'             + esc(hookVal)  + '</p>'    : '') +
-      (quoteVal
-        ? '<blockquote class="vana-hk-passage__quote">"'  + esc(quoteVal) + '"</blockquote>' : '') +
-      (contentVal ? '<div class="vana-hk-passage__content"></div>' : '') +
-      '<footer class="vana-hk-passage__footer">'                                              +
-      '  <a class="vana-hk-passage__link" href="' + esc(p.permalink || '') + '">'            +
-      '    🔗 permalink'                                                                       +
-      '  </a>'                                                                                 +
-      '</footer>';
-
-    if (contentVal) {
-      var contentEl = article.querySelector('.vana-hk-passage__content');
-      if (contentEl) contentEl.textContent = contentVal;
-    }
-
-    /* ── Timestamp → seek no Stage ── */
-    var tsEl = article.querySelector('.vana-hk-passage__ts');
-    if (tsEl) {
-      var doSeek = function () {
-        var parts = String(tsEl.dataset.t).split(':').map(Number);
-        var sec   = parts.length === 3
-          ? parts[0] * 3600 + parts[1] * 60 + parts[2]
-          : parts[0] * 60 + parts[1];
-
-        var iframe = document.getElementById('vanaStageIframe');
-        if (iframe && iframe.contentWindow) {
-          iframe.contentWindow.postMessage(
-            JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
-            'https://www.youtube-nocookie.com'
-          );
-          var target = iframe.closest('section') || iframe;
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    // --- Funções utilitárias e renderPassages agora dentro da IIFE ---
+    function renderPassages(passages, container) {
+      if (!container) return;
+      var kindIcon = {
+        narrative:           '📖',
+        instruction:         '📘',
+        verse_commentary:    '🕉️',
+        dialogue:            '💬',
+        anecdote:            '📜',
+        prayer:              '🙏',
+        'gaura-lila':        '🌸',
+        story:               '📖',
+        teaching:            '📘',
+        other:               '•',
       };
-      tsEl.addEventListener('click', doSeek);
-      tsEl.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doSeek(); }
+      passages.forEach(function (p) {
+        var kind       = p.passage_kind || 'other';
+        var icon       = kindIcon[kind] || '•';
+        var hookVal    = pickLangField(p, 'hook');
+        var quoteVal   = pickLangField(p, 'key_quote');
+        var contentVal = pickLangField(p, 'content');
+        var article = document.createElement('article');
+        article.className    = 'vana-hk-passage';
+        article.id           = 'hk-passage-' + p.id;
+        article.dataset.kind = kind;
+        var tsHtml = p.t_start
+          ? '<span class="vana-hk-passage__ts" role="button" tabindex="0"' +
+              ' title="' + t('seekTo') + '" data-t="' + esc(p.t_start) + '">' +
+              esc(p.t_start) +
+            '</span>'
+          : '';
+        var badges =
+          (p.reel_worthy
+            ? '<span class="vana-hk-passage__badge" title="' + t('reelWorthy') + '">🎬</span>'
+            : '') +
+          (p.contains_confidential_content
+            ? '<span class="vana-hk-passage__badge" title="' + t('confidential') + '">🔒</span>'
+            : '');
+        article.innerHTML =
+          '<header class="vana-hk-passage__header">'                                             +
+          '  <span class="vana-hk-passage__index">#' + (p.index || '') + '</span>'               +
+          '  <span class="vana-hk-passage__kind">'   + icon + ' ' + esc(kind) + '</span>'        +
+          badges + tsHtml                                                                          +
+          '</header>'                                                                              +
+          (hookVal
+            ? '<p class="vana-hk-passage__hook">'             + esc(hookVal)  + '</p>'    : '') +
+          (quoteVal
+            ? '<blockquote class="vana-hk-passage__quote">"'  + esc(quoteVal) + '"</blockquote>' : '') +
+          (contentVal ? '<div class="vana-hk-passage__content"></div>' : '') +
+          '<footer class="vana-hk-passage__footer">'                                              +
+          '  <a class="vana-hk-passage__link" href="' + esc(p.permalink || '') + '">'            +
+          '    🔗 permalink'                                                                       +
+          '  </a>'                                                                                 +
+          '</footer>';
+        if (contentVal) {
+          var contentEl = article.querySelector('.vana-hk-passage__content');
+          if (contentEl) contentEl.textContent = contentVal;
+        }
+        /* ── Timestamp → seek no Stage ── */
+        var tsEl = article.querySelector('.vana-hk-passage__ts');
+        if (tsEl) {
+          var doSeek = function () {
+            var parts = String(tsEl.dataset.t).split(':').map(Number);
+            var sec   = parts.length === 3
+              ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+              : parts[0] * 60 + parts[1];
+            var iframe = document.getElementById('vanaStageIframe');
+            if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage(
+                JSON.stringify({ event: 'command', func: 'seekTo', args: [sec, true] }),
+                'https://www.youtube-nocookie.com'
+              );
+              var target = iframe.closest('section') || iframe;
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          };
+          tsEl.addEventListener('click', doSeek);
+          tsEl.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); doSeek(); }
+          });
+        }
+        container.appendChild(article);
       });
     }
-
-    container.appendChild(article);
-  });
-}
-
-  function loadMore() {
-    if (!state.activeKatha || !state.hasMore || state.loading) return;
-    fetchPassages(state.activeKatha.id, state.page + 1);
-  }
-
-  function pickLang(obj, field) {
-    if (state.lang === 'en') return obj[field + '_en'] || obj[field + '_pt'] || '';
-    return obj[field + '_pt'] || obj[field + '_en'] || '';
-  }
-
-  function pickLangField(p, field) {
-    if (state.lang === 'en') return p[field + '_en'] || p[field + '_pt'] || '';
-    return p[field + '_pt'] || p[field + '_en'] || '';
-  }
-
-  function esc(str) {
-    return String(str || '')
-      .replace(/&/g,  '&amp;')
-      .replace(/</g,  '&lt;')
-      .replace(/>/g,  '&gt;')
-      .replace(/"/g,  '&quot;')
-      .replace(/'/g,  '&#039;');
-  }
-
-  function t(key) {
-    var strings = {
-        pt: {
-          errK:          'Erro ao carregar kathās.',
-          errP:          'Erro ao carregar passages.',
-          empty:         'Nenhuma kathā registrada para este dia.',
-          loading:       'Carregando…',
-          loadMore:      'Carregar mais',
-          backToList:    'Kathās do dia',
-          untitled:      'Sem título',
-          passages:      'passages',
-          pendingReview: 'Revisão pendente',
-          reelWorthy:    'Potencial para Reels',
-          confidential:  'Conteúdo confidencial',
-          morning:       'Manhã',
-          midday:        'Tarde',
-          night:         'Noite',
-          other:         'Outro',
-          seekTo:        'Ir para este trecho no player',
-        },
-        en: {
-          errK:          'Error loading kathās.',
-          errP:          'Error loading passages.',
-          empty:         'No kathā registered for this day.',
-          loading:       'Loading…',
-          loadMore:      'Load more',
-          backToList:    'Day kathās',
-          untitled:      'Untitled',
-          passages:      'passages',
-          pendingReview: 'Pending review',
-          reelWorthy:    'Reel potential',
-          confidential:  'Confidential content',
-          morning:       'Morning',
-          midday:        'Afternoon',
-          night:         'Night',
-          other:         'Other',
-          seekTo:        'Jump to this moment in the player',
-        },
-    };
-    return (strings[state.lang] || strings.pt)[key] || key;
-  }
+    function loadMore() {
+      if (!state.activeKatha || !state.hasMore || state.loading) return;
+      fetchPassages(state.activeKatha.id, state.page + 1);
+    }
+    function pickLang(obj, field) {
+      if (state.lang === 'en') return obj[field + '_en'] || obj[field + '_pt'] || '';
+      return obj[field + '_pt'] || obj[field + '_en'] || '';
+    }
+    function pickLangField(p, field) {
+      if (state.lang === 'en') return p[field + '_en'] || p[field + '_pt'] || '';
+      return p[field + '_pt'] || p[field + '_en'] || '';
+    }
+    function esc(str) {
+      return String(str || '')
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+        .replace(/'/g,  '&#039;');
+    }
+    function t(key) {
+      var strings = {
+          pt: {
+            errK:          'Erro ao carregar kathās.',
+            errP:          'Erro ao carregar passages.',
+            empty:         'Nenhuma kathā registrada para este dia.',
+            loading:       'Carregando…',
+            loadMore:      'Carregar mais',
+            backToList:    'Kathās do dia',
+            untitled:      'Sem título',
+            passages:      'passages',
+            pendingReview: 'Revisão pendente',
+            reelWorthy:    'Potencial para Reels',
+            confidential:  'Conteúdo confidencial',
+            morning:       'Manhã',
+            midday:        'Tarde',
+            night:         'Noite',
+            other:         'Outro',
+            seekTo:        'Ir para este trecho no player',
+          },
+          en: {
+            errK:          'Error loading kathās.',
+            errP:          'Error loading passages.',
+            empty:         'No kathā registered for this day.',
+            loading:       'Loading…',
+            loadMore:      'Load more',
+            backToList:    'Day kathās',
+            untitled:      'Untitled',
+            passages:      'passages',
+            pendingReview: 'Pending review',
+            reelWorthy:    'Reel potential',
+            confidential:  'Confidential content',
+            morning:       'Morning',
+            midday:        'Afternoon',
+            night:         'Night',
+            other:         'Other',
+            seekTo:        'Jump to this moment in the player',
+          },
+      };
+      return (strings[state.lang] || strings.pt)[key] || key;
+    }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
