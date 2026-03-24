@@ -223,43 +223,56 @@ class Vana_REST_Stage_Fragment {
     // ─────────────────────────────────────────────────────────
     // Restore: re-renderiza o stage.php original da visita
     // ─────────────────────────────────────────────────────────
-    private static function render_restore(int $visit_id, string $lang): string {
-        $stage_path = VANA_MC_PATH . 'templates/visit/parts/stage.php';
-        if (! file_exists($stage_path)) return '';
+	private static function render_restore(int $visit_id, string $lang): string {
+		$stage_path = VANA_MC_PATH . 'templates/visit/parts/stage.php';
+		if ( ! file_exists( $stage_path ) ) {
+			return '';
+		}
 
-        // Bootstrap mínimo — espelha o que o _bootstrap_shim.php faz
-        // Use canonical helper for timezone and canonical fields when possible
-        require_once __DIR__ . '/../visit-stage-bootstrap.php';
-        $bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'lang' => $lang ] );
+		require_once __DIR__ . '/../visit-stage-bootstrap.php';
+		$bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'lang' => $lang ] );
 
-        $visit_meta = get_post_meta($visit_id, '_vana_visit_data', true);
-        $visit_data = is_array($visit_meta) ? $visit_meta : [];
+		$payload = get_post_meta( $visit_id, '_vana_visit_data', true );
+		if ( ! is_array( $payload ) ) {
+			$payload = [];
+		}
 
-        // Pega o primeiro dia como default
-        $days       = is_array($visit_data['days'] ?? null) ? $visit_data['days'] : [];
-        $active_day = ! empty($days) ? $days[0] : [];
+		$visit_tz = isset( $bootstrap['visit_tz'] ) && is_string( $bootstrap['visit_tz'] ) && $bootstrap['visit_tz'] !== ''
+			? $bootstrap['visit_tz']
+			: 'UTC';
 
-        $active_day_date  = (string) ($active_day['date'] ?? '');
-        $visit_tz         = (string) ( $bootstrap['visit_tz'] ?? ( $visit_data['timezone'] ?? 'UTC' ) );
-        $active_event     = $bootstrap['active_event'] ?? null;
-        $active_vod       = [];
-        $vod_list         = [];
-        $vod_count        = 0;
-        $active_vod_index = 0;
-        $active_event     = $bootstrap['active_event'] ?? null;
+		$visit_status    = $bootstrap['visit_status'] ?? '';
+		$visit_city_ref  = $bootstrap['visit_city_ref'] ?? 0;
+		$active_day      = $bootstrap['active_day'] ?? null;
+		$active_day_date = $bootstrap['active_day_date'] ?? '';
+		$active_event    = $bootstrap['active_event'] ?? null;
 
-        // phpcs:disable WordPress.PHP.DontExtract
-        extract(compact(
-            'lang', 'visit_id', 'visit_tz',
-            'active_day', 'active_day_date',
-            'active_vod', 'vod_list', 'vod_count', 'active_vod_index'
-        ));
-        // phpcs:enable
+		$active_vod       = isset( $payload['active_vod'] ) && is_array( $payload['active_vod'] ) ? $payload['active_vod'] : [];
+		$vod_list         = isset( $payload['vod_list'] ) && is_array( $payload['vod_list'] ) ? $payload['vod_list'] : [];
+		$vod_count        = count( $vod_list );
+		$active_vod_index = 0;
 
-        ob_start();
-        include $stage_path;
-        return (string) ob_get_clean();
-    }
+		// phpcs:disable WordPress.PHP.DontExtract
+		extract( compact(
+			'lang',
+			'visit_id',
+			'visit_tz',
+			'visit_city_ref',
+			'visit_status',
+			'active_day',
+			'active_day_date',
+			'active_event',
+			'active_vod',
+			'vod_list',
+			'vod_count',
+			'active_vod_index'
+		) );
+		// phpcs:enable
+
+		ob_start();
+		include $stage_path;
+		return (string) ob_get_clean();
+}
 
     // ─────────────────────────────────────────────────────────
     // Helper — WP_REST_Response com Content-Type: text/html
