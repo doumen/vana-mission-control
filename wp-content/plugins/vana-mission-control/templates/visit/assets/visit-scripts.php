@@ -56,6 +56,15 @@ $js_data = [
     ],
   ];
 ?>
+  <?php
+  /**
+   * NOTE: The tour drawer implementation (open/close, fetch tours, fetch tour visits,
+   * render lists, and public drawer helpers) is implemented inline in the JS
+   * contained in this file below. That JS depends on `window.vanaDrawer` being
+   * available. If this logic is extracted to an external controller, preserve
+   * the `window.vanaDrawer` payload and the initialization order.
+   */
+  ?>
   <script>
   window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
   </script>

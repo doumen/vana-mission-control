@@ -11,7 +11,11 @@
  *   $tour_id    int|null   — ID da tour (resolvido em _bootstrap.php)
  *   $lang       string     — 'pt' | 'en'
  *
- * JS Controller: VanaVisitController.js (Fase E)
+ * JS Controller: inline em templates/visit/assets/visit-scripts.php
+ *    (Este arquivo contém a implementação da gaveta: open/close, fetch AJAX,
+ *     render das listas e APIs públicas. Atualize a referência apenas se a
+ *     implementação for extraída para um controller externo e `window.vanaDrawer`
+ *     for preservado.)
  * Seletores críticos (manter em sincronismo):
  *   #vana-tour-drawer       → container principal (role=dialog)
  *   #vana-drawer-tour-list  → <ul> com tours
