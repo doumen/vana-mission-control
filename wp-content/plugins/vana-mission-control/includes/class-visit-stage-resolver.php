@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once __DIR__ . '/class-visit-event-resolver.php';
 require_once __DIR__ . '/class-visit-stage-view-model.php';
+require_once __DIR__ . '/visit-stage-bootstrap.php';
 
 final class VisitStageResolver {
 
@@ -33,11 +34,12 @@ final class VisitStageResolver {
      */
     public static function resolve( int $visit_id ): VisitStageViewModel {
 
-        // 1. Metas WP — dados brutos
-        $timeline       = self::read_json_meta( $visit_id, '_vana_visit_timeline_json' );
-        $overrides      = self::read_json_meta( $visit_id, '_vana_overrides_json' );
-        $visit_timezone = self::read_string_meta( $visit_id, '_vana_tz', 'UTC' );
-        $visit_status   = self::read_string_meta( $visit_id, '_vana_visit_status', '' );
+        // 1. Metas WP — dados brutos (canonicalized via helper)
+        $bootstrap = vana_visit_stage_bootstrap( $visit_id );
+        $timeline       = $bootstrap['timeline'];
+        $overrides      = $bootstrap['overrides'];
+        $visit_timezone = $bootstrap['visit_tz'];
+        $visit_status   = $bootstrap['visit_status'];
 
         // 2. Metas editoriais
         $hero_type      = self::read_string_meta( $visit_id, '_vana_hero_type', '' );
@@ -55,13 +57,8 @@ final class VisitStageResolver {
 
         // 5. Fase 1 — resolve contexto ativo da agenda
         //    Editorial não entra aqui (D2a aprovado).
-        $event_data = VisitEventResolver::resolve(
-            $timeline,
-            $overrides,
-            $requested_event_key,
-            $requested_day,
-            $visit_timezone
-        );
+        // event_data resolved by helper to ensure SSR/REST share the same context
+        $event_data = $bootstrap['event_data'];
 
         // 6. Resolve hero final (D2b: viewer > editorial > heurística)
         $hero = self::resolve_hero(

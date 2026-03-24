@@ -168,50 +168,34 @@ class Vana_REST_Stage_Fragment {
      * @since 4.3.0
      */
     private static function render_event_stage(int $visit_id, string $event_key, string $lang): string {
-        // 1. Busca timeline JSON do post meta
-        $timeline_json = get_post_meta($visit_id, '_vana_visit_timeline_json', true);
-        if (empty($timeline_json)) {
-            return '<div class="vana-stage-fragment-error">Timeline não encontrada.</div>';
-        }
+        // Prefer canonical bootstrap to find and resolve the event when safe
+        require_once __DIR__ . '/../visit-stage-bootstrap.php';
+        $bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'requested_event_key' => $event_key, 'lang' => $lang ] );
 
-        // 2. Decodifica e valida estrutura
-        $timeline = json_decode($timeline_json, true);
-        if (empty($timeline) || !is_array($timeline) || empty($timeline['days'])) {
+        $timeline = $bootstrap['timeline'] ?? [];
+        if ( empty( $timeline ) || ! is_array( $timeline ) || empty( $timeline['days'] ?? [] ) ) {
             return '<div class="vana-stage-fragment-error">Timeline inválida.</div>';
         }
 
-        // 3. Busca o evento pelos dias
-        $found_event = null;
-        $active_day = null;
-        foreach ($timeline['days'] as $day) {
-            if (empty($day['active_events']) || !is_array($day['active_events'])) {
-                continue;
-            }
-            foreach ($day['active_events'] as $event) {
-                // Tenta event_key ou key como fallback
-                $check_key = $event['event_key'] ?? $event['key'] ?? null;
-                if ($check_key === $event_key) {
-                    $found_event = $event;
-                    $active_day = $day;
-                    break 2;
-                }
-            }
-        }
+        $found_event = $bootstrap['active_event'] ?? null;
+        $active_day = $bootstrap['active_day'] ?? null;
 
-        if (empty($found_event)) {
+        if ( empty( $found_event ) || ! is_array( $found_event ) ) {
             return '<div class="vana-stage-fragment-error">Evento "' . esc_html($event_key) . '" não encontrado.</div>';
         }
 
         // 4. Normaliza evento para schema 5.1
-        $event = vana_normalize_event($found_event);
+        $event = function_exists('vana_normalize_event') ? vana_normalize_event($found_event) : $found_event;
+        // expose normalized event to template to align with SSR
+        $active_event = $event;
         
         // 5. Resolve conteúdo (VOD → Gallery → Sangha → Placeholder)
         $stage_content = vana_get_stage_content($event);
 
-        // 6. Monta variáveis para include
-        $visit_tz = get_post_meta($visit_id, '_vana_visit_timezone', true) ?: 'UTC';
-        $visit_status = $timeline['visit_status'] ?? 'scheduled';
-        $visit_city_ref = (string) (($timeline['location_meta']['city_ref'] ?? '') ?: '');
+        // 6. Monta variáveis para include (use helper canonical values)
+        $visit_tz = (string) ( $bootstrap['visit_tz'] ?? 'UTC' );
+        $visit_status = (string) ( $bootstrap['visit_status'] ?? ( $timeline['visit_status'] ?? 'scheduled' ) );
+        $visit_city_ref = (string) ( $bootstrap['visit_city_ref'] ?? ( $timeline['location_meta']['city_ref'] ?? '' ) ?: '' );
         $active_day_date = (string) ($active_day['date_local'] ?? $active_day['date'] ?? '');
         $active_vod = $stage_content;
         $vod_list = $event['vod_list'] ?? [];
@@ -227,7 +211,7 @@ class Vana_REST_Stage_Fragment {
             'lang', 'visit_id', 'visit_tz',
             'visit_city_ref', 'visit_status',
             'active_day', 'active_day_date',
-            'active_vod', 'vod_list'
+            'active_event', 'active_vod', 'vod_list'
         ));
         // phpcs:enable
 
@@ -244,6 +228,10 @@ class Vana_REST_Stage_Fragment {
         if (! file_exists($stage_path)) return '';
 
         // Bootstrap mínimo — espelha o que o _bootstrap_shim.php faz
+        // Use canonical helper for timezone and canonical fields when possible
+        require_once __DIR__ . '/../visit-stage-bootstrap.php';
+        $bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'lang' => $lang ] );
+
         $visit_meta = get_post_meta($visit_id, '_vana_visit_data', true);
         $visit_data = is_array($visit_meta) ? $visit_meta : [];
 
@@ -252,11 +240,13 @@ class Vana_REST_Stage_Fragment {
         $active_day = ! empty($days) ? $days[0] : [];
 
         $active_day_date  = (string) ($active_day['date'] ?? '');
-        $visit_tz         = (string) ($visit_data['timezone'] ?? 'America/Sao_Paulo');
+        $visit_tz         = (string) ( $bootstrap['visit_tz'] ?? ( $visit_data['timezone'] ?? 'UTC' ) );
+        $active_event     = $bootstrap['active_event'] ?? null;
         $active_vod       = [];
         $vod_list         = [];
         $vod_count        = 0;
         $active_vod_index = 0;
+        $active_event     = $bootstrap['active_event'] ?? null;
 
         // phpcs:disable WordPress.PHP.DontExtract
         extract(compact(

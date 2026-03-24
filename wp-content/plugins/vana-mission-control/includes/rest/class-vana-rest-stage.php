@@ -9,6 +9,8 @@
  */
 defined('ABSPATH') || exit;
 
+require_once __DIR__ . '/../visit-stage-bootstrap.php';
+
 class Vana_REST_Stage {
 
     private const REST_NAMESPACE = 'vana/v1';
@@ -97,18 +99,27 @@ class Vana_REST_Stage {
             );
         }
 
-        $raw = get_post_meta($visit_id, '_vana_visit_timeline_json', true);
-        $timeline = $raw ? json_decode((string) $raw, true) : null;
+        // Use canonical bootstrap to read timeline/timezone and resolve event/day
+        $bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'requested_event_key' => $event_key, 'lang' => $lang ] );
+        $timeline = $bootstrap['timeline'];
 
-        if (! is_array($timeline)) {
+        if ( ! is_array( $timeline ) || empty( $timeline ) ) {
             return $this->error(
                 'no_timeline',
                 'Este visit nao possui timeline configurada.',
                 404
             );
         }
+        $match = null;
+        // prefer resolved active_event when helper ran with requested_event_key
+        $active_event = $bootstrap['active_event'] ?? null;
+        $active_day = $bootstrap['active_day'] ?? null;
+        if ( is_array( $active_event ) && ( ( $active_event['event_key'] ?? '' ) === $event_key || ( $active_event['key'] ?? '' ) === $event_key ) ) {
+            $match = [ 'event' => $active_event, 'day' => $active_day ?: [] ];
+        } else {
+            $match = $this->find_event($timeline, $event_key);
+        }
 
-        $match = $this->find_event($timeline, $event_key);
         if (! $match) {
             return $this->error(
                 'event_not_found',
@@ -124,16 +135,17 @@ class Vana_REST_Stage {
             $event = vana_normalize_event($event);
         }
 
-        $stage_content = function_exists('vana_get_stage_content')
-            ? vana_get_stage_content($event)
-            : [];
+        $stage_content = function_exists('vana_get_stage_content') ? vana_get_stage_content($event) : [];
 
-        $visit_tz         = (string) (get_post_meta($visit_id, '_vana_visit_timezone', true) ?: 'UTC');
-        $visit_status     = (string) ($timeline['visit_status'] ?? 'scheduled');
+        // Normalized event exposed to template to match SSR contract
+        $active_event = function_exists('vana_normalize_event') ? vana_normalize_event($event) : $event;
+
+        $visit_tz         = (string) ( $bootstrap['visit_tz'] ?? ( get_post_meta( $visit_id, '_vana_visit_timezone', true ) ?: 'UTC' ) );
+        $visit_status     = (string) ( $bootstrap['visit_status'] ?? ( $timeline['visit_status'] ?? 'scheduled' ) );
         $active_vod       = $stage_content;
         $vod_list         = is_array($event['vod_list'] ?? null) ? $event['vod_list'] : [];
         $active_day_date  = (string) ($active_day['date'] ?? $active_day['date_local'] ?? '');
-        $visit_city_ref   = (string) ($timeline['visit_city_ref'] ?? '');
+        $visit_city_ref   = (string) ($bootstrap['visit_city_ref'] ?? ($timeline['visit_city_ref'] ?? ''));
 
         $html = $this->render_stage(compact(
             'lang',
@@ -142,6 +154,7 @@ class Vana_REST_Stage {
             'visit_city_ref',
             'active_day',
             'active_day_date',
+            'active_event',
             'active_vod',
             'vod_list',
             'visit_status'
