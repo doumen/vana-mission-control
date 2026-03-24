@@ -1304,7 +1304,10 @@ $js_data = [
       tourList.hidden = false;
       if (tourBody) tourBody.hidden = false;
       if (visitsBody) visitsBody.hidden = true;
-      if (tourLoading) tourLoading.hidden = true;
+      if (tourLoading) {
+        tourLoading.hidden = true;
+        tourLoading.style.display = 'none';
+      }
       if (visitsLoading) visitsLoading.hidden = true;
 
       console.log('[VANA-DRAWER] Tours rendered successfully');
@@ -1404,7 +1407,10 @@ $js_data = [
 
       visitsList.innerHTML = html;
       visitsList.hidden = false;
-      if (visitsLoading) visitsLoading.hidden = true;
+      if (visitsLoading) {
+        visitsLoading.hidden = true;
+        visitsLoading.style.display = 'none';
+      }
 
       console.log('[VANA-DRAWER] Visits rendered successfully');
     }
