@@ -1,5 +1,131 @@
 <?php
-// Este arquivo foi esvaziado na FASE 5.
-// O enqueue do HTMX foi movido para enqueue_frontend_scripts()
-// em vana-mission-control.php
-defined('ABSPATH') || exit;
+/**
+ * Class Vana_Assets
+ * Enqueue de CSS/JS do plugin Vana Mission Control.
+ *
+ * @package VanaMissionControl
+ */
+if (!defined('ABSPATH')) exit;
+
+class Vana_Assets
+{
+    public static function register(): void
+    {
+        add_action('wp_enqueue_scripts',    [self::class, 'enqueue_frontend']);
+        add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin']);
+    }
+
+    // -------------------------------------------------------------------------
+    // FRONT-END
+    // -------------------------------------------------------------------------
+
+    public static function enqueue_frontend(): void
+    {
+        // CSS global de visita
+        wp_enqueue_style(
+            'vana-visit',
+            VANA_MC_URL . 'assets/css/vana-visit.css',
+            [],
+            VANA_MC_VERSION
+        );
+
+        // CSS do visit hub
+        wp_enqueue_style(
+            'vana-visit-hub',
+            VANA_MC_URL . 'assets/css/vana-ui.visit-hub.css',
+            ['vana-visit'],
+            VANA_MC_VERSION
+        );
+
+        // JS: controller de visita (já existia)
+        wp_enqueue_script(
+            'vana-visit-controller',
+            VANA_MC_URL . 'assets/js/VanaVisitController.js',
+            [],
+            VANA_MC_VERSION,
+            true
+        );
+
+        // JS: agenda (já existia)
+        wp_enqueue_script(
+            'vana-agenda-controller',
+            VANA_MC_URL . 'assets/js/VanaAgendaController.js',
+            [],
+            VANA_MC_VERSION,
+            true
+        );
+
+        // JS: chips (já existia)
+        wp_enqueue_script(
+            'vana-chip-controller',
+            VANA_MC_URL . 'assets/js/VanaChipController.js',
+            [],
+            VANA_MC_VERSION,
+            true
+        );
+
+        // JS: event controller (já existia)
+        wp_enqueue_script(
+            'vana-event-controller',
+            VANA_MC_URL . 'assets/js/VanaEventController.js',
+            [],
+            VANA_MC_VERSION,
+            true
+        );
+
+        // JS: day selector ← NOVO (patch que acabamos de criar)
+        wp_enqueue_script(
+            'vana-day-selector',
+            VANA_MC_URL . 'assets/js/vana-day-selector.js',
+            [],
+            VANA_MC_VERSION,
+            true
+        );
+
+        // Variáveis PHP → JS
+        wp_localize_script(
+            'vana-visit-controller',
+            'VanaData',
+            [
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+                'nonce'   => wp_create_nonce('vana_nonce'),
+                'lang'    => self::get_current_lang(),
+                'siteUrl' => get_site_url(),
+                'debug'   => defined('WP_DEBUG') && WP_DEBUG,
+            ]
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // ADMIN
+    // -------------------------------------------------------------------------
+
+    public static function enqueue_admin(string $hook): void
+    {
+        $screens = ['post.php', 'post-new.php', 'edit.php'];
+        if (!in_array($hook, $screens, true)) return;
+
+        // Adicione aqui CSS/JS de admin quando necessário
+    }
+
+    // -------------------------------------------------------------------------
+    // HELPER — idioma atual
+    // -------------------------------------------------------------------------
+
+    public static function get_current_lang(): string
+    {
+        if (function_exists('pll_current_language')) {
+            return pll_current_language('slug') === 'en' ? 'en' : 'pt';
+        }
+        if (defined('ICL_LANGUAGE_CODE')) {
+            return ICL_LANGUAGE_CODE === 'en' ? 'en' : 'pt';
+        }
+        return str_starts_with(get_locale(), 'en') ? 'en' : 'pt';
+    }
+}
+
+add_action('plugins_loaded', function () {
+    if (defined('VANA_MC_URL')) {
+        Vana_Assets::register();
+    }
+}, 5);

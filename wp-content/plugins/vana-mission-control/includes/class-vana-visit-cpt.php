@@ -5,6 +5,9 @@
  * - Sem archive público
  * - Admin auditável: colunas + ordenação + filtro + busca por origin_key
  * - Meta registrada com auth_callback (hardening)
+ * 
+ * v2.1 — 2026-03-24
+ * + _vana_country_code (ISO 3166-1 alpha-2)
  */
 defined('ABSPATH') || exit;
 
@@ -15,16 +18,16 @@ final class Vana_Visit_CPT {
         add_action('init', [__CLASS__, 'register_meta']);
 
         // Admin list table: colunas + conteúdo
-        add_filter('manage_vana_visit_posts_columns', [__CLASS__, 'admin_columns_head']);
-        add_action('manage_vana_visit_posts_custom_column', [__CLASS__, 'admin_columns_content'], 10, 2);
+        add_filter('manage_vana_visit_posts_columns',        [__CLASS__, 'admin_columns_head']);
+        add_action('manage_vana_visit_posts_custom_column',  [__CLASS__, 'admin_columns_content'], 10, 2);
 
         // Ordenação
         add_filter('manage_edit-vana_visit_sortable_columns', [__CLASS__, 'admin_sortable_columns']);
-        add_action('pre_get_posts', [__CLASS__, 'admin_orderby_meta']);
+        add_action('pre_get_posts',                           [__CLASS__, 'admin_orderby_meta']);
 
         // Filtro por Tour pai (meta)
         add_action('restrict_manage_posts', [__CLASS__, 'admin_filters']);
-        add_action('pre_get_posts', [__CLASS__, 'admin_apply_filters']);
+        add_action('pre_get_posts',         [__CLASS__, 'admin_apply_filters']);
 
         // Busca por origin_key (sem mexer em SQL manual)
         add_action('pre_get_posts', [__CLASS__, 'admin_search_router']);
@@ -77,7 +80,7 @@ final class Vana_Visit_CPT {
                 'pages'      => true,
             ],
 
-            'can_export'          => true,
+            'can_export' => true,
         ];
 
         register_post_type('vana_visit', $args);
@@ -94,10 +97,12 @@ final class Vana_Visit_CPT {
             '_vana_timeline_schema_version',
             '_vana_timeline_updated_at',
             '_vana_timeline_hash',
-            '_vana_start_date', // <--- ADICIONE ESTE
-            '_vana_tz',         // <--- ADICIONE ESTE            
+            '_vana_start_date',
+            '_vana_end_date',
+            '_vana_tz',
             '_vana_youtube_id',
             '_vana_hero_fb_url',
+            '_vana_country_code',   // ISO 3166-1 alpha-2: BR, IN, AR, UY, TH…
         ];
 
         foreach ($small_string_meta as $key) {
@@ -143,11 +148,12 @@ final class Vana_Visit_CPT {
      * --------------------------- */
 
     public static function admin_columns_head(array $columns): array {
-        $new = [];
+        $new      = [];
         $inserted = false;
 
         foreach ($columns as $key => $title) {
             if ($key === 'date') {
+                $new['country']     = __('País', 'vana');
                 $new['origin_key']  = __('Origin Key', 'vana');
                 $new['parent_tour'] = __('Tour Pai', 'vana');
                 $new['schema']      = __('Schema', 'vana');
@@ -157,6 +163,7 @@ final class Vana_Visit_CPT {
         }
 
         if (!$inserted) {
+            $new['country']     = __('País', 'vana');
             $new['origin_key']  = __('Origin Key', 'vana');
             $new['parent_tour'] = __('Tour Pai', 'vana');
             $new['schema']      = __('Schema', 'vana');
@@ -167,15 +174,30 @@ final class Vana_Visit_CPT {
 
     public static function admin_columns_content(string $column_name, int $post_id): void {
         switch ($column_name) {
+
+            case 'country': {
+                $cc = strtoupper( trim(
+                    (string) get_post_meta($post_id, '_vana_country_code', true)
+                ));
+                echo $cc !== ''
+                    ? '<code>' . esc_html($cc) . '</code>'
+                    : '<span aria-hidden="true">&mdash;</span>';
+                break;
+            }
+
             case 'origin_key': {
                 $key = (string) get_post_meta($post_id, '_vana_origin_key', true);
-                echo $key !== '' ? '<code>' . esc_html($key) . '</code>' : '<span aria-hidden="true">&mdash;</span>';
+                echo $key !== ''
+                    ? '<code>' . esc_html($key) . '</code>'
+                    : '<span aria-hidden="true">&mdash;</span>';
                 break;
             }
 
             case 'parent_tour': {
                 $parent = (string) get_post_meta($post_id, '_vana_parent_tour_origin_key', true);
-                echo $parent !== '' ? esc_html($parent) : '<span aria-hidden="true">&mdash;</span>';
+                echo $parent !== ''
+                    ? esc_html($parent)
+                    : '<span aria-hidden="true">&mdash;</span>';
                 break;
             }
 
@@ -213,6 +235,7 @@ final class Vana_Visit_CPT {
      * --------------------------- */
 
     public static function admin_sortable_columns(array $columns): array {
+        $columns['country']     = 'country';
         $columns['origin_key']  = 'origin_key';
         $columns['parent_tour'] = 'parent_tour';
         $columns['schema']      = 'schema';
@@ -225,6 +248,11 @@ final class Vana_Visit_CPT {
 
         $orderby = (string) $query->get('orderby');
         switch ($orderby) {
+            case 'country':
+                $query->set('meta_key', '_vana_country_code');
+                $query->set('orderby', 'meta_value');
+                break;
+
             case 'origin_key':
                 $query->set('meta_key', '_vana_origin_key');
                 $query->set('orderby', 'meta_value');
@@ -250,13 +278,32 @@ final class Vana_Visit_CPT {
         global $typenow;
         if ($typenow !== 'vana_visit') return;
 
+        // Filtro por país
+        $current_cc = isset($_GET['vana_country']) ? sanitize_text_field((string) $_GET['vana_country']) : '';
+        $countries  = self::distinct_meta_values('_vana_country_code');
+        $countries = array_filter($countries, fn($cc) => $cc !== '');
+                
+        echo '<select name="vana_country">';
+        echo '<option value="">' . esc_html__('Todos os Países', 'vana') . '</option>';
+        foreach ($countries as $cc) {
+            echo '<option value="' . esc_attr($cc) . '"'
+                . selected($current_cc, $cc, false) . '>'
+                . esc_html($cc)
+                . '</option>';
+        }
+        echo '</select>';
+
+        // Filtro por Tour pai
         $current = isset($_GET['vana_parent_tour']) ? sanitize_text_field((string) $_GET['vana_parent_tour']) : '';
-        $parents = self::distinct_meta_values('_vana_parent_tour_origin_key');
+        $parents  = self::distinct_meta_values('_vana_parent_tour_origin_key');
 
         echo '<select name="vana_parent_tour">';
         echo '<option value="">' . esc_html__('Todas as Tours', 'vana') . '</option>';
         foreach ($parents as $p) {
-            echo '<option value="' . esc_attr($p) . '"' . selected($current, $p, false) . '>' . esc_html($p) . '</option>';
+            echo '<option value="' . esc_attr($p) . '"'
+                . selected($current, $p, false) . '>'
+                . esc_html($p)
+                . '</option>';
         }
         echo '</select>';
     }
@@ -265,15 +312,26 @@ final class Vana_Visit_CPT {
         if (!is_admin() || !$query->is_main_query()) return;
         if (($query->get('post_type') ?? '') !== 'vana_visit') return;
 
+        $mq = [];
+
+        if (!empty($_GET['vana_country'])) {
+            $mq[] = [
+                'key'     => '_vana_country_code',
+                'value'   => sanitize_text_field((string) $_GET['vana_country']),
+                'compare' => '=',
+            ];
+        }
+
         if (!empty($_GET['vana_parent_tour'])) {
-            $parent = sanitize_text_field((string) $_GET['vana_parent_tour']);
-            $query->set('meta_query', [
-                [
-                    'key'     => '_vana_parent_tour_origin_key',
-                    'value'   => $parent,
-                    'compare' => '=',
-                ]
-            ]);
+            $mq[] = [
+                'key'     => '_vana_parent_tour_origin_key',
+                'value'   => sanitize_text_field((string) $_GET['vana_parent_tour']),
+                'compare' => '=',
+            ];
+        }
+
+        if (!empty($mq)) {
+            $query->set('meta_query', $mq);
         }
     }
 
@@ -305,16 +363,14 @@ final class Vana_Visit_CPT {
         $s = (string) $query->get('s');
         if ($s === '') return;
 
-        // Heurística simples: se parece origin_key, converte busca em meta_query
-        // Exemplos: "visit:xyz", "visit_", etc.
-        $looks_like_origin = (strpos($s, 'visit:') !== false) || (strpos($s, 'visit_') !== false);
+        $looks_like_origin = (strpos($s, 'visit:') !== false)
+                          || (strpos($s, 'visit_') !== false);
 
         if (!$looks_like_origin) return;
 
-        // Remove busca padrão por título para focar em meta
         $query->set('s', '');
 
-        $mq = (array) $query->get('meta_query');
+        $mq   = (array) $query->get('meta_query');
         $mq[] = [
             'key'     => '_vana_origin_key',
             'value'   => $s,

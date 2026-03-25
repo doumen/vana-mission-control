@@ -147,45 +147,287 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   margin:      0 auto 24px;
 }
 
-/* ── Prev / Next ── */
+/* ── Supertítulo da Tour ── */
+.vana-hero__supertitle {
+  margin:         0 0 8px;
+  font-family:    'Syne', sans-serif;
+  font-size:      0.75rem;
+  font-weight:    700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color:          rgba(255, 255, 255, 0.70);
+}
+
+.vana-hero__supertitle-link {
+  color:           rgba(255, 255, 255, 0.70);
+  text-decoration: none;
+  border-bottom:   1px solid rgba(255, 217, 6, 0.40);
+  padding-bottom:  1px;
+  transition:      color .2s, border-color .2s;
+}
+
+.vana-hero__supertitle-link:hover {
+  color:        var(--vana-gold);
+  border-color: var(--vana-gold);
+}
+
+/* ── Período da Visita ── */
+.vana-hero__period {
+  margin:      0 0 12px;
+  font-family: 'Syne', sans-serif;
+  font-size:   0.82rem;
+  font-weight: 600;
+  color:       rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+/* Minimal heading layout for hero (Fase 2) */
+.vana-hero__heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.vana-hero__title {
+  margin: 0;
+}
+.vana-hero__country-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.08);
+  color: #ffffff;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.vana-hero__visit-counter {
+  margin: 8px 0 0;
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+}
+
+.vana-hero__period time {
+  display:         inline-flex;
+  align-items:     center;
+  gap:             6px;
+  background:      rgba(255, 255, 255, 0.08);
+  border:          1px solid rgba(255, 255, 255, 0.15);
+  border-radius:   20px;
+  padding:         3px 14px;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Estado incompleto ── */
+.vana-hero__notice {
+  display:       inline-block;
+  background:    rgba(243, 92, 11, 0.15);
+  border:        1px solid rgba(243, 92, 11, 0.35);
+  color:         rgba(255, 255, 255, 0.85);
+  padding:       8px 18px;
+  border-radius: 8px;
+  font-size:     0.85rem;
+  margin-bottom: 16px;
+}
+
+/* ── Sem dias ── */
+.vana-hero__no-days {
+  color:     rgba(255, 255, 255, 0.55);
+  font-size: 0.9rem;
+  margin:    16px 0 0;
+}
+
+/* ── Mídia ── */
+.vana-hero__media {
+  width:         100%;
+  margin-bottom: 28px;
+  border-radius: 12px;
+  overflow:      hidden;
+}
+
+.vana-hero__video-wrapper {
+  position:       relative;
+  width:          100%;
+  padding-bottom: 56.25%;
+  height:         0;
+  background:     #000;
+}
+
+.vana-hero__video-wrapper iframe {
+  position: absolute;
+  inset:    0;
+  width:    100%;
+  height:   100%;
+  border:   0;
+}
+
+.vana-hero__thumbnail {
+  width:      100%;
+  height:     auto;
+  display:    block;
+  max-height: 420px;
+  object-fit: cover;
+}
+
+.vana-hero__embed-fail {
+  padding:    24px;
+  background: rgba(0,0,0,0.3);
+  text-align: center;
+  color:      rgba(255,255,255,0.75);
+  font-size:  0.9rem;
+  line-height: 1.6;
+}
+
+/* ════════════════════════════════════════════════════════
+   4B. HERO NAV — Navegação entre visitas
+   Unifica o antigo .vana-hero__nav-btn (template v2)
+   com o novo .vana-hero__nav-link (template v3).
+   Ambas as classes recebem o mesmo estilo base.
+   ════════════════════════════════════════════════════════ */
+
+/*
+ * Container da nav — compartilhado v2 + v3.
+ * v2 usava margin-top:28px / padding:0 4px
+ * v3 usa  padding-block:1.5rem / border-top
+ * Unificamos para suportar ambos os templates durante a migração.
+ */
 .vana-hero__nav {
   display:         flex;
   justify-content: space-between;
-  align-items:     center;
-  gap:             12px;
-  margin-top:      28px;
-  padding:         0 4px;
+  align-items:     stretch;
+  gap:             1rem;
+  padding:         1.5rem 4px 0;
+  margin-top:      1.5rem;
+  border-top:      1px solid rgba(255, 255, 255, 0.15);
 }
 
-.vana-hero__nav-btn {
-  background: rgba(0,0,0,0.25) !important;
-  border-color: rgba(255,255,255,0.25) !important;
-  color: #ffffff !important;
+/*
+ * Elemento de link/botão — suporta AMBAS as classes:
+ * .vana-hero__nav-btn  → template v2 (hero-header.php antigo)
+ * .vana-hero__nav-link → template v3 (hero-header.php novo)
+ */
+.vana-hero__nav-btn,
+.vana-hero__nav-link {
   display:         inline-flex;
   align-items:     center;
-  gap:             8px;
-  background:      rgba(255,255,255,0.06);
-  border:          1px solid rgba(255,255,255,0.12);
+  gap:             0.5rem;
+  background:      rgba(0, 0, 0, 0.25);
+  border:          1px solid rgba(255, 255, 255, 0.25);
   border-radius:   10px;
   padding:         10px 16px;
   text-decoration: none;
-  color:           var(--vana-text);
+  color:           #ffffff;
   font-weight:     700;
   font-size:       0.85rem;
   font-family:     'Syne', sans-serif;
-  transition:      background .2s, border-color .2s, transform .2s;
+  transition:      background .2s, border-color .2s, transform .2s, opacity .2s;
   max-width:       45%;
   backdrop-filter: blur(8px);
+  cursor:          pointer;
 }
-.vana-hero__nav-btn:hover {
+
+.vana-hero__nav-btn:hover,
+.vana-hero__nav-link:hover {
   background:    var(--vana-gold);
   border-color:  var(--vana-gold);
   color:         #0f172a;
   transform:     translateY(-2px);
+  opacity:       1;
 }
-.vana-hero__nav-btn--disabled { opacity: 0; pointer-events: none; }
-.vana-hero__nav-label  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.vana-hero__nav-arrow  { flex-shrink: 0; font-size: 1.1rem; }
+
+/* Estados desabilitados */
+.vana-hero__nav-btn--disabled,
+.vana-hero__nav-link--disabled {
+  opacity:        0;
+  pointer-events: none;
+}
+
+/* Alinhamento direcional */
+.vana-hero__nav-btn--next,
+.vana-hero__nav-link--next {
+  margin-left: auto;
+  text-align:  right;
+}
+
+/* Textos internos — suporte v2 (.vana-hero__nav-label) + v3 (.vana-hero__nav-meta/hint/title) */
+
+/* v2 */
+.vana-hero__nav-label {
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  white-space:   nowrap;
+}
+
+/* v3 */
+.vana-hero__nav-meta {
+  display:        flex;
+  flex-direction: column;
+  gap:            0.125rem;
+}
+
+.vana-hero__nav-hint {
+  font-size:      0.72rem;
+  color:          rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Herda cor do pai ao hover */
+.vana-hero__nav-btn:hover .vana-hero__nav-hint,
+.vana-hero__nav-link:hover .vana-hero__nav-hint {
+  color: rgba(15, 23, 42, 0.65);
+}
+
+.vana-hero__nav-title {
+  font-size:              0.9rem;
+  font-weight:            600;
+  line-height:            1.3;
+  display:                -webkit-box;
+  -webkit-line-clamp:     2;
+  -webkit-box-orient:     vertical;
+  overflow:               hidden;
+}
+
+/* Ícone de seta — compartilhado */
+.vana-hero__nav-arrow {
+  flex-shrink: 0;
+  font-size:   1.1rem;
+}
+
+/* Ícone de revista — v2 */
+.vana-hero__nav-mag {
+  font-size:   0.85rem;
+  margin-left: 4px;
+  opacity:     0.8;
+}
+
+/* ── Responsivo ── */
+@media (max-width: 600px) {
+  .vana-hero__nav {
+    gap:     0.5rem;
+    padding: 1rem 0 0;
+  }
+
+  .vana-hero__nav-btn,
+  .vana-hero__nav-link {
+    font-size: 0.78rem;
+    padding:   8px 10px;
+    max-width: 48%;
+  }
+
+  .vana-hero__nav-hint { display: none; } /* economiza espaço no mobile */
+}
+
 
 /* ============================================================
    5. HEADER FIXO

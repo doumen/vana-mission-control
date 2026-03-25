@@ -64,6 +64,8 @@ if (!vana_mc_check_requirements()) {
 
 // ── Core ──────────────────────────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-utils.php";
+require_once VANA_MC_PATH . "includes/class-vana-assets.php";
+
 require_once VANA_MC_PATH . "includes/class-vana-index.php";
 require_once VANA_MC_PATH . "includes/class-vana-hmac.php";
 require_once VANA_MC_PATH . "includes/class-vana-contract.php";

@@ -1,304 +1,198 @@
 <?php
 /**
- * Hero Header — Vana Madhuryam Daily
- * Template Part: templates/visit/parts/hero-header.php
- * v3B — usa $data e $prev_visit/$next_visit do _bootstrap.php
+ * Hero Header — Visit Page
+ * Template principal do bloco Hero da página de visitas.
  *
- * Variáveis consumidas (exportadas por _bootstrap.php):
- *   $data         array      — timeline JSON decodificado
- *   $lang         string     — 'pt' | 'en'
- *   $visit_id     int
- *   $active_day   array
- *   $prev_visit   array|null — {id, permalink, title, has_mag}
- *   $next_visit   array|null — {id, permalink, title, has_mag}
+ * Variáveis esperadas (injetadas pelo controller):
+ *   $tour   (array)   → dados do tour atual
+ *   $lang   (string)  → 'pt' | 'en'
+ *
+ * Hierarquia de partials:
+ *   _hero-badges.php      → badges de região, período, live, novo
+ *   _hero-day-selector.php → seletor de dias
+ *   _hero-nav.php          → navegação entre visitas
  */
-defined('ABSPATH') || exit;
+if (!defined('ABSPATH')) exit;
 
-// ── 1. Dados da visita atual ──────────────────────────────
-// Fonte única: $data (exportado por _bootstrap.php)
-// $visit_data (v2) NÃO existe mais neste contexto.
+// ─── Segurança ────────────────────────────────────────────────────────────────
+if (!isset($tour) || !is_array($tour)) {
+    echo '<div class="vana-hero vana-hero--empty">'
+       . esc_html(Vana_Utils::t('hero.no_tour', $lang))
+       . '</div>';
+    return;
+}
 
-$title     = $data['title_'       . $lang] ?? $data['title_pt']       ?? get_the_title();
-$desc      = $data['description_' . $lang] ?? $data['description_pt'] ?? '';
-$cover_url = (string) ($data['cover_url'] ?? '');
+// ─── Dados base ───────────────────────────────────────────────────────────────
+$lang  = isset($lang) && $lang === 'en' ? 'en' : 'pt';
+$title = Vana_Utils::pick_i18n_key($tour, 'title', $lang);
+$desc  = Vana_Utils::pick_i18n_key($tour, 'description', $lang);
 
-// Fallback de imagem: cover_url → thumb YouTube do primeiro dia
-$bg_image = '';
-if ($cover_url !== '') {
-    $bg_image = esc_url($cover_url);
-} else {
-    foreach (($data['days'] ?? []) as $day) {
-        $yt_url = (string) ($day['hero']['youtube_url'] ?? '');
-        if ($yt_url !== '') {
-            if (preg_match(
-                '/(?:v=|\/embed\/|\.be\/)([a-zA-Z0-9_-]{11})/',
-                $yt_url, $m
-            )) {
-                $bg_image = 'https://i.ytimg.com/vi/' . esc_attr($m[1]) . '/maxresdefault.jpg';
+// Prefer city as main heading when available (fallback para $title)
+$city = '';
+if ( isset( $visit_city_ref ) && trim( (string) $visit_city_ref ) !== '' ) {
+    $city = trim( (string) $visit_city_ref );
+} elseif ( isset( $data ) && is_array( $data ) && ! empty( $data['location_meta']['city_name'] ) ) {
+    $city = (string) $data['location_meta']['city_name'];
+}
+
+// Country code (abreviado) — exposto pelo bootstrap
+$country_code = isset( $country_code ) ? strtoupper( trim( (string) $country_code ) ) : '';
+
+// Visita counter (Visita X de Y) — tenta derivar via sequência cronológica
+$visit_counter_label = '';
+$current_visit_id = isset( $visit_id ) ? (int) $visit_id : (int) ( $tour['id'] ?? 0 );
+if ( function_exists( 'vana_get_chronological_visits' ) ) {
+    $seq = vana_get_chronological_visits();
+    if ( is_array( $seq ) && ! empty( $seq ) ) {
+        $ids = array_column( $seq, 'id' );
+        $idx = array_search( $current_visit_id, $ids, true );
+        if ( $idx !== false ) {
+            $pos = $idx + 1;
+            $total = count( $ids );
+            if ( $lang === 'en' ) {
+                $visit_counter_label = sprintf( 'Visit %d of %d', $pos, $total );
+            } else {
+                $visit_counter_label = sprintf( 'Visita %d de %d', $pos, $total );
             }
+        }
+    }
+}
+
+// ─── Mídia ────────────────────────────────────────────────────────────────────
+$thumb     = isset($tour['thumbnail']) ? Vana_Utils::safe_https_url((string) $tour['thumbnail']) : '';
+$video_url = isset($tour['video_url']) ? Vana_Utils::safe_https_url((string) $tour['video_url']) : '';
+
+// Fallback de imagem: primeira URL de YouTube das days, se não tiver thumb.
+if ($thumb === '') {
+    foreach ($days as $day) {
+        $day_yt_url = (string) ($day['hero']['youtube_url'] ?? '');
+        if ($day_yt_url !== '' && preg_match('/(?:v=|\/embed\/|\.be\/)([a-zA-Z0-9_-]{11})/', $day_yt_url, $m)) {
+            $thumb = 'https://i.ytimg.com/vi/' . esc_attr($m[1]) . '/maxresdefault.jpg';
             break;
         }
     }
 }
 
-// ── 2. Label do dia ativo ─────────────────────────────────
-// $active_day já resolvido pelo _bootstrap.php — não sobrescrever.
-$active_label = (string) (
-    $active_day['label_' . $lang]
-    ?? $active_day['label_pt']
-    ?? ''
-);
+$has_media = ($thumb !== '' || $video_url !== '');
 
-// ── 3. i18n ───────────────────────────────────────────────
-$lang_alt = $lang === 'pt' ? 'en' : 'pt';
-$lang_url = add_query_arg('lang', $lang_alt);
-
-// $prev_visit e $next_visit chegam prontos do _bootstrap.php.
-// Nenhuma WP_Query adicional necessária aqui.
-
-// ── 4. Tour Counter — Visita X de Y ────────────────────
-// Fase B expõe $tour_id se a visita pertence a uma tour
-$tour_counter_label = '';
-if (!empty($tour_id) && $tour_id > 0) {
-    // Contar visitas nesta tour (mesma lógica de Fase B)
-    $tour_visits = get_posts([
-        'post_type'      => 'vana_visit',
-        'post_status'    => 'publish',
-        'posts_per_page' => -1,
-        'fields'         => 'ids',
-        'meta_key'       => '_vana_start_date',
-        'orderby'        => 'meta_value',
-        'order'          => 'ASC',
-        'meta_query'     => [[
-            'key'     => '_vana_tour_id',
-            'value'   => $tour_id,
-            'compare' => '=',
-            'type'    => 'NUMERIC',
-        ]],
-    ]);
-
-    if (!empty($tour_visits)) {
-        $position = array_search($visit_id, $tour_visits, true);
-        if ($position !== false) {
-            $pos_number = $position + 1; // 1-indexed
-            $total      = count($tour_visits);
-            // i18n: "Visita 3 de 7"
-            $tour_counter_label = sprintf(
-                esc_html__('Visita %d de %d', 'vana'),
-                $pos_number,
-                $total
-            );
-        }
-    }
-}
+// ─── Estado do tour ───────────────────────────────────────────────────────────
+$days        = isset($tour['days']) && is_array($tour['days']) ? $tour['days'] : [];
+$has_days    = count($days) > 0;
+$has_title   = ($title !== '');
+$is_complete = ($has_title && $has_days);
+$state_class = $is_complete ? 'vana-hero--full' : 'vana-hero--incomplete';
 ?>
 
-
-<!-- ════════════════════════════════════════════════════════
-     HEADER FIXO CONTEXTUAL
-     ════════════════════════════════════════════════════════ -->
-<header class="vana-header" role="banner">
-    <div class="vana-header__inner">
-
-        <!-- Esquerda: botão Tours -->
-        <button
-            class="vana-header__tours-btn"
-            data-drawer="vana-tour-drawer"
-            aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"
-            aria-expanded="false"
-            aria-controls="vana-tour-drawer"
-        >
-            <span class="vana-header__tours-icon" aria-hidden="true">
-                <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
-                    <rect width="18" height="2" rx="1" fill="currentColor"/>
-                    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
-                    <rect y="12" width="12" height="2" rx="1" fill="currentColor"/>
-                </svg>
-            </span>
-            <span class="vana-header__tours-label">
-                <?php echo esc_html(vana_t('hero.tours', $lang)); ?>
-            </span>
-        </button>
-
-        <!-- Centro: título + contexto (dia + tour) -->
-        <div class="vana-header__context">
-            <span class="vana-header__title"><?php echo esc_html($title); ?></span>
-            <?php if ($tour_counter_label): ?>
-                <span class="vana-header__sep" aria-hidden="true">·</span>
-                <span class="vana-header__tour-counter"><?php echo esc_html($tour_counter_label); ?></span>
-            <?php endif; ?>
-            <?php if ($active_label): ?>
-                <span class="vana-header__sep" aria-hidden="true">·</span>
-                <span class="vana-header__day"><?php echo esc_html($active_label); ?></span>
-            <?php endif; ?>
-        </div>
-
-        <!-- Direita: notificações + idioma -->
-        <div class="vana-header__actions">
-            <button
-                type="button"
-                class="vana-header__notify-btn vana-header__agenda-btn"
-                id="vana-agenda-open-btn"
-                data-vana-agenda-open
-                aria-expanded="false"
-                aria-controls="vana-agenda-drawer"
-                aria-label="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
-                title="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
-            >
-                <span aria-hidden="true">📅</span>
-            </button>
-
-            <button
-                class="vana-header__notify-btn"
-                id="vana-notify-btn"
-                aria-label="<?php echo esc_attr(vana_t('hero.notify', $lang)); ?>"
-            >
-                <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
-                    <path d="M9 20c1.1 0 2-.9 2-2H7c0 1.1.9 2 2 2zm6-6V9c0-3.07-1.64-5.64-4.5-6.32V2C10.5 1.17 9.83.5 9 .5S7.5 1.17 7.5 2v.68C4.63 3.36 3 5.92 3 9v5l-2 2v1h16v-1l-2-2z" fill="currentColor"/>
-                </svg>
-            </button>
-
-            <a
-                href="<?php echo esc_url($lang_url); ?>"
-                class="vana-header__lang-btn"
-                aria-label="<?php echo esc_attr(vana_t('hero.lang_toggle_aria', $lang) . strtoupper($lang_alt)); ?>"
-            >
-                <?php echo esc_html(vana_t('hero.lang_toggle', $lang)); ?>
-            </a>
-        </div>
-
-    </div>
-</header>
-
-<!-- ════════════════════════════════════════════════════════
-     TOUR DRAWER — incluído de tour-drawer.php
-     ════════════════════════════════════════════════════════ -->
-<?php require VANA_MC_PATH . 'templates/visit/parts/tour-drawer.php'; ?>
-
-<!-- ════════════════════════════════════════════════════════
-     HERO SECTION
-     ════════════════════════════════════════════════════════ -->
 <section
-    class="vana-hero <?php echo $bg_image ? 'vana-hero--has-image' : 'vana-hero--gradient'; ?>"
-    <?php if ($bg_image): ?>
-        style="--vana-hero-bg: url('<?php echo esc_url($bg_image); ?>')"
-    <?php endif; ?>
-    aria-label="<?php echo esc_attr($title); ?>"
+    class="vana-hero <?php echo esc_attr($state_class); ?>"
+    aria-label="<?php echo esc_attr(Vana_Utils::t('aria.close_hero', $lang)); ?>"
+    data-tour-id="<?php echo esc_attr((string) ($tour['id'] ?? '')); ?>"
+    data-lang="<?php echo esc_attr($lang); ?>"
 >
-    <div class="vana-hero__overlay" aria-hidden="true"></div>
 
+    <?php if (!$is_complete) : ?>
+    <!-- Estado incompleto: aviso editorial -->
+    <div class="vana-hero__notice">
+        <?php echo esc_html(Vana_Utils::t('hero.incomplete', $lang)); ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- ── Mídia ─────────────────────────────────────────────────────────── -->
+    <?php if ($has_media) : ?>
+    <div class="vana-hero__media">
+
+        <?php if ($video_url !== '' && Vana_Utils::is_video_url($video_url)) : ?>
+            <?php
+            /**
+             * Tenta gerar um iframe embed.
+             * Se a URL não suportar embed → exibe o fallback de link externo.
+             */
+            $embed_url = Vana_Utils::maybe_embed_url($video_url);
+            ?>
+            <?php if ($embed_url) : ?>
+            <div class="vana-hero__video-wrapper" aria-label="<?php echo esc_attr(Vana_Utils::t('video_label', $lang)); ?>">
+                <iframe
+                    src="<?php echo esc_url($embed_url); ?>"
+                    frameborder="0"
+                    allow="autoplay; encrypted-media"
+                    allowfullscreen
+                    loading="lazy"
+                    title="<?php echo esc_attr($title); ?>"
+                ></iframe>
+            </div>
+            <?php else : ?>
+            <!-- Fallback: link externo -->
+            <div class="vana-hero__embed-fail">
+                <p><?php echo esc_html(Vana_Utils::t('embed_fail_title', $lang)); ?></p>
+                <p><?php echo esc_html(Vana_Utils::t('embed_fail_hint',  $lang)); ?></p>
+                <a
+                    href="<?php echo esc_url($video_url); ?>"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="vana-btn vana-btn--secondary"
+                >
+                    <?php echo esc_html(Vana_Utils::t('watch_link', $lang)); ?>
+                </a>
+            </div>
+            <?php endif; ?>
+
+        <?php elseif ($thumb !== '') : ?>
+            <img
+                src="<?php echo esc_url($thumb); ?>"
+                alt="<?php echo esc_attr($title); ?>"
+                class="vana-hero__thumbnail"
+                loading="lazy"
+            />
+        <?php endif; ?>
+
+    </div><!-- /.vana-hero__media -->
+    <?php endif; ?>
+
+    <!-- ── Conteúdo ──────────────────────────────────────────────────────── -->
     <div class="vana-hero__content">
 
-        <p class="vana-hero__badge"
-           aria-label="<?php echo esc_attr(vana_t('hero.breadcrumb', $lang)); ?>">
-            <?php echo esc_html(vana_t('hero.breadcrumb', $lang)); ?>
+        <!-- Badges -->
+        <?php include __DIR__ . '/partials/_hero-badges.php'; ?>
+
+        <!-- Título: cidade como prioridade + country badge -->
+        <?php if ( $city || $has_title ) : ?>
+        <div class="vana-hero__heading">
+            <h1 class="vana-hero__title">
+                <?php echo esc_html( $city ? $city : $title ); ?>
+            </h1>
+            <?php if ( $country_code !== '' ) : ?>
+                <span class="vana-hero__country-badge" aria-hidden="true">
+                    <?php echo esc_html( $country_code ); ?>
+                </span>
+            <?php endif; ?>
+        </div>
+
+        <?php if ( $visit_counter_label ) : ?>
+        <div class="vana-hero__visit-counter">
+            <?php echo esc_html( $visit_counter_label ); ?>
+        </div>
+        <?php endif; ?>
+        <?php endif; ?>
+
+        <!-- Descrição -->
+        <?php if ($desc !== '') : ?>
+        <p class="vana-hero__desc">
+            <?php echo esc_html($desc); ?>
         </p>
-
-        <h1 class="vana-hero__title"><?php echo esc_html($title); ?></h1>
-
-        <?php if ($desc): ?>
-            <p class="vana-hero__desc"><?php echo esc_html($desc); ?></p>
         <?php endif; ?>
 
-        <!-- Day Selector — só exibe em multi-dia -->
-        <?php
-        $days_count = count($data['days'] ?? []);
-        if ($days_count > 1):
-            // Agrupar dias por mês para header
-            $days_by_month = [];
-            foreach (($data['days'] ?? []) as $day) {
-                $ts = strtotime($day['date'] ?? '');
-                if ($ts === false) {
-                    continue;
-                }
-                $month_key = date('Y-m', $ts);
-                if (!isset($days_by_month[$month_key])) {
-                    $days_by_month[$month_key] = [];
-                }
-                $days_by_month[$month_key][] = $day;
-            }
-        ?>
-        <nav class="vana-hero__day-selector" aria-label="<?php echo esc_attr('Seletor de dias'); ?>">
-            <?php foreach ($days_by_month as $month_key => $month_days): ?>
-                <?php if (count($days_by_month) > 1): ?>
-                    <span class="vana-hero__day-selector-month"><?php echo esc_html(date('M/Y', strtotime($month_key))); ?></span>
-                <?php endif; ?>
-                <div class="vana-hero__day-selector-group">
-                    <?php foreach ($month_days as $day): ?>
-                        <?php
-                        $day_date = $day['date'] ?? '';
-                        $day_label = $day['label_' . $lang] ?? $day['label_pt'] ?? '';
-                        $is_active = $active_day && ($active_day['date'] ?? '') === $day_date;
-                        ?>
-                        <button
-                            class="vana-hero__day-btn <?php echo $is_active ? 'vana-hero__day-btn--active' : ''; ?>"
-                            data-day-date="<?php echo esc_attr($day_date); ?>"
-                            aria-label="<?php echo esc_attr($day_label); ?>"
-                            <?php echo $is_active ? 'aria-current="date"' : ''; ?>
-                        >
-                            <?php echo esc_html($day_label); ?>
-                        </button>
-                    <?php endforeach; ?>
-                </div>
-            <?php endforeach; ?>
-        </nav>
+        <!-- Seletor de dias -->
+        <?php if ($has_days) : ?>
+            <?php include __DIR__ . '/partials/_hero-day-selector.php'; ?>
+        <?php else : ?>
+        <p class="vana-hero__no-days">
+            <?php echo esc_html(Vana_Utils::t('day.empty', $lang)); ?>
+        </p>
         <?php endif; ?>
 
-        <!-- Prev / Next — dados vindos do _bootstrap.php -->
-        <nav class="vana-hero__nav"
-             aria-label="<?php echo esc_attr(vana_t('hero.nav_aria', $lang)); ?>">
+    </div><!-- /.vana-hero__content -->
 
-            <?php if ($prev_visit): ?>
-                <a
-                    href="<?php echo esc_url($prev_visit['permalink']); ?>"
-                    class="vana-hero__nav-btn vana-hero__nav-btn--prev"
-                    data-vana-prev-visit
-                    data-vana-visit-url="<?php echo esc_url($prev_visit['permalink']); ?>"
-                    rel="prev"
-                    aria-label="<?php echo esc_attr(
-                        vana_t('hero.prev_aria', $lang) . $prev_visit['title']
-                    ); ?>"
-                >
-                    <span class="vana-hero__nav-arrow" aria-hidden="true">←</span>
-                    <span class="vana-hero__nav-label">
-                        <?php echo esc_html($prev_visit['title']); ?>
-                        <?php if ($prev_visit['has_mag']): ?>
-                            <span class="vana-hero__nav-mag"
-                                  aria-label="Revista publicada">📄</span>
-                        <?php endif; ?>
-                    </span>
-                </a>
-            <?php else: ?>
-                <span class="vana-hero__nav-btn vana-hero__nav-btn--prev
-                             vana-hero__nav-btn--disabled" aria-hidden="true"></span>
-            <?php endif; ?>
+    <!-- ── Navegação entre visitas ───────────────────────────────────────── -->
+    <?php include __DIR__ . '/partials/_hero-nav.php'; ?>
 
-            <?php if ($next_visit): ?>
-                <a
-                    href="<?php echo esc_url($next_visit['permalink']); ?>"
-                    class="vana-hero__nav-btn vana-hero__nav-btn--next"
-                    data-vana-next-visit
-                    data-vana-visit-url="<?php echo esc_url($next_visit['permalink']); ?>"
-                    rel="next"
-                    aria-label="<?php echo esc_attr(
-                        vana_t('hero.next_aria', $lang) . $next_visit['title']
-                    ); ?>"
-                >
-                    <span class="vana-hero__nav-label">
-                        <?php echo esc_html($next_visit['title']); ?>
-                        <?php if ($next_visit['has_mag']): ?>
-                            <span class="vana-hero__nav-mag"
-                                  aria-label="Revista publicada">📄</span>
-                        <?php endif; ?>
-                    </span>
-                    <span class="vana-hero__nav-arrow" aria-hidden="true">→</span>
-                </a>
-            <?php else: ?>
-                <span class="vana-hero__nav-btn vana-hero__nav-btn--next
-                             vana-hero__nav-btn--disabled" aria-hidden="true"></span>
-            <?php endif; ?>
-
-        </nav>
-
-    </div>
-</section>
+</section><!-- /.vana-hero -->
