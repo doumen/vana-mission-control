@@ -207,6 +207,12 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   color: #ffffff;
   border: 1px solid rgba(255,255,255,0.08);
 }
+.vana-hero__country-badge--sm {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    opacity: 0.85;
+}
+
 .vana-hero__visit-counter {
   margin: 8px 0 0;
   text-align: center;
@@ -426,6 +432,107 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   }
 
   .vana-hero__nav-hint { display: none; } /* economiza espaço no mobile */
+}
+/* ═══════════════════════════════════════════════════════════════
+   HERO BADGE CHIPS — Live · New · Season
+   Arquivo: templates/visit/assets/visit-style.php (ou _hero.css)
+   v1.0 — 2026-03-25
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Container ──────────────────────────────────────────────── */
+.vana-hero__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 12px;
+}
+
+/* ── Base do chip ────────────────────────────────────────────── */
+.vana-hero__badge-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.4;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 1px solid transparent;
+    transition: opacity 0.2s ease;
+}
+
+/* ── LIVE ────────────────────────────────────────────────────── */
+.vana-hero__badge-chip--live {
+    background: rgba(220, 38, 38, 0.85);   /* vermelho semitransparente */
+    color: #fff;
+    border-color: rgba(255, 100, 100, 0.4);
+    animation: vana-pulse-live 2s ease-in-out infinite;
+}
+
+@keyframes vana-pulse-live {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
+    50%       { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+/* ── NEW ─────────────────────────────────────────────────────── */
+.vana-hero__badge-chip--new {
+    background: rgba(124, 58, 237, 0.80);  /* violeta espiritual */
+    color: #fff;
+    border-color: rgba(196, 160, 255, 0.35);
+}
+
+/* ── SEASON ──────────────────────────────────────────────────── */
+.vana-hero__badge-chip--season {
+    background: rgba(15, 23, 42, 0.65);    /* escuro neutro */
+    color: rgba(255, 255, 255, 0.90);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Hover geral ─────────────────────────────────────────────── */
+.vana-hero__badge-chip:hover {
+    opacity: 0.85;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   HEADER FIXO — Season Badge (`.·.INDIA_2026`)
+   ════════════════════════════════════════════════════════════════ */
+.vana-header__season-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.80);
+    border: 1px solid rgba(255, 255, 255, 0.20);
+    vertical-align: middle;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVO — mobile-first
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+    .vana-hero__badges {
+        gap: 4px;
+        margin: 6px 0 10px;
+    }
+
+    .vana-hero__badge-chip {
+        font-size: 0.62rem;
+        padding: 2px 8px;
+    }
+
+    .vana-header__season-badge {
+        display: none; /* header muito estreito no mobile — mantém só cidade + país */
+    }
 }
 
 
@@ -1323,6 +1430,7 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
     max-height: 55vh;
   }
 }
+
 /* ============================================================
    21. GALERIA DE GURUDEVA — variações de estilo
    ============================================================ */
@@ -1476,6 +1584,127 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   border-radius: 10px 10px 0 0;
 }
 
+/* ============================================================
+   23. HERO DAY SELECTOR — botões de dia dentro do hero
+   ============================================================ */
+
+.vana-hero__day-selector {
+  display:         flex;
+  flex-wrap:       wrap;
+  align-items:     center;
+  justify-content: center;
+  gap:             8px;
+  margin:          16px 0 0;
+}
+
+.vana-hero__day-selector-month {
+  width:          100%;
+  font-size:      0.68rem;
+  font-weight:    700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color:          rgba(255, 255, 255, 0.50);
+  font-family:    'Syne', sans-serif;
+  text-align:     center;
+  margin-bottom:  -2px;
+}
+
+.vana-hero__day-selector-group {
+  display:         flex;
+  flex-wrap:       wrap;
+  justify-content: center;
+  gap:             6px;
+}
+
+.vana-hero__day-btn {
+  display:        inline-flex;
+  align-items:    center;
+  justify-content:center;
+  padding:        6px 16px;
+  border-radius:  999px;
+  border:         1px solid rgba(255, 255, 255, 0.25);
+  background:     rgba(255, 255, 255, 0.08);
+  color:          rgba(255, 255, 255, 0.80);
+  font-family:    'Syne', sans-serif;
+  font-weight:    700;
+  font-size:      0.82rem;
+  cursor:         pointer;
+  transition:     background .2s, border-color .2s, color .2s, transform .2s;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  white-space:    nowrap;
+}
+
+.vana-hero__day-btn:hover {
+  background:   rgba(255, 217, 6, 0.20);
+  border-color: rgba(255, 217, 6, 0.60);
+  color:        #FFD906;
+  transform:    translateY(-1px);
+}
+
+.vana-hero__day-btn--active,
+.vana-hero__day-btn[aria-current="date"] {
+  background:   var(--vana-gold);
+  border-color: var(--vana-gold);
+  color:        #0f172a;
+  box-shadow:   0 4px 14px rgba(255, 217, 6, 0.35);
+}
+
+.vana-hero__day-btn--active:hover,
+.vana-hero__day-btn[aria-current="date"]:hover {
+  background:   #ffe333;
+  border-color: #ffe333;
+  color:        #0f172a;
+}
+
+/* ── Responsivo ──────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .vana-hero__day-selector { gap: 6px; margin: 12px 0 0; }
+
+  .vana-hero__day-btn {
+    font-size: 0.75rem;
+    padding:   5px 12px;
+  }
+}
+
+/* ── Badge País (spec 3.1) ── */
+.vana-hero__country-badge {
+    display:        inline-flex;
+    align-items:    center;
+    padding:        3px 10px;
+    border-radius:  999px;
+    font-family:    'Syne', sans-serif;
+    font-size:      0.70rem;
+    font-weight:    700;
+    letter-spacing: 0.10em;
+    background:     rgba(255,255,255,0.15);
+    color:          #fff;
+    border:         1px solid rgba(255,255,255,0.25);
+    vertical-align: middle;
+    margin-left:    10px;
+}
+
+/* Cores por país (data-country) */
+.vana-hero__country-badge[data-country="in"] {
+    background: rgba(255,153,51,0.30);
+    border-color: #FF9933;
+    color: #FFD580;
+}
+.vana-hero__country-badge[data-country="br"] {
+    background: rgba(0,156,59,0.25);
+    border-color: #009C3B;
+    color: #7EFFA0;
+}
+.vana-hero__country-badge[data-country="nl"] {
+    background: rgba(255,102,0,0.25);
+    border-color: #FF6600;
+    color: #FFB380;
+}
+.vana-hero__country-badge[data-country="ar"] {
+    background: rgba(116,172,223,0.25);
+    border-color: #74ACDF;
+    color: #C2E0FF;
+}
 
 /* ============================================================
    TITLE POPOVER
