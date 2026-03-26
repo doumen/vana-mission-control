@@ -292,6 +292,15 @@ final class Vana_Utils {
         string $city_ref = ''
     ): string {
         // 1. Meta i18n do tour
+        // Suporta duas formas:
+        //  - novo padrão: $tour['title'] = ['pt'=>..., 'en'=>...]
+        //  - legado: $tour['title_pt']/['title_en']
+        if (isset($tour['title'])) {
+            $title = self::pick_i18n($tour['title'], $lang);
+            if ($title !== '') return $title;
+        }
+
+        // Legacy suffix keys (title_pt / title_en)
         $title = self::pick_i18n_key( $tour, 'title', $lang );
         if ( $title !== '' ) return $title;
 
@@ -302,7 +311,362 @@ final class Vana_Utils {
         }
 
         // 3. city_ref como último recurso
+        // Se o caller não passou $city_ref, tente extrair do próprio $tour
+        if (trim((string) $city_ref) === '') {
+            $possible = '';
+
+            if (isset($tour['city']) && is_string($tour['city'])) {
+                $possible = $tour['city'];
+            }
+
+            if ($possible === '' && isset($tour['city_ref']) && is_string($tour['city_ref'])) {
+                $possible = $tour['city_ref'];
+            }
+
+            if ($possible === '' && isset($tour['location_meta']) && is_array($tour['location_meta'])) {
+                $possible = (string) ($tour['location_meta']['city_ref'] ?? '');
+            }
+
+            if ($possible === '' && isset($tour['location']) && is_array($tour['location'])) {
+                $possible = (string) ($tour['location']['city_ref'] ?? '');
+            }
+
+            $city_ref = trim((string) $possible);
+        }
+
         return $city_ref;
+    }
+
+    // =========================================================================
+    // 7. TOUR / VISIT IDENTITY HELPERS (Fase 1)
+    // =========================================================================
+
+    /**
+     * Retorna identidade canônica da tour (metadados atômicos).
+     */
+    public static function get_tour_identity(int $tour_id, string $lang = 'pt'): array {
+        $tour_id = (int) $tour_id;
+        if ($tour_id <= 0) return [
+            'id' => 0,
+            'title' => '',
+            'region_code' => '',
+            'season_code' => '',
+            'year_start' => 0,
+            'year_end' => 0,
+            'year_label' => '',
+            'header_label' => '',
+            'full_label' => '',
+        ];
+
+        $region = (string) get_post_meta($tour_id, '_vana_region_code', true);
+        $season = (string) get_post_meta($tour_id, '_vana_season_code', true);
+        $y_start = (int) get_post_meta($tour_id, '_vana_year_start', true) ?: 0;
+        $y_end   = (int) get_post_meta($tour_id, '_vana_year_end', true)   ?: 0;
+
+        $title = self::resolve_tour_title($tour_id, $lang);
+        $year_label = self::tour_year_label($y_start, $y_end);
+        $header_label = self::tour_header_label($tour_id, $lang);
+        $full_label = self::tour_full_label($tour_id, $lang);
+
+        return [
+            'id' => $tour_id,
+            'title' => (string) $title,
+            'region_code' => (string) $region,
+            'season_code' => (string) $season,
+            'year_start' => $y_start,
+            'year_end' => $y_end,
+            'year_label' => (string) $year_label,
+            'header_label' => (string) $header_label,
+            'full_label' => (string) $full_label,
+        ];
+    }
+
+    /**
+     * Resolve título da tour com fallback definido.
+     */
+    public static function resolve_tour_title(int $tour_id, string $lang = 'pt'): string {
+        $tour_id = (int) $tour_id;
+        if ($tour_id <= 0) return '';
+
+        $lang = $lang === 'en' ? 'en' : 'pt';
+
+        $k = "_vana_title_{$lang}";
+        $v = (string) get_post_meta($tour_id, $k, true);
+        if ($v !== '') return $v;
+
+        $pt = (string) get_post_meta($tour_id, '_vana_title_pt', true);
+        if ($pt !== '') return $pt;
+
+        $wp = (string) get_the_title($tour_id);
+        if ($wp !== '') return $wp;
+
+        $origin = (string) get_post_meta($tour_id, '_vana_origin_key', true);
+        if ($origin !== '') return $origin;
+
+        return '';
+    }
+
+    /**
+     * Formata label de anos da tour.
+     */
+    public static function tour_year_label(int $year_start = 0, int $year_end = 0): string {
+        $ys = (int) $year_start;
+        $ye = (int) $year_end;
+
+        if ($ys <= 0 && $ye <= 0) return '';
+        if ($ys > 0 && ($ye === 0 || $ys === $ye)) return (string) $ys;
+        if ($ys > 0 && $ye > 0 && $ys !== $ye) {
+            $s = (string) $ys;
+            $e = (string) $ye;
+            return substr($s, -2) . '/' . substr($e, -2);
+        }
+        if ($ys > 0) return (string) $ys;
+        return '';
+    }
+
+    /**
+     * Header label (REGION · SEASON · YEAR) ou fallback para título.
+     */
+    public static function tour_header_label(int $tour_id, string $lang = 'pt'): string {
+        $tour_id = (int) $tour_id;
+        if ($tour_id <= 0) return '';
+
+        $region = strtoupper(trim((string) get_post_meta($tour_id, '_vana_region_code', true)));
+        $season = strtoupper(trim((string) get_post_meta($tour_id, '_vana_season_code', true)));
+        $y_start = (int) get_post_meta($tour_id, '_vana_year_start', true) ?: 0;
+        $y_end   = (int) get_post_meta($tour_id, '_vana_year_end', true)   ?: 0;
+
+        $year_label = self::tour_year_label($y_start, $y_end);
+
+        if ($region !== '' && $season !== '' && $year_label !== '') {
+            return $region . ' · ' . $season . ' · ' . $year_label;
+        }
+
+        return self::resolve_tour_title($tour_id, $lang);
+    }
+
+    /**
+     * Tour full label humanizado (mapas internos, extensíveis por filter).
+     */
+    public static function tour_full_label(int $tour_id, string $lang = 'pt'): string {
+        $tour_id = (int) $tour_id;
+        if ($tour_id <= 0) return '';
+
+        $region = strtoupper(trim((string) get_post_meta($tour_id, '_vana_region_code', true)));
+        $season = strtoupper(trim((string) get_post_meta($tour_id, '_vana_season_code', true)));
+        $y_start = (int) get_post_meta($tour_id, '_vana_year_start', true) ?: 0;
+        $y_end   = (int) get_post_meta($tour_id, '_vana_year_end', true)   ?: 0;
+
+        // Default maps (can be filtered)
+        $region_map = [
+            'IN' => $lang === 'en' ? 'India' : 'Índia',
+            'BR' => $lang === 'en' ? 'Brazil' : 'Brasil',
+        ];
+        $season_map = [
+            'KARTIK'    => $lang === 'en' ? 'Kartik' : 'Kartik',
+            'VRAJA'     => $lang === 'en' ? 'Vraja' : 'Vraja',
+            'GAURA'     => $lang === 'en' ? 'Gaura' : 'Gaura',
+            'NAVADVIPA' => $lang === 'en' ? 'Navadvīpa' : 'Navadvīpa',
+            'MAYAPUR'   => $lang === 'en' ? 'Māyāpur' : 'Māyāpur',
+            'PURI'      => $lang === 'en' ? 'Purī' : 'Purī',
+        ];
+
+        $region_map = apply_filters('vana_tour_region_map', $region_map, $lang);
+        $season_map = apply_filters('vana_tour_season_map', $season_map, $lang);
+
+        $region_label = $region !== '' ? ($region_map[$region] ?? $region) : '';
+        $season_label = $season !== '' ? ($season_map[$season] ?? $season) : '';
+        $year_label = self::tour_year_label($y_start, $y_end);
+
+        $parts = [];
+        if ($region_label !== '') $parts[] = $region_label;
+        if ($season_label !== '') $parts[] = $season_label;
+        if ($year_label !== '') $parts[] = $year_label;
+
+        if (!empty($parts)) return implode(' · ', $parts);
+
+        return self::resolve_tour_title($tour_id, $lang);
+    }
+
+    /**
+     * Retorna identidade da visita (atômica).
+     */
+    public static function get_visit_identity(int $visit_id, string $lang = 'pt'): array {
+        $visit_id = (int) $visit_id;
+        if ($visit_id <= 0) return [
+            'id' => 0,
+            'city' => '',
+            'country_code' => '',
+            'country_label' => '',
+            'title' => '',
+        ];
+
+        $city = self::resolve_visit_city($visit_id, $lang);
+        $cc = self::resolve_visit_country_code($visit_id);
+        $cl = self::resolve_visit_country_label($cc, $lang);
+        $title = (string) get_the_title($visit_id);
+
+        return [
+            'id' => $visit_id,
+            'city' => $city,
+            'country_code' => $cc,
+            'country_label' => $cl,
+            'title' => $title,
+        ];
+    }
+
+    /**
+     * Resolve cidade da visita com fallbacks.
+     */
+    public static function resolve_visit_city(int $visit_id, string $lang = 'pt'): string {
+        $visit_id = (int) $visit_id;
+        if ($visit_id <= 0) return '';
+
+        // 1. _vana_location meta (may be array or string)
+        $loc = get_post_meta($visit_id, '_vana_location', true);
+        if (is_array($loc)) {
+            $c = (string) ($loc['city'] ?? $loc['city_ref'] ?? '');
+            if ($c !== '') return $c;
+        } elseif (is_string($loc) && trim($loc) !== '') {
+            return trim($loc);
+        }
+
+        // 2/3. timeline JSON
+        $json = get_post_meta($visit_id, '_vana_visit_timeline_json', true);
+        $vdata = $json ? json_decode($json, true) : [];
+
+        // If timeline is an array of items ([ {...}, {...} ]) take the first item
+        if (is_array($vdata) && isset($vdata[0]) && is_array($vdata[0])) {
+            $vdata = $vdata[0];
+        }
+
+        if (is_array($vdata) && !empty($vdata)) {
+            $k = 'title_' . ($lang === 'en' ? 'en' : 'pt');
+            if (!empty($vdata[$k]) && is_string($vdata[$k])) return (string) $vdata[$k];
+            if (!empty($vdata['title_pt']) && is_string($vdata['title_pt'])) return (string) $vdata['title_pt'];
+            if (!empty($vdata['title']) && is_string($vdata['title'])) return (string) $vdata['title'];
+        }
+
+        // 4. WP post title
+        return (string) get_the_title($visit_id);
+    }
+
+    /**
+     * Resolve country code (canonical) for a visit.
+     */
+    public static function resolve_visit_country_code(int $visit_id): string {
+        $visit_id = (int) $visit_id;
+        if ($visit_id <= 0) return '';
+        $v = (string) get_post_meta($visit_id, '_vana_country_code', true);
+        $v = strtoupper(trim($v));
+        return $v === '' ? '' : $v;
+    }
+
+    /**
+     * Resolve label for a country code using internal map and filter.
+     */
+    public static function resolve_visit_country_label(string $country_code, string $lang = 'pt'): string {
+        $country_code = strtoupper(trim((string) $country_code));
+        if ($country_code === '') return '';
+
+        $maps = [
+            'pt' => [
+                'BR' => 'Brasil', 'IN' => 'Índia', 'US' => 'EUA', 'AR' => 'Argentina', 'UY' => 'Uruguai',
+                'PT' => 'Portugal', 'ES' => 'Espanha', 'IT' => 'Itália', 'FR' => 'França', 'DE' => 'Alemanha', 'GB' => 'Inglaterra',
+            ],
+            'en' => [
+                'BR' => 'Brazil', 'IN' => 'India', 'US' => 'USA', 'AR' => 'Argentina', 'UY' => 'Uruguay',
+                'PT' => 'Portugal', 'ES' => 'Spain', 'IT' => 'Italy', 'FR' => 'France', 'DE' => 'Germany', 'GB' => 'England',
+            ],
+        ];
+
+        $maps = apply_filters('vana_country_labels', $maps);
+
+        $lang = $lang === 'en' ? 'en' : 'pt';
+        return $maps[$lang][$country_code] ?? $country_code;
+    }
+
+    /**
+     * Label usado em nav/prev-next: cidade [+ COUNTRY CODE]
+     */
+    public static function visit_nav_label(int $visit_id, string $lang = 'pt', bool $with_country = false): string {
+        $city = self::resolve_visit_city($visit_id, $lang);
+        if ($city === '') return '';
+        if ($with_country) {
+            $cc = self::resolve_visit_country_code($visit_id);
+            return $cc !== '' ? $city . ' [' . $cc . ']' : $city;
+        }
+        return $city;
+    }
+
+    /**
+     * Formata data da visita com formato fornecido.
+     */
+    public static function visit_date_label(int $visit_id, string $format = 'd/m'): string {
+        $visit_id = (int) $visit_id;
+        if ($visit_id <= 0) return '';
+        $raw = (string) get_post_meta($visit_id, '_vana_start_date', true);
+        if ($raw === '') return '';
+        $ts = strtotime($raw);
+        if ($ts === false) return '';
+        return date($format, $ts);
+    }
+
+    /**
+     * Contador da visita dentro da tour (Visita X de Y).
+     */
+    public static function visit_counter_label(int $visit_id, int $tour_id, string $lang = 'pt'): string {
+        $visit_id = (int) $visit_id;
+        $tour_id  = (int) $tour_id;
+        if ($visit_id <= 0 || $tour_id <= 0) return '';
+
+        // 1) por _vana_start_date
+        $args = [
+            'post_type' => 'vana_visit',
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'meta_key' => '_vana_start_date',
+            'orderby' => 'meta_value',
+            'order' => 'ASC',
+            'meta_query' => [[
+                'key' => '_vana_tour_id', 'value' => $tour_id, 'compare' => '=', 'type' => 'NUMERIC'
+            ]],
+            'no_found_rows' => true,
+        ];
+
+        $ids = get_posts($args);
+
+        // 2) fallback: menu_order
+        if (empty($ids)) {
+            $args2 = $args;
+            unset($args2['meta_key']);
+            $args2['orderby'] = 'menu_order';
+            $args2['order'] = 'ASC';
+            $ids = get_posts($args2);
+        }
+
+        // 3) fallback: date
+        if (empty($ids)) {
+            $args3 = $args;
+            unset($args3['meta_key']);
+            $args3['orderby'] = 'date';
+            $args3['order'] = 'ASC';
+            $ids = get_posts($args3);
+        }
+
+        $ids = is_array($ids) ? $ids : [];
+        $total = count($ids);
+        if ($total === 0) return '';
+
+        $pos = array_search($visit_id, $ids, true);
+        if ($pos === false) return '';
+
+        $label = $lang === 'en'
+            ? sprintf('Visit %d of %d', $pos + 1, $total)
+            : sprintf('Visita %d de %d', $pos + 1, $total);
+
+        return $label;
     }
 
 }
