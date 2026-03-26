@@ -28,15 +28,14 @@ $tour_id  = (int) get_post_meta($visit_id, '_vana_tour_id', true);
 $lang     = function_exists('vana_get_lang') ? vana_get_lang() : ($lang ?? 'pt');
 
 $visit   = Vana_Utils::get_visit_identity($visit_id, $lang);
-$tour_identity = Vana_Utils::get_tour_identity($tour_id, $lang);
-$counter = Vana_Utils::visit_counter_label($visit_id, $tour_id, $lang);
+$tour    = Vana_Utils::get_tour_identity($tour_id, $lang);
 
 // Composição local — template escolhe o formato
 $city         = (string) ($visit['city'] ?? '');
 $country_code = (string) ($visit['country_code'] ?? '');
 $date_label   = Vana_Utils::visit_date_label($visit_id);
-$header_label = (string) ($tour_identity['header_label'] ?? '');
-$full_label   = (string) ($tour_identity['full_label'] ?? '');
+$header_label = (string) ($tour['header_label'] ?? '');
+$full_label   = (string) ($tour['full_label'] ?? '');
 
 // ── 2. Background image ───────────────────────────────────────────────────────
 $bg_image = '';
@@ -64,13 +63,10 @@ if (!$is_new && !empty($_t['created_at'])) {
 }
 
 // ── 4. Tour Counter — Visita X de Y ──────────────────────────────────────────
-// Delegado a Vana_Utils::visit_counter_label() (Fase 2)
-$tour_counter_label = (isset($visit_id, $tour_id) && $tour_id > 0)
+// Delegado a Vana_Utils::visit_counter_label() — chamada única (sem WP_QUERY duplo)
+$counter = ($tour_id > 0)
     ? Vana_Utils::visit_counter_label((int) $visit_id, (int) $tour_id, $lang)
     : '';
-
-// compat: templates may use $counter
-$counter = $tour_counter_label;
 
 // ── 5. Day label ativo ────────────────────────────────────────────────────────
 $active_label = (string)(
@@ -176,11 +172,15 @@ unset($_t, $_thumb, $_m);
         <!-- Título + região -->
         <div class="vana-hero__heading">
             <?php
-            // Fase 2 fix: $_t foi unset; usa dados atômicos já resolvidos acima
-            $display_title = ( $city !== '' )
-                ? $city
-                : (string) get_the_title( (int) $visit_id );
-            $header_tour_label = $header_tour_label ?? ($header_label ?? '');
+            // Fase 2: título canônico tem prioridade; cidade é fallback
+            $display_title = isset($_t) ? Vana_Utils::resolve_visit_title($_t, $lang, $visit_id ?? 0, $city) : '';
+            // $header_label é a fonte canônica (Vana_Utils::get_tour_identity — Fase 2).
+            // $header_tour_label do _bootstrap.php §9g é mantido por compatibilidade,
+            // mas não é usado neste template desde a Fase 2.
+            // TODO Fase 3: remover §9g do _bootstrap.php após validar que nenhum
+            // outro template consome $header_tour_label.
+            // Compat guard — garante que $header_tour_label não causa notice em partials legados:
+            $header_tour_label = $header_tour_label ?? $header_label;
             $hero_city = ( $display_title !== '' )
                 ? $display_title
                 : ( isset( $visit_city_ref ) && $visit_city_ref !== '' ? $visit_city_ref : '' );
