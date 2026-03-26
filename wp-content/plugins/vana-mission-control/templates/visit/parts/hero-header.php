@@ -172,8 +172,10 @@ unset($_t, $_thumb, $_m);
         <!-- Título + região -->
         <div class="vana-hero__heading">
             <?php
-            // Fase 2: título canônico tem prioridade; cidade é fallback
-            $display_title = isset($_t) ? Vana_Utils::resolve_visit_title($_t, $lang, $visit_id ?? 0, $city) : '';
+            // Fase 2 fix: $_t foi unset; usa dados atômicos já resolvidos acima
+            $display_title = ( $city !== '' )
+                ? $city
+                : (string) get_the_title( (int) $visit_id );
             // $header_label é a fonte canônica (Vana_Utils::get_tour_identity — Fase 2).
             // $header_tour_label do _bootstrap.php §9g é mantido por compatibilidade,
             // mas não é usado neste template desde a Fase 2.
