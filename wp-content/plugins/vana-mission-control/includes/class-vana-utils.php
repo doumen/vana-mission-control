@@ -541,11 +541,21 @@ final class Vana_Utils {
         }
 
         if (is_array($vdata) && !empty($vdata)) {
+            // schema 3.x: location_meta.city
+            if (!empty($vdata['location_meta']['city'])) {
+                return (string) $vdata['location_meta']['city'];
+            }
+            // legado: title_pt / title_en / title
             $k = 'title_' . ($lang === 'en' ? 'en' : 'pt');
             if (!empty($vdata[$k]) && is_string($vdata[$k])) return (string) $vdata[$k];
             if (!empty($vdata['title_pt']) && is_string($vdata['title_pt'])) return (string) $vdata['title_pt'];
             if (!empty($vdata['title']) && is_string($vdata['title'])) return (string) $vdata['title'];
         }
+
+        // 3.5. _vana_title_pt / _vana_title_en
+        $title_key = '_vana_title_' . ($lang === 'en' ? 'en' : 'pt');
+        $t = (string) get_post_meta($visit_id, $title_key, true);
+        if ($t !== '') return $t;
 
         // 4. WP post title
         return (string) get_the_title($visit_id);
