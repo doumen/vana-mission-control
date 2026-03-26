@@ -459,8 +459,21 @@ final class Vana_Utils {
 
         // Default maps (can be filtered)
         $region_map = [
-            'IN' => $lang === 'en' ? 'India' : 'Índia',
-            'BR' => $lang === 'en' ? 'Brazil' : 'Brasil',
+            // ISO 2 letters (legacy / country codes)
+            'IN'  => $lang === 'en' ? 'India'       : 'Índia',
+            'BR'  => $lang === 'en' ? 'Brazil'      : 'Brasil',
+            'US'  => $lang === 'en' ? 'USA'         : 'EUA',
+            'PT'  => $lang === 'en' ? 'Portugal'    : 'Portugal',
+            'NL'  => $lang === 'en' ? 'Netherlands' : 'Holanda',
+            'AR'  => $lang === 'en' ? 'Argentina'   : 'Argentina',
+            'UY'  => $lang === 'en' ? 'Uruguay'     : 'Uruguai',
+            'GB'  => $lang === 'en' ? 'England'     : 'Inglaterra',
+
+            // 3-letter region codes (spec EDITORIAL.md)
+            'IND' => $lang === 'en' ? 'India'       : 'Índia',
+            'EUR' => $lang === 'en' ? 'Europe'      : 'Europa',
+            'AME' => $lang === 'en' ? 'Americas'    : 'Américas',
+            'BRA' => $lang === 'en' ? 'Brazil'      : 'Brasil',
         ];
         $season_map = [
             'KARTIK'    => $lang === 'en' ? 'Kartik' : 'Kartik',
@@ -553,6 +566,12 @@ final class Vana_Utils {
         }
 
         // 3.5. _vana_title_pt / _vana_title_en
+        // ⚠️ ATENÇÃO: _vana_title_pt/en é o título EDITORIAL da visita,
+        // não necessariamente a cidade isolada.
+        // Este fallback existe para visitas legadas sem _vana_location preenchido.
+        // Quando o Trator gravar _vana_location corretamente, este passo
+        // não será mais atingido.
+        // TODO: auditar visitas sem _vana_location e migrar dados.
         $title_key = '_vana_title_' . ($lang === 'en' ? 'en' : 'pt');
         $t = (string) get_post_meta($visit_id, $title_key, true);
         if ($t !== '') return $t;
