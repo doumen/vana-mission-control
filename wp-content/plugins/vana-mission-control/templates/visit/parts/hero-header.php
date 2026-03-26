@@ -28,15 +28,15 @@ $tour_id  = (int) get_post_meta($visit_id, '_vana_tour_id', true);
 $lang     = function_exists('vana_get_lang') ? vana_get_lang() : ($lang ?? 'pt');
 
 $visit   = Vana_Utils::get_visit_identity($visit_id, $lang);
-$tour    = Vana_Utils::get_tour_identity($tour_id, $lang);
+$tour_identity = Vana_Utils::get_tour_identity($tour_id, $lang);
 $counter = Vana_Utils::visit_counter_label($visit_id, $tour_id, $lang);
 
 // Composição local — template escolhe o formato
 $city         = (string) ($visit['city'] ?? '');
 $country_code = (string) ($visit['country_code'] ?? '');
 $date_label   = Vana_Utils::visit_date_label($visit_id);
-$header_label = (string) ($tour['header_label'] ?? '');
-$full_label   = (string) ($tour['full_label'] ?? '');
+$header_label = (string) ($tour_identity['header_label'] ?? '');
+$full_label   = (string) ($tour_identity['full_label'] ?? '');
 
 // ── 2. Background image ───────────────────────────────────────────────────────
 $bg_image = '';
