@@ -19,11 +19,24 @@ $_t = is_array($tour ?? null) ? $tour : [];
 // Descrição
 $desc = Vana_Utils::pick_i18n_key($_t, 'description', $lang);
 
-// Cidade (city_ref do location_meta)
-$city = trim((string)($visit_city_ref ?? $data['location_meta']['city_ref'] ?? ''));
+// ========================================================================
+// Resolve dados atômicos via Vana_Utils (Fase 2)
+// Template compõe os labels locais com os dados atômicos retornados abaixo.
+// ========================================================================
+$visit_id = get_the_ID();
+$tour_id  = (int) get_post_meta($visit_id, '_vana_tour_id', true);
+$lang     = function_exists('vana_get_lang') ? vana_get_lang() : ($lang ?? 'pt');
 
-// Título do header central (canônico): cidade > meta i18n > post title
-$display_title = Vana_Utils::resolve_visit_title($_t, $lang, $visit_id ?? 0, $city);
+$visit   = Vana_Utils::get_visit_identity($visit_id, $lang);
+$tour    = Vana_Utils::get_tour_identity($tour_id, $lang);
+$counter = Vana_Utils::visit_counter_label($visit_id, $tour_id, $lang);
+
+// Composição local — template escolhe o formato
+$city         = (string) ($visit['city'] ?? '');
+$country_code = (string) ($visit['country_code'] ?? '');
+$date_label   = Vana_Utils::visit_date_label($visit_id);
+$header_label = (string) ($tour['header_label'] ?? '');
+$full_label   = (string) ($tour['full_label'] ?? '');
 
 // ── 2. Background image ───────────────────────────────────────────────────────
 $bg_image = '';
@@ -51,35 +64,13 @@ if (!$is_new && !empty($_t['created_at'])) {
 }
 
 // ── 4. Tour Counter — Visita X de Y ──────────────────────────────────────────
-$tour_counter_label = '';
-if (!empty($tour_id) && $tour_id > 0) {
-    $tour_visits = get_posts([
-        'post_type'      => 'vana_visit',
-        'post_status'    => 'publish',
-        'posts_per_page' => -1,
-        'fields'         => 'ids',
-        'meta_key'       => '_vana_start_date',
-        'orderby'        => 'meta_value',
-        'order'          => 'ASC',
-        'meta_query'     => [[
-            'key'     => '_vana_tour_id',
-            'value'   => $tour_id,
-            'compare' => '=',
-            'type'    => 'NUMERIC',
-        ]],
-    ]);
+// Delegado a Vana_Utils::visit_counter_label() (Fase 2)
+$tour_counter_label = (isset($visit_id, $tour_id) && $tour_id > 0)
+    ? Vana_Utils::visit_counter_label((int) $visit_id, (int) $tour_id, $lang)
+    : '';
 
-    if (!empty($tour_visits)) {
-        $position = array_search($visit_id, $tour_visits, true);
-        if ($position !== false) {
-            $tour_counter_label = sprintf(
-                $lang === 'en' ? 'Visit %d of %d' : 'Visita %d de %d',
-                $position + 1,
-                count($tour_visits)
-            );
-        }
-    }
-}
+// compat: templates may use $counter
+$counter = $tour_counter_label;
 
 // ── 5. Day label ativo ────────────────────────────────────────────────────────
 $active_label = (string)(
@@ -124,9 +115,9 @@ unset($_t, $_thumb, $_m);
 
         <!-- Centro: label da tour (spec: REGIÃO · ESTAÇÃO · ANO) -->
         <div class="vana-header__context">
-            <?php if ( $header_tour_label !== '' ): ?>
-                <span class="vana-header__title">
-                    <?php echo esc_html( $header_tour_label ); ?>
+            <?php if ( $header_label !== '' ): ?>
+                <span class="vana-header__title" title="<?php echo esc_attr($full_label); ?>">
+                    <?php echo esc_html( $header_label ); ?>
                 </span>
             <?php endif; ?>
         </div>
@@ -170,7 +161,7 @@ unset($_t, $_thumb, $_m);
     <?php if ($bg_image): ?>
         style="--vana-hero-bg: url('<?php echo esc_url($bg_image); ?>')"
     <?php endif; ?>
-    aria-label="<?php echo esc_attr($title); ?>"
+    aria-label="<?php echo esc_attr( $city ?: $header_label ); ?>"
 >
     <div class="vana-hero__overlay" aria-hidden="true"></div>
 
@@ -183,18 +174,21 @@ unset($_t, $_thumb, $_m);
         </p>
 
         <!-- Título + região -->
-        <!-- Título: cidade como H1 + badge país (spec 3.1) -->
         <div class="vana-hero__heading">
-            <h1 class="vana-hero__title">
-                <?php
-                // Fonte 1: city_ref do location_meta (canônico — spec)
-                // Fonte 2: display_title (fallback — dados legados)
-                $hero_city = ( isset( $visit_city_ref ) && $visit_city_ref !== '' )
-                    ? $visit_city_ref
-                    : $display_title;
-                echo esc_html( $hero_city );
-                ?>
-            </h1>
+            <?php
+            // Fase 2 fix: $_t foi unset; usa dados atômicos já resolvidos acima
+            $display_title = ( $city !== '' )
+                ? $city
+                : (string) get_the_title( (int) $visit_id );
+            $header_tour_label = $header_tour_label ?? ($header_label ?? '');
+            $hero_city = ( $display_title !== '' )
+                ? $display_title
+                : ( isset( $visit_city_ref ) && $visit_city_ref !== '' ? $visit_city_ref : '' );
+            if ( $hero_city !== '' ): ?>
+                <h1 class="vana-hero__title">
+                    <?php echo esc_html( $hero_city ); ?>
+                </h1>
+            <?php endif; ?>
             <?php if ( $country_code !== '' ): ?>
                 <span
                     class="vana-hero__country-badge"
@@ -229,9 +223,9 @@ unset($_t, $_thumb, $_m);
         <?php endif; ?>
 
         <!-- Ordinal da tour (spec 3.2: "Visita X de Y" fica no Hero) -->
-        <?php if ( $tour_counter_label ): ?>
+        <?php if ( $counter ): ?>
             <p class="vana-hero__visit-counter">
-                <?php echo esc_html( $tour_counter_label ); ?>
+                <?php echo esc_html( $counter ); ?>
             </p>
         <?php endif; ?>
 
