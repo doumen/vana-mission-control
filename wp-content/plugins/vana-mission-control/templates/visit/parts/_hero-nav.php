@@ -31,23 +31,30 @@ $next_url = isset($next['url']) ? Vana_Utils::safe_https_url((string) $next['url
 if ($prev_url === '' && $next_url === '') return;
 
 // ─── Títulos ──────────────────────────────────────────────────────────────────
-// Use canonical resolver: prefere title_pt/title_en do item, senão post title, senão cidade
-$prev_title = ($prev !== [])
-    ? Vana_Utils::resolve_visit_title(
+// Use visit_nav_label for prev/next; if id missing, fallback to resolve_visit_title
+$prev_title = '';
+$next_title = '';
+if ($prev !== [] && !empty($prev['id'])) {
+    $prev_title = Vana_Utils::visit_nav_label((int) $prev['id'], $lang, false);
+} elseif ($prev !== []) {
+    $prev_title = Vana_Utils::resolve_visit_title(
         $prev,
         $lang,
         isset($prev['id']) ? (int) $prev['id'] : 0,
         (string) ($prev['city'] ?? $prev['city_ref'] ?? '')
-    )
-    : '';
-$next_title = ($next !== [])
-    ? Vana_Utils::resolve_visit_title(
+    );
+}
+
+if ($next !== [] && !empty($next['id'])) {
+    $next_title = Vana_Utils::visit_nav_label((int) $next['id'], $lang, false);
+} elseif ($next !== []) {
+    $next_title = Vana_Utils::resolve_visit_title(
         $next,
         $lang,
         isset($next['id']) ? (int) $next['id'] : 0,
         (string) ($next['city'] ?? $next['city_ref'] ?? '')
-    )
-    : '';
+    );
+}
 
 // Fallback para strings genéricas
 if ($prev_title === '') $prev_title = Vana_Utils::t('day.prev', $lang);
