@@ -51,7 +51,13 @@ $js_data = [
     'tourUrl'   => $tour_id ? $tour_url : null,
     'currentVisit' => [
       'id'    => (int) $visit_id,
-      'title' => get_the_title( $visit_id ),
+      'title' => Vana_Utils::resolve_visit_title(
+          $data ?? [],
+          $lang,
+          (int) $visit_id,
+          (string) (($data['location_meta']['city_ref'] ?? '')
+      )
+      ),
       'url'   => get_permalink( $visit_id ),
     ],
   ];

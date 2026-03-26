@@ -31,11 +31,22 @@ $next_url = isset($next['url']) ? Vana_Utils::safe_https_url((string) $next['url
 if ($prev_url === '' && $next_url === '') return;
 
 // ─── Títulos ──────────────────────────────────────────────────────────────────
+// Use canonical resolver: prefere title_pt/title_en do item, senão post title, senão cidade
 $prev_title = ($prev !== [])
-    ? Vana_Utils::pick_i18n_key($prev, 'title', $lang)
+    ? Vana_Utils::resolve_visit_title(
+        $prev,
+        $lang,
+        isset($prev['id']) ? (int) $prev['id'] : 0,
+        (string) ($prev['city'] ?? $prev['city_ref'] ?? '')
+    )
     : '';
 $next_title = ($next !== [])
-    ? Vana_Utils::pick_i18n_key($next, 'title', $lang)
+    ? Vana_Utils::resolve_visit_title(
+        $next,
+        $lang,
+        isset($next['id']) ? (int) $next['id'] : 0,
+        (string) ($next['city'] ?? $next['city_ref'] ?? '')
+    )
     : '';
 
 // Fallback para strings genéricas

@@ -29,12 +29,16 @@
  *       $visit_tz           DateTimeZone objeto timezone
  *       $prev_visit         array|null {id, permalink, title, has_mag, country_code}
  *       $next_visit         array|null {id, permalink, title, has_mag, country_code}
+ *       $tour               array      view-model para hero-header.php e partials
+ *       $header_tour_label  string     "REGIÃO · ESTAÇÃO · ANO" para o header fixo
  *
  * @package VanaMissionControl
  * @since   3.1.0
- * v3.1 — 2026-03-24
- * + $country_code exposto para hero-header.php
- * + country_code adicionado ao array de prev_visit / next_visit
+ * v3.2 — 2026-03-25
+ * + $header_tour_label exposto para hero-header.php
+ * + $tour montado uma única vez (bloco 9e — padrão v3)
+ * + $start_date substituído por get_post_meta canônico (bug fix)
+ * + numeração de seções corrigida (9c duplicado → 9g)
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -47,7 +51,7 @@ if ( isset( $vana_bootstrap_loaded ) && $vana_bootstrap_loaded === true ) {
 }
 $vana_bootstrap_loaded = true;
 
-// ── PRE-LOAD: Carrega funções utilitárias do Stage antes das parts ─────────────
+// ── PRE-LOAD: Carrega funções utilitárias do Stage antes das parts ────────────
 $vana_stage_file = defined( 'VANA_MC_PATH' )
     ? VANA_MC_PATH . 'inc/vana-stage.php'
     : dirname( __DIR__, 2 ) . '/inc/vana-stage.php';
@@ -143,8 +147,8 @@ if ( ! function_exists( 'vana_visit_prev_next_ids' ) ) {
                 $idx = array_search( $current_id, $ids, true );
                 if ( $idx !== false ) {
                     return [
-                        ( $idx > 0 )                  ? (int) $ids[ $idx - 1 ] : 0,
-                        ( $idx < count( $ids ) - 1 )  ? (int) $ids[ $idx + 1 ] : 0,
+                        ( $idx > 0 )                 ? (int) $ids[ $idx - 1 ] : 0,
+                        ( $idx < count( $ids ) - 1 ) ? (int) $ids[ $idx + 1 ] : 0,
                     ];
                 }
             }
@@ -214,9 +218,10 @@ if ( ! function_exists( '_vana_build_nav_visit' ) ) {
         return [
             'id'           => $id,
             'permalink'    => (string) get_permalink( $id ),
-            'title'        => (string) ( $vdata[ 'title_' . $lang ] ?? $vdata['title_pt'] ?? get_the_title( $id ) ),
+            'title_pt'     => ( '' !== (string) get_post_meta( $id, '_vana_title_pt', true ) ) ? (string) get_post_meta( $id, '_vana_title_pt', true ) : (string) ( $vdata['title_pt'] ?? $vdata['title'] ?? get_the_title( $id ) ),
+            'title_en'     => ( '' !== (string) get_post_meta( $id, '_vana_title_en', true ) ) ? (string) get_post_meta( $id, '_vana_title_en', true ) : (string) ( $vdata['title_en'] ?? $vdata['title_pt'] ?? get_the_title( $id ) ),
             'has_mag'      => get_post_meta( $id, '_vana_mag_state', true ) === 'publicada',
-            'country_code' => $cc,   // ← exposto para hero-header.php (badge nav)
+            'country_code' => $cc,
         ];
     }
 }
@@ -224,37 +229,6 @@ if ( ! function_exists( '_vana_build_nav_visit' ) ) {
 [ $prev_id, $next_id ] = vana_visit_prev_next_ids( $visit_id, $tour_id );
 $prev_visit = _vana_build_nav_visit( $prev_id, $lang );
 $next_visit = _vana_build_nav_visit( $next_id, $lang );
-
-// ── 9. Tour object para templates Hero ───────────────────────────────────
-$tour = [
-    'id'          => $tour_id,
-    'title_pt'    => $tour_title,
-    'title_en'    => $tour_title,
-    'description_pt' => (string) ( $data['description_pt'] ?? '' ),
-    'description_en' => (string) ( $data['description_en'] ?? '' ),
-    'thumbnail'   => (string) ( $data['cover_url'] ?? '' ),
-    'video_url'   => (string) ( $data['hero']['video_url'] ?? '' ),
-    'days'        => $days,
-    'region_code' => $country_code,
-    'season_code' => (string) ( $data['season_code'] ?? '' ),
-    'has_live'    => $visit_status === 'live',
-    'is_new'      => false,
-    'created_at'  => $tour_id ? get_post_time( 'Y-m-d H:i:s', true, $tour_id ) : '',
-    'nav'         => [
-        'prev' => [
-            'id'       => $prev_visit['id'] ?? 0,
-            'title_pt' => $prev_visit['title'] ?? '',
-            'title_en' => $prev_visit['title'] ?? '',
-            'url'      => $prev_visit['permalink'] ?? '',
-        ],
-        'next' => [
-            'id'       => $next_visit['id'] ?? 0,
-            'title_pt' => $next_visit['title'] ?? '',
-            'title_en' => $next_visit['title'] ?? '',
-            'url'      => $next_visit['permalink'] ?? '',
-        ],
-    ],
-];
 
 // ── 9. Montar $tour para hero-header.php e partials ──────────────────────────
 //
@@ -326,12 +300,20 @@ if ( $_video_url === '' ) {
 
 $_nav_prev = [];
 if ( $prev_visit ) {
+    // Fallback: se title_pt/en vazios, usa post_title nativo do WP
+    $prev_title_pt = $prev_visit['title_pt'] ?? '';
+    $prev_title_en = $prev_visit['title_en'] ?? '';
+    if ( $prev_title_pt === '' && $prev_title_en === '' ) {
+        $prev_wp_title  = get_the_title( (int) $prev_visit['id'] );
+        $prev_title_pt  = $prev_wp_title;
+        $prev_title_en  = $prev_wp_title;
+    }
     $_nav_prev = [
-        'id'    => $prev_visit['id'],
-        'url'   => $prev_visit['permalink'],
-        'title' => [
-            'pt' => $prev_visit['title'],
-            'en' => $prev_visit['title'],   // bilíngue se disponível no futuro
+        'id'           => $prev_visit['id'],
+        'url'          => $prev_visit['permalink'],
+        'title'        => [
+            'pt' => $prev_title_pt,
+            'en' => $prev_title_en,
         ],
         'country_code' => $prev_visit['country_code'] ?? '',
     ];
@@ -339,12 +321,20 @@ if ( $prev_visit ) {
 
 $_nav_next = [];
 if ( $next_visit ) {
+    // Fallback: se title_pt/en vazios, usa post_title nativo do WP
+    $next_title_pt = $next_visit['title_pt'] ?? '';
+    $next_title_en = $next_visit['title_en'] ?? '';
+    if ( $next_title_pt === '' && $next_title_en === '' ) {
+        $next_wp_title  = get_the_title( (int) $next_visit['id'] );
+        $next_title_pt  = $next_wp_title;
+        $next_title_en  = $next_wp_title;
+    }
     $_nav_next = [
-        'id'    => $next_visit['id'],
-        'url'   => $next_visit['permalink'],
-        'title' => [
-            'pt' => $next_visit['title'],
-            'en' => $next_visit['title'],
+        'id'           => $next_visit['id'],
+        'url'          => $next_visit['permalink'],
+        'title'        => [
+            'pt' => $next_title_pt,
+            'en' => $next_title_en,
         ],
         'country_code' => $next_visit['country_code'] ?? '',
     ];
@@ -361,43 +351,91 @@ if ( $_created_at === '' ) {
     $_created_at = (string) get_the_date( 'c', $visit_id ); // ISO 8601
 }
 
-// ── 9e. Montagem final ────────────────────────────────────────────────────────
+// ── 9e. Montagem final do $tour ───────────────────────────────────────────────
 $tour = [
     // Identidade
-    'id'           => $visit_id,
+    'id'          => $visit_id,
 
     // Título e descrição (array i18n — padrão v3)
-    'title'        => [ 'pt' => $_tour_title_pt, 'en' => $_tour_title_en ],
-    'description'  => [ 'pt' => $_tour_desc_pt,  'en' => $_tour_desc_en  ],
+    'title'       => [ 'pt' => $_tour_title_pt, 'en' => $_tour_title_en ],
+    'description' => [ 'pt' => $_tour_desc_pt,  'en' => $_tour_desc_en  ],
 
     // Mídia
-    'thumbnail'    => $_cover_url,
-    'video_url'    => $_video_url,
+    'thumbnail'   => $_cover_url,
+    'video_url'   => $_video_url,
 
     // Dias (repassado ao _hero-day-selector.php)
-    'days'         => $days,
+    'days'        => $days,
 
     // Navegação prev/next
-    'nav'          => [
+    'nav'         => [
         'prev' => $_nav_prev,
         'next' => $_nav_next,
     ],
 
     // Badges
-    'region_code'  => $country_code,   // já resolvido na seção 6
-    'season_code'  => $_season_code,
-    'has_live'     => $_has_live,
-    'is_new'       => $_is_new,
-    'created_at'   => $_created_at,
+    'region_code' => $country_code,  // já resolvido na seção 6
+    'season_code' => $_season_code,
+    'has_live'    => $_has_live,
+    'is_new'      => $_is_new,
+    'created_at'  => $_created_at,
 ];
 
-// ── 9f. Limpeza de vars temporárias ──────────────────────────────────────────
+// ── 9f. has_live: sobrescreve com visit_status canônico do ViewModel ──────────
+// $visit_status vem do VisitStageResolver — fonte mais confiável que o JSON.
+// Feito após a montagem do array para não poluir o bloco 9d.
+if ( isset( $visit_status ) && $visit_status === 'live' ) {
+    $tour['has_live'] = true;
+}
+
+// ── 9g. Header tour label (spec: REGIÃO · ESTAÇÃO · ANO) ─────────────────────
+//
+// Canônico (Fase 2): region_code + season_code da TOUR + year calculado
+// Fallback  (Fase 1): tour_title truncado (enquanto campos não estiverem populados)
+// Fallback  (Fase 0): vazio → header mostra só os botões (visita avulsa)
+//
+// NOTA: $country_code é da VISITA (ex: NL, IN).
+//       Em Fase 2, region_code da TOUR virá de _vana_region_code no CPT da tour.
+//       Por ora, $data['region_code'] serve como ponte.
+
+$_h_region    = strtoupper( trim( (string) ( $data['region_code'] ?? '' ) ) );
+$_h_season    = strtoupper( trim( (string) ( $data['season_code'] ?? '' ) ) );
+$_h_start_raw = (string) get_post_meta( $visit_id, '_vana_start_date', true );
+$_h_end_raw   = (string) get_post_meta( $visit_id, '_vana_end_date',   true );
+
+$_h_y_start = $_h_start_raw !== '' ? (int) date( 'Y', strtotime( $_h_start_raw ) ) : 0;
+$_h_y_end   = $_h_end_raw   !== '' ? (int) date( 'Y', strtotime( $_h_end_raw   ) ) : $_h_y_start;
+
+if ( $_h_y_start > 0 && $_h_y_start === $_h_y_end ) {
+    $_h_year = (string) $_h_y_start;                                      // "2026"
+} elseif ( $_h_y_start > 0 ) {
+    $_h_year = substr( (string) $_h_y_start, 2 )
+             . '/'
+             . substr( (string) $_h_y_end, 2 );                           // "25/26"
+} else {
+    $_h_year = '';
+}
+
+if ( $_h_region !== '' && $_h_season !== '' && $_h_year !== '' ) {
+    $header_tour_label = $_h_region . ' · ' . $_h_season . ' · ' . $_h_year;
+} elseif ( $tour_title !== '' ) {
+    // Fase 1: fallback para título da tour (truncado a 40 chars)
+    $header_tour_label = mb_strlen( $tour_title ) > 40
+        ? mb_substr( $tour_title, 0, 39 ) . '…'
+        : $tour_title;
+} else {
+    $header_tour_label = ''; // visita avulsa — header mostra só botões
+}
+
+// ── 9h. Limpeza de vars temporárias ──────────────────────────────────────────
 // Evita poluir o escopo do template com vars prefixadas com _
 unset(
     $_tour_title_pt, $_tour_title_en,
     $_tour_desc_pt,  $_tour_desc_en,
     $_cover_url,     $_video_url,
     $_nav_prev,      $_nav_next,
-    $_season_code,   $_has_live, $_is_new, $_created_at,
-    $_d, $_yt, $_m
+    $_season_code,   $_has_live,      $_is_new,      $_created_at,
+    $_h_region,      $_h_season,      $_h_start_raw, $_h_end_raw,
+    $_h_y_start,     $_h_y_end,       $_h_year,
+    $_d,             $_yt,            $_m
 );

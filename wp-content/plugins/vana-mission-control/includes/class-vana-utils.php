@@ -272,6 +272,39 @@ final class Vana_Utils {
             . '?rel=0&modestbranding=1';
     }
 
+    /**
+     * Resolve o título canônico de uma visita.
+     * Ordem de prioridade:
+     *   1. $tour['title_pt|en']  — meta salvo no post/JSON
+     *   2. get_the_title($visit_id) — título do post WP
+     *   3. $city_ref              — fallback: nome da cidade
+     *
+     * @param array  $tour     View-model da visita (de _bootstrap.php §9e)
+     * @param string $lang     'pt' | 'en'
+     * @param int    $visit_id ID do post WP (para get_the_title)
+     * @param string $city_ref Fallback final
+     * @return string
+     */
+    public static function resolve_visit_title(
+        array $tour,
+        string $lang = 'pt',
+        int $visit_id = 0,
+        string $city_ref = ''
+    ): string {
+        // 1. Meta i18n do tour
+        $title = self::pick_i18n_key( $tour, 'title', $lang );
+        if ( $title !== '' ) return $title;
+
+        // 2. Título do post WP
+        if ( $visit_id > 0 ) {
+            $wp_title = get_the_title( $visit_id );
+            if ( $wp_title !== '' ) return $wp_title;
+        }
+
+        // 3. city_ref como último recurso
+        return $city_ref;
+    }
+
 }
 
 // =============================================================================

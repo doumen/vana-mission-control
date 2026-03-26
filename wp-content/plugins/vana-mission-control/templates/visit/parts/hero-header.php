@@ -16,18 +16,14 @@ defined('ABSPATH') || exit;
 // ── 1. Extração segura de $tour ───────────────────────────────────────────────
 $_t = is_array($tour ?? null) ? $tour : [];
 
-// Título
-$title = Vana_Utils::pick_i18n_key($_t, 'title', $lang);
-if ($title === '') $title = get_the_title();
-
 // Descrição
 $desc = Vana_Utils::pick_i18n_key($_t, 'description', $lang);
 
 // Cidade (city_ref do location_meta)
 $city = trim((string)($visit_city_ref ?? $data['location_meta']['city_ref'] ?? ''));
 
-// Título do header central: cidade > título do post
-$display_title = $city !== '' ? $city : $title;
+// Título do header central (canônico): cidade > meta i18n > post title
+$display_title = Vana_Utils::resolve_visit_title($_t, $lang, $visit_id ?? 0, $city);
 
 // ── 2. Background image ───────────────────────────────────────────────────────
 $bg_image = '';
@@ -232,11 +228,11 @@ unset($_t, $_thumb, $_m);
         </div>
         <?php endif; ?>
 
-        <!-- Tour Counter -->
-        <?php if ($tour_counter_label): ?>
-            <div class="vana-hero__visit-counter">
-                <?php echo esc_html($tour_counter_label); ?>
-            </div>
+        <!-- Ordinal da tour (spec 3.2: "Visita X de Y" fica no Hero) -->
+        <?php if ( $tour_counter_label ): ?>
+            <p class="vana-hero__visit-counter">
+                <?php echo esc_html( $tour_counter_label ); ?>
+            </p>
         <?php endif; ?>
 
         <!-- Descrição -->

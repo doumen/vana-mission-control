@@ -64,9 +64,12 @@ $active_vod_index = max(
   6. META DADOS PARA <head>
   ============================================================ */
 
-$page_title_pt = (string) ( $visit_data['title_pt'] ?? get_the_title() );
-$page_title_en = (string) ( $visit_data['title_en'] ?? $page_title_pt );
-$page_title    = $lang === 'en' ? $page_title_en : $page_title_pt;
+$page_title = Vana_Utils::resolve_visit_title(
+  is_array($visit_data) ? $visit_data : [],
+  $lang,
+  $post_id,
+  (string) ($visit_data['location_meta']['city_ref'] ?? '')
+);
 
 $site_name     = get_bloginfo( 'name' ) ?: 'Vana Madhuryam';
 $canonical_url = get_permalink( $post_id );

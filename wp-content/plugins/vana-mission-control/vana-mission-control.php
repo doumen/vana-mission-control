@@ -292,7 +292,7 @@ final class Vana_Mission_Control {
 
             $items[] = [
                 'id'          => $tour_id,
-                'title'       => get_the_title($tour_id),
+                'title'       => (string) Vana_Utils::resolve_visit_title([], 'pt', $tour_id),
                 'permalink'   => get_permalink($tour_id),
                 'is_current'  => $tour_id === $current_tour_id,
                 'visit_count' => $visit_count,
@@ -436,7 +436,12 @@ final class Vana_Mission_Control {
 
             $items[] = [
                 'id'         => $id,
-                'title'      => (string) ($data['title_' . $lang] ?? $data['title_pt'] ?? get_the_title($id)),
+                'title'      => (string) Vana_Utils::resolve_visit_title(
+                    is_array($data) ? $data : [],
+                    $lang,
+                    $id,
+                    (string) ($data['location_meta']['city_ref'] ?? '')
+                ),
                 'permalink'  => (string) get_permalink($id),
                 'start_date' => (string) get_post_meta($id, '_vana_start_date', true),
                 'is_current' => $id === $visit_id,
