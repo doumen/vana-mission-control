@@ -795,7 +795,7 @@ $js_data = [
   var state = {
     visitId     : null,
     activeDay   : null,
-    lang        : 'pt',
+    lang: CFG.lang || 'pt',
     activeKatha : null,
     page        : 1,
     hasMore     : false,
@@ -1353,7 +1353,7 @@ $js_data = [
           action: 'vana_get_tour_visits',
           tour_id: tourId,
           visit_id: visitId,
-          lang: window.vanaDrawer ? window.vanaDrawer.lang : 'pt',
+          lang: window.vanaDrawer ? window.vanaDrawer.lang : (CFG.lang || 'pt'),
           _wpnonce: nonce
         })
       })

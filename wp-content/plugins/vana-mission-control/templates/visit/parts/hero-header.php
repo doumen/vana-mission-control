@@ -19,6 +19,10 @@ $_t = is_array($tour ?? null) ? $tour : [];
 // Descrição
 $desc = Vana_Utils::pick_i18n_key($_t, 'description', $lang);
 
+// ══ FIX: salva o nav antes de sobrescrever $tour ══════════════════════════════
+$tour_nav = isset($_t['nav']) && is_array($_t['nav']) ? $_t['nav'] : [];
+// ═════════════════════════════════════════════════════════════════════════════
+
 // ========================================================================
 // Resolve dados atômicos via Vana_Utils (Fase 2)
 // Template compõe os labels locais com os dados atômicos retornados abaixo.
@@ -29,6 +33,9 @@ $lang     = function_exists('vana_get_lang') ? vana_get_lang() : ($lang ?? 'pt')
 
 $visit   = Vana_Utils::get_visit_identity($visit_id, $lang);
 $tour    = Vana_Utils::get_tour_identity($tour_id, $lang);
+
+// Reinjeta o nav no novo $tour para o _hero-nav.php
+$tour['nav'] = $tour_nav;
 
 // Composição local — template escolhe o formato
 $city         = (string) ($visit['city'] ?? '');

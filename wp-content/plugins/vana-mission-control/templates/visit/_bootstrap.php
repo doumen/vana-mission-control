@@ -107,7 +107,9 @@ if ( ! $tour_id ) {
     $tour_id = (int) get_post_meta( $visit_id, '_vana_tour_id', true );
 }
 $tour_url   = $tour_id ? (string) get_permalink( $tour_id ) : '';
-$tour_title = $tour_id ? (string) get_the_title( $tour_id ) : '';
+$tour_title = $tour_id
+    ? Vana_Utils::tour_header_label( $tour_id, $lang )
+    : '';
 
 // ── 6. País da visita ─────────────────────────────────────────────────────────
 // Fonte 1: post meta _vana_country_code (canônico, editável no admin)
@@ -218,8 +220,8 @@ if ( ! function_exists( '_vana_build_nav_visit' ) ) {
         return [
             'id'           => $id,
             'permalink'    => (string) get_permalink( $id ),
-            'title_pt'     => ( '' !== (string) get_post_meta( $id, '_vana_title_pt', true ) ) ? (string) get_post_meta( $id, '_vana_title_pt', true ) : (string) ( $vdata['title_pt'] ?? $vdata['title'] ?? get_the_title( $id ) ),
-            'title_en'     => ( '' !== (string) get_post_meta( $id, '_vana_title_en', true ) ) ? (string) get_post_meta( $id, '_vana_title_en', true ) : (string) ( $vdata['title_en'] ?? $vdata['title_pt'] ?? get_the_title( $id ) ),
+            'title_pt'     => ( '' !== (string) get_post_meta( $id, '_vana_title_pt', true ) ) ? (string) get_post_meta( $id, '_vana_title_pt', true ) : (string) ( $vdata['title_pt'] ?? $vdata['title'] ?? Vana_Utils::resolve_visit_city( $id, 'pt' ) ),
+            'title_en'     => ( '' !== (string) get_post_meta( $id, '_vana_title_en', true ) ) ? (string) get_post_meta( $id, '_vana_title_en', true ) : (string) ( $vdata['title_en'] ?? $vdata['title_pt'] ?? Vana_Utils::resolve_visit_city( $id, 'en' ) ),
             'has_mag'      => get_post_meta( $id, '_vana_mag_state', true ) === 'publicada',
             'country_code' => $cc,
         ];
@@ -304,10 +306,10 @@ if ( $prev_visit ) {
     $prev_title_pt = $prev_visit['title_pt'] ?? '';
     $prev_title_en = $prev_visit['title_en'] ?? '';
     if ( $prev_title_pt === '' && $prev_title_en === '' ) {
-        $prev_wp_title  = get_the_title( (int) $prev_visit['id'] );
-        $prev_title_pt  = $prev_wp_title;
-        $prev_title_en  = $prev_wp_title;
+        $prev_title_pt = Vana_Utils::resolve_visit_city( (int) $prev_visit['id'], 'pt' );
+        $prev_title_en = Vana_Utils::resolve_visit_city( (int) $prev_visit['id'], 'en' );
     }
+
     $_nav_prev = [
         'id'           => $prev_visit['id'],
         'url'          => $prev_visit['permalink'],
@@ -325,10 +327,9 @@ if ( $next_visit ) {
     $next_title_pt = $next_visit['title_pt'] ?? '';
     $next_title_en = $next_visit['title_en'] ?? '';
     if ( $next_title_pt === '' && $next_title_en === '' ) {
-        $next_wp_title  = get_the_title( (int) $next_visit['id'] );
-        $next_title_pt  = $next_wp_title;
-        $next_title_en  = $next_wp_title;
-    }
+        $next_title_pt = Vana_Utils::resolve_visit_city( (int) $next_visit['id'], 'pt' );
+        $next_title_en = Vana_Utils::resolve_visit_city( (int) $next_visit['id'], 'en' );
+    }    
     $_nav_next = [
         'id'           => $next_visit['id'],
         'url'          => $next_visit['permalink'],
