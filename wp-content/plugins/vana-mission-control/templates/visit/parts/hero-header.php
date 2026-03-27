@@ -13,6 +13,7 @@
  */
 defined('ABSPATH') || exit;
 
+
 // ── 1. Extração segura de $tour ───────────────────────────────────────────────
 $_t = is_array($tour ?? null) ? $tour : [];
 

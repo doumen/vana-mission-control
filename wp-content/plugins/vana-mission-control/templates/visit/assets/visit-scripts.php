@@ -75,7 +75,9 @@ $js_data = [
    * the `window.vanaDrawer` payload and the initialization order.
    */
   ?>
-
+<script>
+window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
+</script>
 <script>
 /* ============================================================
    VANA VISIT PAGE — scripts v2.6
