@@ -105,14 +105,16 @@ final class Vana_Ingest_API {
 
                 // Rota da Tour (Com Fallback Seguro para não gerar o Erro 500)
                 case 'tour': {
-                    return Vana_Utils::api_response(
-                        true, 
-                        'Tour aceita com sucesso (Modo Placeholder)', 
-                        201, 
-                        ['origin_key' => sanitize_text_field((string)$payload['origin_key'])]
-                    );
+                    $path = plugin_dir_path( __FILE__ ) . 'handlers/class-vana-ingest-tour.php';
+                    if ( ! file_exists( $path ) ) {
+                        return Vana_Utils::api_response( false, 'Handler de Tour não encontrado', 500 );
+                    }
+                    require_once $path;
+                    if ( ! class_exists( 'Vana_Ingest_Tour' ) ) {
+                        return Vana_Utils::api_response( false, 'Classe Vana_Ingest_Tour não carregou', 500 );
+                    }
+                    return Vana_Ingest_Tour::upsert( $payload );
                 }
-
                 default:
                     return Vana_Utils::api_response(false, "Kind '{$kind}' não suportado (use 'visit' ou 'tour')", 422);
             }

@@ -4,7 +4,6 @@
  * Arquivo: templates/visit/assets/visit-style.php
  * Identidade: vanamadhuryam.com — v3.0 — 2026-02-23
  */
-defined('ABSPATH') || exit;
 ?>
 <style id="vana-visit-styles">
 

@@ -106,6 +106,29 @@ $tour_id = (int) wp_get_post_parent_id( $visit_id );
 if ( ! $tour_id ) {
     $tour_id = (int) get_post_meta( $visit_id, '_vana_tour_id', true );
 }
+
+if ( ! $tour_id ) {
+    $parent_origin = get_post_meta( $visit_id, '_vana_parent_tour_origin_key', true );
+    if ( $parent_origin ) {
+        $tour_q = new WP_Query([
+            'post_type'      => 'vana_tour',
+            'post_status'    => 'publish',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+            'meta_query'     => [[
+                'key'   => '_vana_origin_key',
+                'value' => $parent_origin,
+            ]],
+        ]);
+        if ( ! empty( $tour_q->posts ) ) {
+            $tour_id = (int) $tour_q->posts[0];           
+            update_post_meta( $visit_id, '_vana_tour_id', $tour_id );
+            wp_cache_delete( $visit_id, 'post_meta' );
+        }
+    }
+}
+
 $tour_url   = $tour_id ? (string) get_permalink( $tour_id ) : '';
 $tour_title = $tour_id
     ? Vana_Utils::tour_header_label( $tour_id, $lang )
@@ -389,30 +412,32 @@ if ( isset( $visit_status ) && $visit_status === 'live' ) {
     $tour['has_live'] = true;
 }
 
-// ── 9g. Header tour label (spec: REGIÃO · ESTAÇÃO · ANO) ─────────────────────
-//
-// Canônico (Fase 2): region_code + season_code da TOUR + year calculado
-// Fallback  (Fase 1): tour_title truncado (enquanto campos não estiverem populados)
-// Fallback  (Fase 0): vazio → header mostra só os botões (visita avulsa)
-//
-// NOTA: $country_code é da VISITA (ex: NL, IN).
-//       Em Fase 2, region_code da TOUR virá de _vana_region_code no CPT da tour.
-//       Por ora, $data['region_code'] serve como ponte.
+// ── 9g. Header tour label ─────────────────────────────────────────────────────
+// Fase 2: lê region_code/season_code/year das METAS DA TOUR (CPT vana_tour)
+// Fallback Fase 1: tour_title | Fase 0: ''
 
-$_h_region    = strtoupper( trim( (string) ( $data['region_code'] ?? '' ) ) );
-$_h_season    = strtoupper( trim( (string) ( $data['season_code'] ?? '' ) ) );
-$_h_start_raw = (string) get_post_meta( $visit_id, '_vana_start_date', true );
-$_h_end_raw   = (string) get_post_meta( $visit_id, '_vana_end_date',   true );
-
-$_h_y_start = $_h_start_raw !== '' ? (int) date( 'Y', strtotime( $_h_start_raw ) ) : 0;
-$_h_y_end   = $_h_end_raw   !== '' ? (int) date( 'Y', strtotime( $_h_end_raw   ) ) : $_h_y_start;
+if ( $tour_id ) {
+    $_h_region = strtoupper( trim(
+        (string) get_post_meta( $tour_id, '_vana_region_code', true )
+    ) );
+    $_h_season = strtoupper( trim(
+        (string) get_post_meta( $tour_id, '_vana_season_code', true )
+    ) );
+    $_h_y_start = (int) get_post_meta( $tour_id, '_vana_year_start', true );
+    $_h_y_end   = (int) get_post_meta( $tour_id, '_vana_year_end',   true );
+} else {
+    $_h_region  = '';
+    $_h_season  = '';
+    $_h_y_start = 0;
+    $_h_y_end   = 0;
+}
 
 if ( $_h_y_start > 0 && $_h_y_start === $_h_y_end ) {
-    $_h_year = (string) $_h_y_start;                                      // "2026"
+    $_h_year = (string) $_h_y_start;
 } elseif ( $_h_y_start > 0 ) {
     $_h_year = substr( (string) $_h_y_start, 2 )
              . '/'
-             . substr( (string) $_h_y_end, 2 );                           // "25/26"
+             . substr( (string) $_h_y_end, 2 );
 } else {
     $_h_year = '';
 }
@@ -420,12 +445,11 @@ if ( $_h_y_start > 0 && $_h_y_start === $_h_y_end ) {
 if ( $_h_region !== '' && $_h_season !== '' && $_h_year !== '' ) {
     $header_tour_label = $_h_region . ' · ' . $_h_season . ' · ' . $_h_year;
 } elseif ( $tour_title !== '' ) {
-    // Fase 1: fallback para título da tour (truncado a 40 chars)
     $header_tour_label = mb_strlen( $tour_title ) > 40
         ? mb_substr( $tour_title, 0, 39 ) . '…'
         : $tour_title;
 } else {
-    $header_tour_label = ''; // visita avulsa — header mostra só botões
+    $header_tour_label = '';
 }
 
 // ── 9h. Limpeza de vars temporárias ──────────────────────────────────────────

@@ -115,6 +115,13 @@ final class Vana_Visit_CPT {
             ]);
         }
 
+        register_post_meta('vana_visit', '_vana_tour_id', [
+            'show_in_rest'  => true,
+            'single'        => true,
+            'type'          => 'integer',
+            'auth_callback' => '__return_true',
+        ]);
+
         // JSON grande: não sanitizar (para não corromper)
         register_post_meta('vana_visit', '_vana_visit_timeline_json', [
             'type'              => 'string',

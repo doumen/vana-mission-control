@@ -28,11 +28,16 @@ $tour_nav = isset($_t['nav']) && is_array($_t['nav']) ? $_t['nav'] : [];
 // Template compõe os labels locais com os dados atômicos retornados abaixo.
 // ========================================================================
 $visit_id = get_the_ID();
-$tour_id  = (int) get_post_meta($visit_id, '_vana_tour_id', true);
 $lang     = function_exists('vana_get_lang') ? vana_get_lang() : ($lang ?? 'pt');
 
-$visit   = Vana_Utils::get_visit_identity($visit_id, $lang);
-$tour    = Vana_Utils::get_tour_identity($tour_id, $lang);
+// Usa $tour_id já resolvido pelo _bootstrap.php (inclui fallback origin_key).
+// Só faz get_post_meta como último recurso (evita cache miss no mesmo request).
+if ( empty( $tour_id ) ) {
+    $tour_id = (int) get_post_meta( $visit_id, '_vana_tour_id', true );
+}
+
+$visit = Vana_Utils::get_visit_identity( $visit_id, $lang );
+$tour  = Vana_Utils::get_tour_identity( (int) $tour_id, $lang );
 
 // Reinjeta o nav no novo $tour para o _hero-nav.php
 $tour['nav'] = $tour_nav;
@@ -119,7 +124,7 @@ unset($_t, $_thumb, $_m);
         <!-- Centro: label da tour (spec: REGIÃO · ESTAÇÃO · ANO) -->
         <div class="vana-header__context">
             <?php if ( $header_label !== '' ): ?>
-                <span class="vana-header__title" title="<?php echo esc_attr($full_label); ?>">
+                <span class="vana-header__title" title="<?php echo esc_attr( (string) ($tour['title'] ?? $full_label) ); ?>">
                     <?php echo esc_html( $header_label ); ?>
                 </span>
             <?php endif; ?>

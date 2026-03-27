@@ -6,22 +6,26 @@
  * Variáveis esperadas do _bootstrap.php:
  *   $lang, $visit_id, $visit_tz
  *   $active_day_date, $active_vod_index
- *
- * Responsabilidades:
- *   1. Dual-timezone  — converte timestamps Unix p/ fuso local do visitante
- *   2. Lightbox       — galeria de fotos (VanaGallery)
- *   3. Segmentos      — seek no player YouTube via postMessage
- *   4. Fallback FB    — detecta falha no iframe Facebook e exibe painel
- *   5. Copy link      — botão copiar link (Facebook fallback)
- *   6. Tabs keyboard  — navegação por teclado nas abas de dias
- *   7. Lazy map       — já tratado inline em stage.php (sem JS extra aqui)
  */
 defined('ABSPATH') || exit;
+
+// Garante $tour_id mesmo se o escopo não herdou do _bootstrap.php
+if ( empty( $tour_id ) ) {
+    $visit_id_scripts = $visit_id ?? get_the_ID();
+    $tour_id          = (int) get_post_meta( $visit_id_scripts, '_vana_tour_id', true );
+}
+if ( empty( $tour_title ) && ! empty( $tour_id ) ) {
+    $tour_title = Vana_Utils::tour_header_label( $tour_id, $lang ?? 'pt' );
+}
+if ( empty( $tour_url ) && ! empty( $tour_id ) ) {
+    $tour_url = (string) get_permalink( $tour_id );
+}
 
 // Dados PHP → JS (localize seguro, sem dados sensíveis)
 $js_data = [
     'lang'            => $lang,
     'visitId'         => $visit_id,
+    'tourId'          => $tour_id,
     'activeDayDate'   => $active_day_date,
     'activeVodIndex'  => (int) $active_vod_index,
     'eventTz'         => $visit_tz->getName(),
@@ -71,15 +75,17 @@ $js_data = [
    * the `window.vanaDrawer` payload and the initialization order.
    */
   ?>
-  <script>
-  window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
-  </script>
+
 <script>
 /* ============================================================
    VANA VISIT PAGE — scripts v2.6
    ============================================================ */
 (function (CFG) {
   'use strict';
+
+  // Expose current lang to other IIFEs (Hari-kathā, Drawer) which don't
+  // receive `CFG` as parameter. This prevents "CFG is not defined" errors.
+  window.__vanaLang = CFG.lang || 'pt';
 
   /* ----------------------------------------------------------
      0. UTILITÁRIOS
@@ -795,7 +801,7 @@ $js_data = [
   var state = {
     visitId     : null,
     activeDay   : null,
-    lang: CFG.lang || 'pt',
+    lang: window.__vanaLang || 'pt',
     activeKatha : null,
     page        : 1,
     hasMore     : false,
@@ -1349,11 +1355,11 @@ $js_data = [
       fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
+          body: new URLSearchParams({
           action: 'vana_get_tour_visits',
           tour_id: tourId,
           visit_id: visitId,
-          lang: window.vanaDrawer ? window.vanaDrawer.lang : (CFG.lang || 'pt'),
+          lang: (window.vanaDrawer && window.vanaDrawer.lang) || window.__vanaLang || 'pt',
           _wpnonce: nonce
         })
       })

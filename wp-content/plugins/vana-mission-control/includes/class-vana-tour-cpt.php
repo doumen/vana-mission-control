@@ -52,5 +52,24 @@ class Vana_Tour_CPT {
 			'type'          => 'string',
 			'auth_callback' => '__return_true',
 		]);
+        // ── Metas de identidade de tour (Fase 4) ─────────────────────────────────────
+        $tour_metas = [
+            '_vana_region_code'  => 'string',
+            '_vana_season_code'  => 'string',
+            '_vana_year_start'   => 'integer',
+            '_vana_year_end'     => 'integer',
+            '_vana_title_pt'     => 'string',
+            '_vana_title_en'     => 'string',
+        ];
+
+        foreach ( $tour_metas as $meta_key => $type ) {
+            register_post_meta( 'vana_tour', $meta_key, [
+                'show_in_rest'  => true,
+                'single'        => true,
+                'type'          => $type,
+                'auth_callback' => '__return_true',
+            ] );
+        }
+
     }
 }
