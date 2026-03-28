@@ -23,6 +23,12 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
 
 <div class="vana-visit" data-visit-id="<?php echo esc_attr( $visit_id ); ?>">
 
+  <?php
+  // ── Helpers compartilhados (vana_visit_url, etc) ──
+  if ( file_exists( VANA_MC_PATH . 'templates/visit/vana-utils.php' ) ) {
+      include_once VANA_MC_PATH . 'templates/visit/vana-utils.php';
+  }
+  ?>
   <!-- ─────────────────────────────────────────────────────────────────────────
        HERO HEADER
        ───────────────────────────────────────────────────────────────────────── -->
@@ -56,11 +62,11 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
          DAY TABS (navegação entre dias)
          ───────────────────────────────────────────────────────────────────────── -->
     <?php
-    if ( count( (array) $timeline['days'] ) > 1 ) {
-        if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/day-tabs.php' ) ) {
-            include VANA_MC_PATH . 'templates/visit/parts/day-tabs.php';
-        }
-    }
+    // if ( count( (array) $timeline['days'] ) > 1 ) {
+    //     if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/day-tabs.php' ) ) {
+    //         include VANA_MC_PATH . 'templates/visit/parts/day-tabs.php';
+    //     }
+    // }
     ?>
 
     <!-- ─────────────────────────────────────────────────────────────────────────

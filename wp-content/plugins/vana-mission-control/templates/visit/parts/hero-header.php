@@ -251,44 +251,86 @@ unset($_t, $_thumb, $_m);
 
         <!-- Day Selector (multi-dia) -->
         <?php
-        $days_count  = count($tour['days'] ?? []);
-        if ($days_count > 1):
+        $_hero_days       = is_array($days ?? null) ? $days : [];
+        $_hero_days_count = count($_hero_days);
+
+        if ($_hero_days_count >= 1):
+
+            // Detecta virada de ano
+            $years = array_unique(array_filter(array_map(function($d) {
+                $ts = strtotime(($d['date_local'] ?? $d['date'] ?? '') . ' 12:00:00');
+                return $ts ? (int) wp_date('Y', $ts) : null;
+            }, $_hero_days)));
+            $has_year_change = count($years) > 1;
+
+            // Agrupa por mês
             $days_by_month = [];
-            foreach (($tour['days'] ?? []) as $day) {
-                $ts = strtotime($day['date_local'] ?? $day['date'] ?? '');
-                if ($ts === false) continue;
-                $month_key = wp_date('Y-m', $ts);  // ← usa wp_date (timezone correto)
-                $days_by_month[$month_key][] = $day;
+            foreach ($_hero_days as $i => $day) {
+                $ts = strtotime(($day['date_local'] ?? $day['date'] ?? '') . ' 12:00:00');
+                if (!$ts) continue;
+                $month_key = wp_date('Y-m', $ts);
+                $days_by_month[$month_key][] = ['day' => $day, 'ts' => $ts, 'index' => $i];
             }
         ?>
         <nav class="vana-hero__day-selector"
-             aria-label="<?php echo esc_attr(vana_t('aria.day_selector', $lang) ?: 'Seletor de dias'); ?>">
-            <?php foreach ($days_by_month as $month_key => $month_days): ?>
+            aria-label="<?php echo esc_attr(vana_t('aria.day_selector', $lang) ?: 'Seletor de dias'); ?>">
+
+            <?php foreach ($days_by_month as $month_key => $month_items):
+                $first_ts    = $month_items[0]['ts'];
+                $month_label = $has_year_change
+                    ? wp_date('M Y', $first_ts)
+                    : wp_date('M', $first_ts);
+            ?>
+
                 <?php if (count($days_by_month) > 1): ?>
                     <span class="vana-hero__day-selector-month">
-                        <?php echo esc_html(wp_date('M/Y', strtotime($month_key))); ?>
+                        <?php echo esc_html($month_label); ?>
                     </span>
                 <?php endif; ?>
+
                 <div class="vana-hero__day-selector-group">
-                    <?php foreach ($month_days as $day): ?>
-                        <?php
-                        $day_date  = $day['date_local'] ?? $day['date'] ?? '';
-                        $day_label = $day['label_' . $lang] ?? $day['label_pt'] ?? '';
-                        $is_active = $active_day && ($active_day['date_local'] ?? $active_day['date'] ?? '') === $day_date;
-                        ?>
-                        <button
-                            class="vana-hero__day-btn <?php echo $is_active ? 'vana-hero__day-btn--active' : ''; ?>"
+                    <?php foreach ($month_items as $item):
+                        $day      = $item['day'];
+                        $ts       = $item['ts'];
+                        $day_date = $day['date_local'] ?? $day['date'] ?? '';
+                        $weekday  = wp_date('D', $ts);   // "Sáb"
+                        $day_num  = wp_date('d', $ts);   // "28"
+                        $is_active = $active_day &&
+                            ($active_day['date_local'] ?? $active_day['date'] ?? '') === $day_date;
+
+                        // Indicador de live
+                        $has_live_day = false;
+                        foreach ((array)($day['schedule'] ?? []) as $evt) {
+                            if (is_array($evt) && ($evt['status'] ?? '') === 'live') {
+                                $has_live_day = true;
+                                break;
+                            }
+                        }
+                    ?>
+                        <a
+                            href="<?php echo esc_url(vana_visit_url($visit_id, $day_date, -1, $lang)); ?>"
+                            class="vana-hero__day-btn<?php echo $is_active ? ' vana-hero__day-btn--active' : ''; ?>"
                             data-day-date="<?php echo esc_attr($day_date); ?>"
-                            aria-label="<?php echo esc_attr($day_label); ?>"
+                            aria-label="<?php echo esc_attr($weekday . ' ' . $day_num); ?>"
                             <?php echo $is_active ? 'aria-current="date"' : ''; ?>
                         >
-                            <?php echo esc_html($day_label); ?>
-                        </button>
+                            <span class="vana-hero__day-btn-weekday"><?php echo esc_html($weekday); ?></span>
+                            <span class="vana-hero__day-btn-num"><?php echo esc_html($day_num); ?></span>
+                            <?php if ($has_live_day): ?>
+                                <span class="vana-hero__day-btn-live" aria-hidden="true"></span>
+                            <?php endif; ?>
+                        </a>
+
                     <?php endforeach; ?>
                 </div>
+
             <?php endforeach; ?>
+
         </nav>
-        <?php endif; ?>
+
+        <?php endif;
+        unset($_hero_days, $_hero_days_count, $days_by_month, $years);
+        ?>
 
         <!-- Prev / Next — delega ao partial dedicado -->
         <?php require VANA_MC_PATH . 'templates/visit/parts/_hero-nav.php'; ?>

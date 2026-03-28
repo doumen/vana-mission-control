@@ -1656,6 +1656,43 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   color:        #0f172a;
 }
 
+/* ── Estrutura interna do botão de dia ── */
+.vana-hero__day-btn {
+  flex-direction: column;
+  gap: 1px;
+  min-width: 44px;
+}
+
+.vana-hero__day-btn-weekday {
+  font-size:      0.62rem;
+  font-weight:    700;
+  opacity:        0.70;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height:    1;
+}
+
+.vana-hero__day-btn-num {
+  font-size:   1.2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.vana-hero__day-btn-live {
+  display:       inline-block;
+  width:         6px;
+  height:        6px;
+  border-radius: 50%;
+  background:    #dc2626;
+  margin-top:    2px;
+  animation:     vana-pulse-live 1.2s infinite;
+}
+
+/* Hover herda cor correta */
+.vana-hero__day-btn--active .vana-hero__day-btn-weekday {
+  opacity: 0.65;
+}
+
 /* ── Responsivo ──────────────────────────────────────────────── */
 @media (max-width: 480px) {
   .vana-hero__day-selector { gap: 6px; margin: 12px 0 0; }
