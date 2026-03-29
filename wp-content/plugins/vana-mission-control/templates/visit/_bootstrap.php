@@ -100,6 +100,18 @@ error_log( '[_bootstrap] $timeline[days] count: ' . count($timeline['days'] ?? [
 $days = is_array( $data['days'] ?? null ) ? $data['days'] : [];
 error_log( '[_bootstrap] After assignment. $days count: ' . count($days) );
 
+// ── Index do visit.json (lookup O(1) para events/vods/kathas) ────────────────
+$index = [];
+$_raw_json = get_post_meta( $visit_id, '_vana_visit_data', true );
+if ( ! empty( $_raw_json ) ) {
+    $_raw = json_decode( $_raw_json, true );
+    if ( is_array( $_raw ) && ! empty( $_raw['index'] ) ) {
+        $index = (array) $_raw['index'];
+    }
+    unset( $_raw );
+}
+unset( $_raw_json );
+
 // ── Index do visit.json processado (útil para lookup rápido de keys) ─────────
 $index = [];
 // Use get_post_meta canonical form (third param true) to fetch the raw
