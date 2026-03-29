@@ -1,0 +1,515 @@
+# pages/2_Visits.py
+# -*- coding: utf-8 -*-
+"""
+📅 Visits — Gerenciador de Visitas (schema 3.1)
+Integra o ingest HMAC via /vana/v1/ingest-visit
+"""
+import json
+from datetime import datetime, timezone
+
+import streamlit as st
+
+# ── Guard ─────────────────────────────────────────────────────────────────
+if not st.session_state.get("authenticated"):
+    st.warning("🔒 Faça login na página principal.")
+    st.stop()
+
+from api.hmac_client import (
+    ingest_visit, list_visits, get_visit, delete_visit, list_tours,
+)
+from api.wp_client import get_visit_timeline
+from components.days_editor import render_days_editor
+
+# ══════════════════════════════════════════════════════════════════════════
+# HELPERS
+# ══════════════════════════════════════════════════════════════════════════
+
+def _unwrap(response) -> list:
+    if isinstance(response, list):
+        return response
+    if isinstance(response, dict):
+        data = response.get("data", response)
+        if isinstance(data, dict):
+            return data.get("items", [])
+        if isinstance(data, list):
+            return data
+    return []
+
+
+def _clean(obj):
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items() if not k.startswith("_")}
+    if isinstance(obj, list):
+        return [_clean(i) for i in obj]
+    return obj
+
+
+def build_envelope(payload: dict, parent_tour_key: str) -> dict:
+    visit_id = str(payload.get("visit_id", "")).strip()
+    if not visit_id:
+        raise ValueError("Campo 'visit_id' ausente no JSON.")
+    origin_key = f"visit:{visit_id}" if not visit_id.startswith("visit:") else visit_id
+    if not parent_tour_key.startswith("tour:"):
+        parent_tour_key = f"tour:{parent_tour_key}"
+    data = _clean(payload)
+    data["schema_version"] = "3.1"
+    data["updated_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    title = payload.get("title_pt") or f"Visita: {visit_id}"
+    slug = visit_id.replace(":", "-")
+    return {
+        "kind":              "visit",
+        "origin_key":        origin_key,
+        "parent_origin_key": parent_tour_key,
+        "title":             title,
+        "slug_suggestion":   slug,
+        "data":              data,
+    }
+
+
+VALID_STATUSES = {"done", "live", "upcoming", ""}
+
+
+def validate_payload(payload: dict) -> list:
+    errors = []
+    for f in ["visit_id", "title_pt", "timezone", "days"]:
+        if not payload.get(f):
+            errors.append(f"Campo obrigatório ausente: `{f}`")
+    days = payload.get("days", [])
+    if not isinstance(days, list) or len(days) == 0:
+        errors.append("`days` deve ser uma lista não-vazia.")
+        return errors
+    if len(days) > 400:
+        errors.append(f"`days` excede 400 itens (tem {len(days)}).")
+    for i, day in enumerate(days):
+        lbl  = day.get("date_local") or f"days[{i}]"
+        hero = day.get("hero")
+        if not day.get("date_local"):
+            errors.append(f"{lbl}: `date_local` ausente.")
+        if not day.get("label_pt"):
+            errors.append(f"{lbl}: `label_pt` ausente.")
+        if not hero:
+            errors.append(f"{lbl}: `hero` ausente.")
+        else:
+            if not hero.get("title_pt"):
+                errors.append(f"{lbl} › hero: `title_pt` ausente.")
+            if not any(hero.get(k) for k in
+                       ["youtube_url", "instagram_url", "facebook_url", "drive_url"]):
+                errors.append(f"{lbl} › hero: nenhuma fonte de mídia.")
+        for j, s in enumerate(day.get("schedule", [])):
+            if not s.get("time_local"):
+                errors.append(f"{lbl} › schedule[{j}]: `time_local` ausente.")
+            if not s.get("title_pt"):
+                errors.append(f"{lbl} › schedule[{j}]: `title_pt` ausente.")
+            if s.get("status", "") not in VALID_STATUSES:
+                errors.append(f"{lbl} › schedule[{j}]: status inválido `{s.get('status')}`.")
+    return errors
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def _fetch_visits() -> list:
+    """
+    Usa REST direto — garante que tour_key venha de _vana_parent_tour_origin_key.
+    Fallback para hmac_client se REST falhar.
+    """
+    try:
+        from api.wp_client import list_visits_rest
+        return list_visits_rest(per_page=100)
+    except Exception as e1:
+        # Fallback hmac
+        try:
+            from api.hmac_client import list_visits
+            raw = list_visits(per_page=100)
+            data = raw.get("data", raw)
+            return data.get("items", []) if isinstance(data, dict) else data
+        except Exception as e2:
+            st.error(f"❌ Erro ao carregar visitas: REST={e1} | HMAC={e2}")
+            return []
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _fetch_tours() -> dict:
+    FALLBACK = {
+        "Tour Espiritual Índia 2026  [tour:india-2026]":                       "tour:india-2026",
+        "South America Summer Tour 2025/2026  [tour:south-america-2025-2026]": "tour:south-america-2025-2026",
+        "Holand 2026  [tour:holand-2026]":                                     "tour:holand-2026",
+    }
+    try:
+        items = _unwrap(list_tours(per_page=100))
+        if not items:
+            return FALLBACK
+        result = {}
+        for t in items:
+            ok  = t.get("origin_key", "")
+            ttl = t.get("title") or ok or f"Tour {t.get('id','?')}"
+            if ok:
+                result[f"{ttl}  [{ok}]"] = ok
+        return result if result else FALLBACK
+    except Exception:
+        return FALLBACK
+
+
+def _day_rows(days: list) -> list:
+    return [
+        {
+            "Data":     d.get("date_local", "—"),
+            "Label":    d.get("label_pt", "—"),
+            "Hero":     "✅" if d.get("hero") else "❌",
+            "VODs":     len(d.get("vods", [])),
+            "Agenda":   len(d.get("schedule", [])),
+            "Fotos":    len(d.get("photos", [])),
+            "Momentos": len(d.get("sangha_moments", [])),
+        }
+        for d in days
+    ]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# LAYOUT
+# ══════════════════════════════════════════════════════════════════════════
+st.title("📅 Visits")
+st.caption("Gerencie as visitas de Srila Vana Maharaj — schema 3.1 · HMAC auth")
+
+tab_list, tab_ingest, tab_edit, tab_days = st.tabs([
+    "📋 Listar",
+    "🚀 Ingerir Visita",
+    "✏️ Editar / Baixar JSON",
+    "📅 Editar Dias",
+])
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 1 — LISTAR
+# ══════════════════════════════════════════════════════════════════════════
+with tab_list:
+
+    if st.button("🔄 Atualizar", key="refresh_visits"):
+        st.cache_data.clear()
+        st.rerun()
+
+    visits = _fetch_visits()
+
+    if not visits:
+        st.info("Nenhuma visita encontrada.")
+    else:
+        st.success(f"**{len(visits)}** visita(s) encontrada(s)")
+
+        STATUS_ICON = {
+            "publish": "🟢", "draft": "🟡",
+            "pending": "🟠", "trash": "🔴",
+        }
+
+        for v in visits:
+            vid    = v.get("id")
+            title  = v.get("title", f"ID {vid}")
+            status = v.get("status", "—")
+            slug   = v.get("slug", "—")
+            ok     = v.get("origin_key", "—")
+            pk     = v.get("tour_key", "—")
+            link   = v.get("permalink", "")
+            sv     = v.get("schema_ver", "—")
+            icon   = STATUS_ICON.get(status, "⚪")
+
+            with st.expander(f"{icon} [{vid}]  {title}"):
+                c1, c2, c3 = st.columns([2, 2, 1])
+                c1.markdown(f"**Slug:** `{slug}`")
+                c1.markdown(f"**Status:** `{status}`")
+                c1.markdown(f"**Schema:** `{sv}`")
+                c2.markdown(f"**origin_key:** `{ok}`")
+                c2.markdown(f"**tour_key:** `{pk}`")
+                c2.markdown(f"**start_date:** `{v.get('start_date','—')}`")
+                if link:
+                    c3.link_button("🌐 Ver online", link)
+
+                if st.button("📂 Carregar dias", key=f"load_days_{vid}"):
+                    with st.spinner("Carregando..."):
+                        try:
+                            tl   = get_visit_timeline(int(vid))
+                            days = tl.get("days", [])
+                            if days:
+                                st.dataframe(_day_rows(days),
+                                             use_container_width=True,
+                                             hide_index=True)
+                                st.caption(
+                                    f"schema: {tl.get('schema_version')} "
+                                    f"| updated: {tl.get('updated_at')}"
+                                )
+                            else:
+                                st.info("Sem dias registrados nesta visita.")
+                        except Exception as e:
+                            st.warning(f"Não foi possível carregar dias: {e}")
+
+                st.divider()
+                if st.button("🗑️ Mover para lixeira",
+                             key=f"trash_{vid}", type="secondary"):
+                    try:
+                        delete_visit(int(vid))
+                        st.success("Movido para lixeira.")
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Erro: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 2 — INGERIR VISITA
+# ══════════════════════════════════════════════════════════════════════════
+with tab_ingest:
+    st.subheader("🚀 Ingerir Visita  ·  schema 3.1  ·  HMAC")
+
+    st.markdown("#### 1 · Tour pai")
+    tours_map  = _fetch_tours()
+    tour_label = st.selectbox("Selecionar tour:", list(tours_map.keys()), key="ingest_tour_sel")
+    tour_key   = tours_map[tour_label]
+    st.caption(f"→ `parent_origin_key` = **`{tour_key}`**")
+
+    st.markdown("#### 2 · JSON da visita")
+    method = st.radio("Método:", ["📋 Colar JSON", "📁 Upload .json"],
+                      horizontal=True, key="ingest_method")
+
+    raw_json = None
+    if method == "📋 Colar JSON":
+        raw_json = st.text_area(
+            "Cole o JSON:", height=260,
+            placeholder='{"visit_id": "vrindavan-2026-03", "title_pt": "...", "timezone": "Asia/Kolkata", "days": []}',
+            key="ingest_json_text",
+        )
+    else:
+        up = st.file_uploader("Selecione .json:", type=["json"], key="ingest_file")
+        if up:
+            raw_json = up.read().decode("utf-8")
+            st.success(f"✅ `{up.name}` carregado")
+
+    if raw_json and raw_json.strip():
+        try:
+            payload = json.loads(raw_json)
+        except json.JSONDecodeError as e:
+            st.error(f"❌ JSON inválido: {e}")
+            payload = None
+
+        if payload:
+            st.markdown("#### 3 · Preview")
+            p1, p2 = st.columns(2)
+            p1.markdown(f"**visit_id:** `{payload.get('visit_id','—')}`")
+            p1.markdown(f"**title_pt:** {payload.get('title_pt','—')}")
+            p1.markdown(f"**timezone:** `{payload.get('timezone','—')}`")
+            p2.markdown(f"**dias:** `{len(payload.get('days',[]))}`")
+            p2.markdown(f"**cover_url:** {'✅' if payload.get('cover_url') else '❌ vazio'}")
+            p2.markdown(f"**tour pai:** `{tour_key}`")
+            if payload.get("days"):
+                st.dataframe(_day_rows(payload["days"]), use_container_width=True, hide_index=True)
+
+            st.markdown("#### 4 · Validação")
+            errors = validate_payload(payload)
+            if errors:
+                st.error(f"**{len(errors)} erro(s):**")
+                for e in errors:
+                    st.markdown(f"- {e}")
+                can_send = st.checkbox("⚠️ Ignorar erros e enviar mesmo assim", key="skip_val")
+            else:
+                st.success("✅ Schema válido")
+                can_send = True
+
+            if st.checkbox("🔍 Ver envelope completo", key="show_env"):
+                try:
+                    ep = build_envelope(payload, tour_key)
+                    ep_show = dict(ep)
+                    ep_show["data"] = {
+                        k: (f"[{len(v)} dias]" if k == "days" else v)
+                        for k, v in ep["data"].items()
+                    }
+                    st.json(ep_show)
+                except Exception as e:
+                    st.warning(str(e))
+
+            st.divider()
+            st.markdown("#### 5 · Enviar")
+            col_btn, col_tip = st.columns([2, 3])
+            send = col_btn.button("🚀 Ingerir visita", type="primary",
+                                  disabled=not can_send, key="ingest_send")
+            col_tip.caption("Idempotente — hash idêntico → `noop` sem writes.")
+
+            if send:
+                try:
+                    envelope = build_envelope(payload, tour_key)
+                    with st.spinner("Enviando..."):
+                        result  = ingest_visit(envelope)
+                        r_data  = result.get("data", result)
+                        action  = r_data.get("action", "?")
+                        success = result.get("success", False)
+
+                    LABELS = {
+                        "created": ("✅", "success", "Visita **criada** com sucesso!"),
+                        "updated": ("🔄", "success", "Visita **atualizada** com sucesso!"),
+                        "noop":    ("💤", "info",    "Sem mudanças — hash idêntico."),
+                    }
+                    ico, lvl, msg = LABELS.get(action, ("ℹ️", "info", result.get("message", "")))
+                    getattr(st, lvl)(f"{ico} {msg}")
+
+                    if success and action != "noop":
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("visit_id WP", r_data.get("visit_id", "—"))
+                        m2.metric("Ação", action)
+                        m3.metric("tour_id", r_data.get("tour_id", "—"))
+                        h = r_data.get("hash", "")
+                        st.caption(f"SHA-256: `{h[:32]}...`" if len(h) > 32 else f"SHA-256: `{h}`")
+                        if r_data.get("permalink"):
+                            st.link_button("🌐 Ver visita online", r_data["permalink"])
+                        st.cache_data.clear()
+                    elif not success:
+                        st.error(f"❌ {result.get('message','Erro desconhecido')}")
+                        with st.expander("🔍 Resposta completa"):
+                            st.json(result)
+
+                except Exception as e:
+                    st.error(f"❌ Erro: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 3 — EDITAR / BAIXAR JSON
+# ══════════════════════════════════════════════════════════════════════════
+with tab_edit:
+    st.subheader("✏️ Editar / Baixar JSON de visita existente")
+
+    visits_edit = _fetch_visits()
+
+    if not visits_edit:
+        st.info("Nenhuma visita disponível.")
+    else:
+        options_edit = {
+            f"[{v.get('id')}]  {v.get('title', '—')}  ({v.get('slug','')})": v.get("id")
+            for v in visits_edit
+        }
+        selected_label = st.selectbox("Selecionar visita:", list(options_edit.keys()), key="edit_sel")
+        selected_id    = options_edit[selected_label]
+
+        if st.button("📥 Carregar JSON", key="load_btn", type="secondary"):
+            with st.spinner("Carregando..."):
+                try:
+                    # Lê direto via REST — mais confiável que hmac_client para meta
+                    tl = get_visit_timeline(int(selected_id))
+                    v_data = get_visit(int(selected_id))
+                except Exception as e:
+                    st.error(f"❌ {e}")
+                    tl     = {}
+                    v_data = {}
+
+            meta       = v_data.get("meta", {}) if v_data else {}
+            origin_key = meta.get("_vana_origin_key", "")
+            vid_str    = origin_key.replace("visit:", "") if origin_key else str(selected_id)
+
+            reconstructed = {
+                "visit_id":       tl.get("visit_id", vid_str),
+                "title_pt":       tl.get("title_pt", ""),
+                "title_en":       tl.get("title_en", ""),
+                "description_pt": tl.get("description_pt", ""),
+                "description_en": tl.get("description_en", ""),
+                "timezone":       tl.get("timezone", "Asia/Kolkata"),
+                "cover_url":      tl.get("cover_url", ""),
+                "days":           tl.get("days", []),
+            }
+            st.session_state["edit_json"] = json.dumps(reconstructed, ensure_ascii=False, indent=2)
+            st.session_state["edit_vid"]  = selected_id
+            st.session_state["edit_ok"]   = meta.get("_vana_parent_tour_origin_key",
+                                                      meta.get("_tour_parent_key", ""))
+            st.success(f"✅ JSON carregado — {len(tl.get('days',[]))} dias — ID {selected_id}")
+
+
+        if "edit_json" not in st.session_state:
+            st.info("⬆️ Selecione uma visita e clique em **Carregar JSON**.")
+        else:
+            edited_raw = st.text_area(
+                "JSON editável:",
+                value=st.session_state["edit_json"],
+                height=500,
+                key="edit_textarea",
+            )
+
+            tours_map_edit = _fetch_tours()
+            parent_current = st.session_state.get("edit_ok", "")
+            default_idx    = next(
+                (i for i, k in enumerate(tours_map_edit.values()) if k == parent_current), 0
+            )
+            tour_label_edit = st.selectbox(
+                "Tour pai:", list(tours_map_edit.keys()),
+                index=default_idx, key="edit_tour_sel",
+            )
+            tour_key_edit = tours_map_edit[tour_label_edit]
+
+            col_dl, col_save = st.columns([1, 1])
+            col_dl.download_button(
+                "⬇️ Baixar JSON", data=edited_raw,
+                file_name=f"visit-{selected_id}.json",
+                mime="application/json", key="dl_btn",
+            )
+
+            if col_save.button("💾 Salvar via Ingest HMAC", type="primary", key="save_btn"):
+                try:
+                    edited_payload = json.loads(edited_raw)
+                except json.JSONDecodeError as e:
+                    st.error(f"❌ JSON inválido: {e}")
+                    edited_payload = None
+
+                if edited_payload:
+                    errs = validate_payload(edited_payload)
+                    if errs:
+                        st.warning(f"⚠️ {len(errs)} aviso(s) — enviando mesmo assim.")
+                    try:
+                        envelope = build_envelope(edited_payload, tour_key_edit)
+                        with st.spinner("Salvando..."):
+                            result  = ingest_visit(envelope)
+                            r_data  = result.get("data", result)
+                            action  = r_data.get("action", "?")
+                            success = result.get("success", False)
+
+                        if success:
+                            LABELS = {
+                                "updated": "🔄 Atualizada",
+                                "noop":    "💤 Sem mudanças",
+                                "created": "✅ Criada",
+                            }
+                            st.success(
+                                f"{LABELS.get(action, action)} — ID {r_data.get('visit_id','—')}"
+                            )
+
+                            # ── Garante tour pai no meta WP ──
+                            if action in ("updated", "created"):
+                                try:
+                                    from api.wp_client import update_visit_tour
+                                    update_visit_tour(int(selected_id), tour_key_edit)
+                                    st.caption(f"🔗 Tour pai gravado → `{tour_key_edit}`")
+                                except Exception as e_tour:
+                                    st.warning(f"⚠️ Tour pai não atualizado: {e_tour}")
+
+                            if r_data.get("permalink"):
+                                st.link_button("🌐 Ver online", r_data["permalink"])
+                            st.cache_data.clear()
+
+                        else:
+                            st.error(f"❌ {result.get('message','Erro desconhecido')}")
+                            with st.expander("🔍 Resposta"):
+                                st.json(result)
+
+                    except Exception as e:
+                        st.error(f"❌ {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 4 — EDITAR DIAS
+# ══════════════════════════════════════════════════════════════════════════
+with tab_days:
+    st.subheader("📅 Editar Dias — Schedule & VODs")
+
+    visits_days = _fetch_visits()
+
+    if not visits_days:
+        st.info("Nenhuma visita disponível.")
+    else:
+        opts = {
+            f"[{v.get('id')}]  {v.get('title','—')}": v.get("id")
+            for v in visits_days
+        }
+        sel = st.selectbox("Selecionar visita:", list(opts.keys()), key="days_sel")
+        vid = opts[sel]
+
+        st.divider()
+        render_days_editor(int(vid))

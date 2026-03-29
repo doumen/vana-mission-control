@@ -1260,10 +1260,11 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          action: 'vana_get_tours',
-          visit_id: visitId,
-          _wpnonce: nonce
-        })
+            action: 'vana_get_tours',
+            visit_id: visitId,
+            lang: (window.vanaDrawer && window.vanaDrawer.lang) || window.__vanaLang || 'pt',
+            _wpnonce: nonce
+          })
       })
         .then(function (r) {
           console.log('[VANA-DRAWER] HTTP Response status:', r.status);

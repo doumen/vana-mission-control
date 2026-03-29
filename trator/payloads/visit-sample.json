@@ -1,0 +1,384 @@
+{
+  "_comment": "Vana Madhuryam — Visit JSON Schema v2.6 — Arquivo de exemplo completo",
+  "_docs": "Todos os campos marcados com (opcional) podem ser omitidos sem quebrar o template.",
+
+  "visit_id": "vrindavan-2026-02",
+  "title_pt": "Visita a Vrindavan — Fevereiro 2026",
+  "title_en": "Vrindavan Visit — February 2026",
+  "description_pt": "Acompanhe as palestras, kirtans e momentos de serviço durante a visita de Srila Vana Maharaj a Vrindavan.",
+  "description_en": "Follow the lectures, kirtans and moments of service during Srila Vana Maharaj's visit to Vrindavan.",
+
+  "timezone": "Asia/Kolkata",
+
+  "cover_url": "https://i.ytimg.com/vi/EXEMPLO_VIDEO_ID/maxresdefault.jpg",
+
+  "days": [
+
+    {
+      "_comment": "DIA 1 — exemplo completo com todos os campos",
+      "date_local": "2026-02-21",
+      "label_pt": "Sáb, 21 Fev",
+      "label_en": "Sat, 21 Feb",
+
+      "hero": {
+        "title_pt": "Chegada a Vrindavan",
+        "title_en": "Arrival in Vrindavan",
+        "description_pt": "Srila Vana Maharaj chega ao dhama e compartilha suas primeiras impressões.",
+        "description_en": "Srila Vana Maharaj arrives at the dhama and shares his first impressions.",
+        "youtube_url": "https://www.youtube.com/watch?v=EXEMPLO_VIDEO_ID_1",
+        "thumb_url": "",
+        "duration": "42:18",
+        "location": {
+          "name": "ISKCON Vrindavan",
+          "lat": "27.5830",
+          "lng": "77.6969"
+        },
+        "segments": [
+          {
+            "t": "0:00",
+            "title_pt": "Abertura e mangalacharana",
+            "title_en": "Opening and mangalacharana"
+          },
+          {
+            "t": "8:32",
+            "title_pt": "A glória do dhama",
+            "title_en": "The glory of the dhama"
+          },
+          {
+            "t": "22:15",
+            "title_pt": "Kirtan ao vivo",
+            "title_en": "Live kirtan"
+          },
+          {
+            "t": "38:40",
+            "title_pt": "Perguntas e respostas",
+            "title_en": "Questions and answers"
+          }
+        ]
+      },
+
+      "schedule": [
+        {
+          "time_local": "04:30",
+          "title_pt": "Mangala Arati",
+          "title_en": "Mangala Arati",
+          "description_pt": "Arati matinal no templo principal.",
+          "description_en": "Morning arati at the main temple.",
+          "status": "done",
+          "speaker": "Srila Vana Maharaj",
+          "location_pt": "Templo Principal",
+          "location_en": "Main Temple"
+        },
+        {
+          "time_local": "07:00",
+          "title_pt": "Palestra matinal — Srimad Bhagavatam",
+          "title_en": "Morning lecture — Srimad Bhagavatam",
+          "description_pt": "Canto 10, Capítulo 8 — O nascimento de Krishna.",
+          "description_en": "Canto 10, Chapter 8 — Krishna's birth.",
+          "status": "done",
+          "speaker": "Srila Vana Maharaj",
+          "location_pt": "Sala de Conferências",
+          "location_en": "Conference Hall"
+        },
+        {
+          "time_local": "10:30",
+          "title_pt": "Parikrama — Seva Kunj",
+          "title_en": "Parikrama — Seva Kunj",
+          "description_pt": "Caminhada sagrada pelos passos de Radha-Krishna.",
+          "description_en": "Sacred walk in the footsteps of Radha-Krishna.",
+          "status": "live",
+          "speaker": "Srila Vana Maharaj",
+          "location_pt": "Seva Kunj, Vrindavan",
+          "location_en": "Seva Kunj, Vrindavan"
+        },
+        {
+          "time_local": "13:00",
+          "title_pt": "Prasadam",
+          "title_en": "Prasadam",
+          "description_pt": "",
+          "description_en": "",
+          "status": "upcoming",
+          "speaker": "",
+          "location_pt": "Salão de Prasadam",
+          "location_en": "Prasadam Hall"
+        },
+        {
+          "time_local": "16:00",
+          "title_pt": "Palestra vespertina — Bhagavad Gita",
+          "title_en": "Afternoon lecture — Bhagavad Gita",
+          "description_pt": "Capítulo 9 — O conhecimento mais confidencial.",
+          "description_en": "Chapter 9 — The most confidential knowledge.",
+          "status": "upcoming",
+          "speaker": "Srila Vana Maharaj",
+          "location_pt": "Sala de Conferências",
+          "location_en": "Conference Hall"
+        },
+        {
+          "time_local": "19:00",
+          "title_pt": "Gaura Arati e Kirtan",
+          "title_en": "Gaura Arati and Kirtan",
+          "description_pt": "",
+          "description_en": "",
+          "status": "upcoming",
+          "speaker": "",
+          "location_pt": "Templo Principal",
+          "location_en": "Main Temple"
+        }
+      ],
+
+      "vods": [
+        {
+          "title_pt": "Palestra Manhã — Srimad Bhagavatam 10.8",
+          "title_en": "Morning Lecture — Srimad Bhagavatam 10.8",
+          "description_pt": "O nascimento de Krishna — profunda meditação no dhama.",
+          "description_en": "Krishna's birth — deep meditation on the dhama.",
+          "youtube_url": "https://www.youtube.com/watch?v=EXEMPLO_VIDEO_ID_1",
+          "thumb_url": "",
+          "duration": "42:18",
+          "segments": [
+            {
+              "t": "0:00",
+              "title_pt": "Abertura",
+              "title_en": "Opening"
+            },
+            {
+              "t": "8:32",
+              "title_pt": "Verso principal",
+              "title_en": "Main verse"
+            },
+            {
+              "t": "22:15",
+              "title_pt": "Kirtan",
+              "title_en": "Kirtan"
+            },
+            {
+              "t": "38:40",
+              "title_pt": "Perguntas",
+              "title_en": "Questions"
+            }
+          ]
+        },
+        {
+          "title_pt": "Palestra Tarde — Bhagavad Gita 9.1",
+          "title_en": "Afternoon Lecture — Bhagavad Gita 9.1",
+          "description_pt": "O conhecimento mais confidencial explicado passo a passo.",
+          "description_en": "The most confidential knowledge explained step by step.",
+          "youtube_url": "https://www.youtube.com/watch?v=EXEMPLO_VIDEO_ID_2",
+          "thumb_url": "",
+          "duration": "58:44",
+          "segments": [
+            {
+              "t": "0:00",
+              "title_pt": "Invocação",
+              "title_en": "Invocation"
+            },
+            {
+              "t": "12:00",
+              "title_pt": "Significado do verso",
+              "title_en": "Verse purport"
+            },
+            {
+              "t": "40:20",
+              "title_pt": "Aplicação prática",
+              "title_en": "Practical application"
+            }
+          ]
+        },
+        {
+          "_comment": "(opcional) Exemplo de VOD via Facebook Live gravado",
+          "title_pt": "Gaura Arati ao Vivo",
+          "title_en": "Gaura Arati Live",
+          "description_pt": "Transmissão ao vivo do Gaura Arati no templo principal.",
+          "description_en": "Live broadcast of Gaura Arati at the main temple.",
+          "facebook_url": "https://www.facebook.com/vanamadhuryamofficial/videos/EXEMPLO_FB_ID",
+          "thumb_url": "https://example.com/thumb-gaura-arati.jpg",
+          "duration": "28:05",
+          "segments": []
+        },
+        {
+          "_comment": "(opcional) Exemplo de VOD via Google Drive",
+          "title_pt": "Kirtan Especial — Arquivo Interno",
+          "title_en": "Special Kirtan — Internal Archive",
+          "description_pt": "Kirtan privado compartilhado apenas com devotos presentes.",
+          "description_en": "Private kirtan shared only with attending devotees.",
+          "drive_url": "https://drive.google.com/file/d/EXEMPLO_DRIVE_ID/view",
+          "thumb_url": "",
+          "duration": "1:05:30",
+          "segments": []
+        }
+      ],
+
+      "photos": [
+        {
+          "thumb_url": "https://example.com/fotos/dia1-chegada-thumb.jpg",
+          "full_url":  "https://example.com/fotos/dia1-chegada-full.jpg",
+          "caption_pt": "Srila Vana Maharaj chega ao dhama de Vrindavan",
+          "caption_en": "Srila Vana Maharaj arrives at the Vrindavan dhama",
+          "credit": "@devoto.fotografo",
+          "featured": true
+        },
+        {
+          "thumb_url": "https://example.com/fotos/dia1-arati-thumb.jpg",
+          "full_url":  "https://example.com/fotos/dia1-arati-full.jpg",
+          "caption_pt": "Mangala Arati no templo principal",
+          "caption_en": "Mangala Arati at the main temple",
+          "credit": "@vanamadhuryamofficial",
+          "featured": false
+        },
+        {
+          "thumb_url": "https://example.com/fotos/dia1-parikrama-thumb.jpg",
+          "full_url":  "https://example.com/fotos/dia1-parikrama-full.jpg",
+          "caption_pt": "Parikrama em Seva Kunj",
+          "caption_en": "Parikrama at Seva Kunj",
+          "credit": "",
+          "featured": false
+        }
+      ],
+
+      "sangha_moments": [
+        {
+          "type":       "quote",
+          "author":     "Srila Vana Maharaj",
+          "role_pt":    "Acharya",
+          "role_en":    "Acharya",
+          "avatar_url": "https://example.com/avatars/vana-maharaj.jpg",
+          "text_pt":    "O dhama não é um lugar geográfico — é o estado interno de quem vê Krishna em tudo.",
+          "text_en":    "The dhama is not a geographical place — it is the inner state of one who sees Krishna in everything.",
+          "city":       "Vrindavan, IN",
+          "featured":   true
+        },
+        {
+          "type":       "realization",
+          "author":     "Madhava das",
+          "role_pt":    "Devoto",
+          "role_en":    "Devotee",
+          "avatar_url": "",
+          "text_pt":    "Durante a palestra matinal senti que cada palavra de Maharaj abria um portal direto para o coração de Krishna.",
+          "text_en":    "During the morning lecture I felt that each word of Maharaj opened a portal directly to Krishna's heart.",
+          "city":       "São Paulo, BR",
+          "featured":   false
+        },
+        {
+          "type":       "service",
+          "author":     "Tulasi devi dasi",
+          "role_pt":    "Devotee",
+          "role_en":    "Devotee",
+          "avatar_url": "",
+          "text_pt":    "Tive a misericórdia de preparar o prasadam para toda a sangha. O serviço foi a maior palestra do dia.",
+          "text_en":    "I had the mercy of preparing prasadam for the entire sangha. Service was the greatest lecture of the day.",
+          "city":       "Vrindavan, IN",
+          "featured":   false
+        },
+        {
+          "type":       "moment",
+          "author":     "Giriraj das",
+          "role_pt":    "Brahmachari",
+          "role_en":    "Brahmachari",
+          "avatar_url": "",
+          "text_pt":    "O kirtan ao entardecer no Seva Kunj foi simplesmente transcendental. Meu coração ainda vibra.",
+          "text_en":    "The evening kirtan at Seva Kunj was simply transcendental. My heart is still vibrating.",
+          "city":       "Mayapur, IN",
+          "featured":   false
+        }
+      ],
+
+      "links": [
+        {
+          "_comment": "(opcional) Link exclusivo deste dia — sobrescreve o default do mesmo type",
+          "type":     "youtube",
+          "url":      "https://www.youtube.com/live/EXEMPLO_LIVE_ID",
+          "label_pt": "Assistir ao vivo agora",
+          "label_en": "Watch live now",
+          "desc_pt":  "Transmissão ao vivo deste dia",
+          "desc_en":  "Live stream for today",
+          "icon":     "dashicons-video-alt3"
+        },
+        {
+          "type":     "whatsapp",
+          "url":      "https://chat.whatsapp.com/EXEMPLO_GRUPO_ID",
+          "label_pt": "Grupo WhatsApp da Visita",
+          "label_en": "Visit WhatsApp Group",
+          "desc_pt":  "Atualizações em tempo real para devotos presentes",
+          "desc_en":  "Real-time updates for attending devotees"
+        }
+      ],
+
+      "photos_submit_url":  "https://www.facebook.com/vanamadhuryamofficial",
+      "moments_submit_url": "https://www.facebook.com/vanamadhuryamofficial"
+    },
+
+    {
+      "_comment": "DIA 2 — exemplo mínimo (apenas campos obrigatórios)",
+      "date_local": "2026-02-22",
+      "label_pt": "Dom, 22 Fev",
+      "label_en": "Sun, 22 Feb",
+
+      "hero": {
+        "title_pt": "Palestra Dominical",
+        "title_en": "Sunday Lecture",
+        "youtube_url": "https://www.youtube.com/watch?v=EXEMPLO_VIDEO_ID_3",
+        "segments": []
+      },
+
+      "schedule": [
+        {
+          "time_local": "09:30",
+          "title_pt":   "Palestra Dominical — Bhagavad Gita",
+          "title_en":   "Sunday Lecture — Bhagavad Gita",
+          "status":     "upcoming"
+        }
+      ],
+
+      "vods": [
+        {
+          "title_pt":    "Palestra Dominical",
+          "title_en":    "Sunday Lecture",
+          "youtube_url": "https://www.youtube.com/watch?v=EXEMPLO_VIDEO_ID_3",
+          "segments":    []
+        }
+      ],
+
+      "photos":         [],
+      "sangha_moments": [],
+      "links":          []
+    },
+
+    {
+      "_comment": "DIA 3 — exemplo com Instagram como mídia principal",
+      "date_local": "2026-02-23",
+      "label_pt": "Seg, 23 Fev",
+      "label_en": "Mon, 23 Feb",
+
+      "hero": {
+        "title_pt":      "Kirtan Especial no Instagram",
+        "title_en":      "Special Kirtan on Instagram",
+        "instagram_url": "https://www.instagram.com/p/EXEMPLO_POST_ID/",
+        "segments":      []
+      },
+
+      "schedule": [
+        {
+          "time_local": "18:00",
+          "title_pt":   "Kirtan ao Vivo — Instagram",
+          "title_en":   "Live Kirtan — Instagram",
+          "status":     "upcoming"
+        }
+      ],
+
+      "vods":           [],
+      "photos":         [],
+      "sangha_moments": [],
+      "links": [
+        {
+          "type":     "instagram",
+          "url":      "https://www.instagram.com/vanamadhuryamofficial/",
+          "label_pt": "Seguir no Instagram",
+          "label_en": "Follow on Instagram",
+          "desc_pt":  "Acompanhe os stories e reels da visita",
+          "desc_en":  "Follow the visit stories and reels"
+        }
+      ]
+    }
+
+  ]
+}

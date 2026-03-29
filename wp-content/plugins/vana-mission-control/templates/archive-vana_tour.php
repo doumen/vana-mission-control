@@ -60,6 +60,18 @@ $others_query = new WP_Query([
                 </p>
             </header>
 
+            <?php
+            // Detect language (GET > cookie > default)
+            $lang = 'pt';
+            if (isset($_GET['lang'])) {
+                $candidate = sanitize_key((string) $_GET['lang']);
+                if (in_array($candidate, ['pt', 'en'], true)) $lang = $candidate;
+            } elseif (isset($_COOKIE['vana_lang'])) {
+                $candidate = sanitize_key((string) $_COOKIE['vana_lang']);
+                if (in_array($candidate, ['pt', 'en'], true)) $lang = $candidate;
+            }
+            ?>
+
             <!-- Seção: Tour Atual (Destaque) -->
             <?php if ($current_query->have_posts()): ?>
                 <?php while ($current_query->have_posts()): $current_query->the_post(); ?>
@@ -75,7 +87,7 @@ $others_query = new WP_Query([
                             <div class="vana-card__content">
                                 <h2>
                                     <a href="<?php the_permalink(); ?>">
-                                        <?php the_title(); ?>
+                                        <?php echo esc_html( \Vana_Utils::resolve_tour_title(get_the_ID(), $lang) ); ?>
                                     </a>
                                 </h2>
 
@@ -122,7 +134,7 @@ $others_query = new WP_Query([
                                 <div class="vana-card__body">
                                     <h3>
                                         <a href="<?php the_permalink(); ?>">
-                                            <?php the_title(); ?>
+                                            <?php echo esc_html( \Vana_Utils::resolve_tour_title(get_the_ID(), $lang) ); ?>
                                         </a>
                                     </h3>
 

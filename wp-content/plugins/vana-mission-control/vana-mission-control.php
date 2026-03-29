@@ -77,6 +77,8 @@ require_once VANA_MC_PATH . "includes/class-vana-visit-cpt.php";
 require_once VANA_MC_PATH . "includes/class-vana-submission-cpt.php"; // ← ALLOWED_HOSTS, MAX_IMAGES
 require_once VANA_MC_PATH . "includes/class-vana-gallery-metabox.php";
 Vana_Gallery_Metabox::init();
+require_once VANA_MC_PATH . "includes/class-vana-tour-metabox.php";
+Vana_Tour_Metabox::init();
 
 // ── Storage / Media (v2) ──────────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-image-processor.php"; // ← NOVO
@@ -142,6 +144,7 @@ final class Vana_Mission_Control {
             Vana_Submission_CPT::init();
             Vana_Katha_CPT::init();
             Vana_HK_Passage_CPT::init();
+            Vana_Tour_CPT::init();
         }, 5);
 
         // ── CPTs — via hook correto ───────────────────────
@@ -181,7 +184,7 @@ final class Vana_Mission_Control {
     }
 
     public function register_cpts(): void {
-        Vana_Tour_CPT::register();
+        // Tour CPT is initialized via Vana_Tour_CPT::init() during plugins_loaded
     }
 
     public function register_rest_routes(): void {
@@ -290,13 +293,15 @@ final class Vana_Mission_Control {
                 $visit_count = count($visit_query->posts);
             }
 
-            $items[] = [
-                'id'          => $tour_id,
-                'title'       => (string) Vana_Utils::resolve_visit_title([], 'pt', $tour_id),
-                'permalink'   => get_permalink($tour_id),
-                'is_current'  => $tour_id === $current_tour_id,
-                'visit_count' => $visit_count,
-            ];
+                $lang = (isset($_POST['lang']) && in_array($_POST['lang'], ['pt','en'], true)) ? $_POST['lang'] : 'pt';
+
+                $items[] = [
+                    'id'          => $tour_id,
+                    'title'       => (string) Vana_Utils::resolve_tour_title($tour_id, $lang),
+                    'permalink'   => get_permalink($tour_id),
+                    'is_current'  => $tour_id === $current_tour_id,
+                    'visit_count' => $visit_count,
+                ];
         }
 
         wp_send_json_success($items);
@@ -743,6 +748,7 @@ register_activation_hook(__FILE__, function () {
     Vana_Index::init();
     Vana_Index::create_table();
     Vana_Tour_CPT::register();
+    Vana_Tour_CPT::register_meta();
     if (class_exists("Vana_Visit_CPT")) {
         Vana_Visit_CPT::register();
         Vana_Visit_CPT::register_meta();
