@@ -11,68 +11,60 @@
 (function () {
     'use strict';
 
-    // ── Referências DOM ──────────────────────────────────────────
-    const drawer  = document.getElementById('vana-agenda-drawer');
-    const overlay = document.getElementById('vana-agenda-overlay');
+    // Use delegated listeners and lazy DOM lookup so controller works
+    // even if the drawer is injected after scripts run.
 
-    if (!drawer || !overlay) return;
-
-    // ── Abre a gaveta ────────────────────────────────────────────
     document.addEventListener('click', function (e) {
+        // open trigger (delegated)
         if (e.target.closest('[data-vana-agenda-open]')) {
             _openDrawer();
+            return;
         }
-    });
 
-    // ── Fecha: botão close ou overlay ────────────────────────────
-    document.addEventListener('click', function (e) {
+        // close triggers (delegated)
         if (
             e.target.closest('[data-vana-agenda-close]') ||
             e.target.closest('[data-vana-agenda-overlay]')
         ) {
             _closeDrawer();
+            return;
         }
-    });
 
-    // ── Fecha com ESC ────────────────────────────────────────────
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !drawer.hidden) _closeDrawer();
-    });
+        // If click is inside the drawer, handle specific actions
+        var drawer = _drawer();
+        if (!drawer) return;
+        if (!drawer.contains(e.target)) return;
 
-    // ── Delegação de cliques dentro da gaveta ────────────────────
-    drawer.addEventListener('click', function (e) {
-
-        // ── Day tab (browse interno — NÃO emite evento externo) ──
-        const tab = e.target.closest('[data-vana-agenda-day]');
+        // day tab
+        var tab = e.target.closest('[data-vana-agenda-day]');
         if (tab) {
             _switchDay(tab.dataset.vanaAgendaDay);
             return;
         }
 
-        // ── Botão ▶ play VOD ─────────────────────────────────────
-        const playBtn = e.target.closest('[data-vana-play-vod]');
+        // VOD play
+        var playBtn = e.target.closest('[data-vana-play-vod]');
         if (playBtn) {
             _emitMediaSelect(playBtn);
             if (window.innerWidth < 768) _closeDrawer();
             return;
         }
 
-        // ── Botão 📖 Hari-kathā ──────────────────────────────────
-        const hkBtn = e.target.closest('[data-vana-open-hk]');
+        // HK
+        var hkBtn = e.target.closest('[data-vana-open-hk]');
         if (hkBtn) {
             _emitHKSelect(hkBtn);
             if (window.innerWidth < 768) _closeDrawer();
             return;
         }
 
-        // ── Botão 🖼 galeria ─────────────────────────────────────
-        const galBtn = e.target.closest('[data-vana-open-gallery]');
+        // Gallery
+        var galBtn = e.target.closest('[data-vana-open-gallery]');
         if (galBtn) {
             _emitGallerySelect(galBtn);
             if (window.innerWidth < 768) _closeDrawer();
             return;
         }
-
     });
 
     // ── Escuta vana:day:change do Hero (sincroniza tab) ──────────
@@ -80,6 +72,14 @@
     document.addEventListener('vana:day:change', function (e) {
         const day = e.detail && e.detail.day;
         if (day) _switchDay(day, /* silent */ true);
+    });
+
+    // Fecha com ESC (lazy drawer lookup)
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            var drawer = _drawer();
+            if (drawer && !drawer.hidden) _closeDrawer();
+        }
     });
 
     // ════════════════════════════════════════════════════════════
@@ -146,6 +146,9 @@
      * (evita loop quando recebe o evento do Hero)
      */
     function _switchDay(dayKey, silent) {
+        var drawer = _drawer();
+        if (!drawer) return;
+
         // Atualiza tabs
         drawer.querySelectorAll('[data-vana-agenda-day]').forEach(function (t) {
             const active = t.dataset.vanaAgendaDay === dayKey;
@@ -171,23 +174,44 @@
     // ════════════════════════════════════════════════════════════
 
     function _openDrawer() {
+        var drawer = _drawer();
+        var overlay = _overlay();
+        if (!drawer || !overlay) {
+            console.warn('[VanaAgenda] drawer or overlay missing');
+            return;
+        }
+
         drawer.hidden  = false;
         overlay.hidden = false;
         document.body.classList.add('vana-drawer-open');
         drawer.removeAttribute('aria-hidden');
 
-        const first = drawer.querySelector('button, [href], [tabindex="0"]');
-        if (first) first.focus();
+        // Atualiza aria-expanded nos triggers
+        document.querySelectorAll('[data-vana-agenda-open]').forEach(function (btn) {
+            btn.setAttribute('aria-expanded', 'true');
+        });
+
+        requestAnimationFrame(function () {
+            const first = drawer.querySelector('button:not([disabled]), [href], [tabindex="0"]');
+            if (first) first.focus();
+        });
     }
 
     function _closeDrawer() {
+        var drawer = _drawer();
+        var overlay = _overlay();
+        if (!drawer || !overlay) return;
+
         drawer.hidden  = true;
         overlay.hidden = true;
         document.body.classList.remove('vana-drawer-open');
         drawer.setAttribute('aria-hidden', 'true');
 
-        // Devolve foco ao trigger
-        const trigger = document.querySelector('[data-vana-agenda-open]');
+        document.querySelectorAll('[data-vana-agenda-open]').forEach(function (btn) {
+            btn.setAttribute('aria-expanded', 'false');
+        });
+
+        const trigger = document.getElementById('vana-agenda-open-btn') || document.querySelector('[data-vana-agenda-open]');
         if (trigger) trigger.focus();
     }
 
@@ -200,5 +224,9 @@
             new CustomEvent(eventName, { bubbles: true, detail: detail })
         );
     }
+
+    // ── Lazy DOM getters ───────────────────────────────────────────
+    function _drawer() { return document.getElementById('vana-agenda-drawer'); }
+    function _overlay() { return document.getElementById('vana-agenda-overlay'); }
 
 })();
