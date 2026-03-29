@@ -43,6 +43,12 @@ $tour  = Vana_Utils::get_tour_identity( (int) $tour_id, $lang );
 // Reinjeta o nav no novo $tour para o _hero-nav.php
 $tour['nav'] = $tour_nav;
 
+// Ensure the $tour array exposes `days` for the hero day selector partial.
+// Some codepaths rebuild $tour via Vana_Utils::get_tour_identity() and may
+// not include the visit-specific `days`. Use the original extracted tour
+// (`$_t`) or the $days variable from the bootstrap as fallback.
+$tour['days'] = $_t['days'] ?? (isset($days) && is_array($days) ? $days : []);
+
 // Composição local — template escolhe o formato
 $city         = (string) ($visit['city'] ?? '');
 $country_code = (string) ($visit['country_code'] ?? '');
