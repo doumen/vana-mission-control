@@ -128,6 +128,37 @@ final class Vana_Ingest_Visit
             update_post_meta($visit_id, '_vana_timeline_schema_version', $schema_version);
             update_post_meta($visit_id, '_vana_timeline_updated_at', $updated_at);
             update_post_meta($visit_id, '_vana_visit_timeline_json', $timeline_json);
+            // ── Schema 6.1: upsert de kathas e passages ───────────────────
+            if ( class_exists( 'Vana_Ingest_Katha_API' )
+                && method_exists( 'Vana_Ingest_Katha_API', 'process_visit_timeline' )
+                && is_array( $data )
+            ) {
+                try {
+                    $katha_result = Vana_Ingest_Katha_API::process_visit_timeline(
+                        $data,
+                        $visit_id
+                    );
+
+                    if ( ! empty( $katha_result['errors'] ) ) {
+                        foreach ( $katha_result['errors'] as $err ) {
+                            error_log( '[vana-trator][katha] ' . $err );
+                        }
+                    }
+
+                    // Adiciona ao response sem quebrar o contrato existente
+                    $response_data['kathas_upserted']   = $katha_result['kathas_upserted'] ?? 0;
+                    $response_data['passages_upserted']  = $katha_result['passages_upserted'] ?? 0;
+                    $response_data['katha_errors_count'] = count( $katha_result['errors'] ?? [] );
+
+                } catch ( Throwable $e ) {
+                    // Nunca bloqueia o ingest principal
+                    error_log(
+                        '[vana-trator][katha] Exceção inesperada: '
+                        . $e->getMessage()
+                        . ' em ' . $e->getFile() . ':' . $e->getLine()
+                    );
+                }
+            }
             // ==========================================
             // Materialização Automática (Cria a Ficha Resumo)
             // ==========================================
@@ -202,6 +233,9 @@ final class Vana_Ingest_Visit
                     'hash' => $hash,
                     'tour_updated' => $tour_updated,
                     'tour_id' => $tour_id > 0 ? (int) $tour_id : null,
+                    'kathas_upserted'   => $katha_result['kathas_upserted'] ?? ($response_data['kathas_upserted'] ?? 0),
+                    'passages_upserted' => $katha_result['passages_upserted'] ?? ($response_data['passages_upserted'] ?? 0),
+                    'katha_errors_count' => isset( $katha_result['errors'] ) ? count( $katha_result['errors'] ) : ( $response_data['katha_errors_count'] ?? 0 ),
                 ]
             );
 

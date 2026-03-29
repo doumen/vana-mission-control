@@ -85,6 +85,10 @@ final class Vana_HK_Passage_CPT {
             '_hk_review_status',     // draft|pending|approved
             '_hk_review_flags_json', // array JSON
             '_hk_notes_json',        // array JSON
+            '_hk_title_pt',
+            '_hk_title_en',
+            '_hk_source_segment_id',
+            '_hk_source_vod_key',
         ];
     
         foreach ( $string_meta as $key ) {
@@ -102,6 +106,8 @@ final class Vana_HK_Passage_CPT {
             '_hk_index',
             '_hk_katha_id',
             '_hk_visit_id',
+            '_hk_ts_start',
+            '_hk_ts_end',
         ];
     
         foreach ( $integer_meta as $key ) {
