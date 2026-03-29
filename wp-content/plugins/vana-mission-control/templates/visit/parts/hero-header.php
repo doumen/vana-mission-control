@@ -249,6 +249,18 @@ unset($_t, $_thumb, $_m);
             <p class="vana-hero__desc"><?php echo esc_html($desc); ?></p>
         <?php endif; ?>
 
+        <!-- Botão de abrir Agenda (adicionado) -->
+        <button
+            type="button"
+            class="vana-hero__agenda-btn"
+            data-vana-agenda-open
+            aria-haspopup="dialog"
+            aria-controls="vana-agenda-drawer"
+            aria-label="<?php echo esc_attr( $lang === 'en' ? 'Open Schedule' : 'Abrir Agenda' ); ?>"
+        >
+            📅 <?php echo esc_html( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?>
+        </button>
+
         <!-- Day Selector (multi-dia) -->
         <?php
         $_hero_days       = is_array($days ?? null) ? $days : [];

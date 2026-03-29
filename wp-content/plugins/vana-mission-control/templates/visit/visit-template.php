@@ -42,9 +42,7 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
        AGENDA DRAWER
        ───────────────────────────────────────────────────────────────────────── -->
   <?php
-  if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php' ) ) {
-      include VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php';
-  }
+    // Agenda drawer removed from top; will be included inside <main> before closing.
   ?>
 
   <!-- ─────────────────────────────────────────────────────────────────────────
@@ -130,6 +128,14 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
     <?php
     if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/community-links.php' ) ) {
         include VANA_MC_PATH . 'templates/visit/parts/community-links.php';
+    }
+    ?>
+
+    <!-- Inclui a gaveta da agenda dentro do main, antes do fechamento -->
+    <?php
+    $agenda_part = VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php';
+    if ( file_exists( $agenda_part ) ) {
+        include $agenda_part;
     }
     ?>
 

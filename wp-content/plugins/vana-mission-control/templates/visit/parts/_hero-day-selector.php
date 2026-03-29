@@ -97,6 +97,7 @@ if (count($days) === 1) :
             aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
             aria-controls="<?php echo esc_attr($panel_id); ?>"
             data-date="<?php echo esc_attr($date); ?>"
+            data-day-key="<?php echo esc_attr( $day['day_key'] ?? $date ); ?>"
             data-index="<?php echo esc_attr((string) $i); ?>"
             <?php echo !$is_active ? 'tabindex="-1"' : ''; ?>
         >
