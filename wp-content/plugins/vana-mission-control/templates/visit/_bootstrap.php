@@ -102,10 +102,17 @@ error_log( '[_bootstrap] After assignment. $days count: ' . count($days) );
 
 // ── Index do visit.json processado (útil para lookup rápido de keys) ─────────
 $index = [];
-if ( ! empty( $post_meta['_vana_visit_data'][0] ) ) {
-    $visit_data = json_decode( $post_meta['_vana_visit_data'][0], true );
-    $index      = is_array( $visit_data['index'] ?? null ) ? $visit_data['index'] : [];
+// Use get_post_meta canonical form (third param true) to fetch the raw
+// visit JSON stored in post meta. Previous code relied on $post_meta
+// array which is not guaranteed to be present in this scope.
+$_visit_raw_json = get_post_meta( $visit_id, '_vana_visit_data', true );
+if ( ! empty( $_visit_raw_json ) ) {
+    $_visit_raw = json_decode( $_visit_raw_json, true );
+    if ( is_array( $_visit_raw ) && ! empty( $_visit_raw['index'] ) ) {
+        $index = (array) $_visit_raw['index'];
+    }
 }
+unset( $_visit_raw_json, $_visit_raw );
 
 // ── Dia ativo (priority: ?day GET param → first day fallback) ───────────────
 $active_day_key = sanitize_text_field( $_GET['day'] ?? '' );

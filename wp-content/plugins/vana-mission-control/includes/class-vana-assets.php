@@ -57,6 +57,11 @@ class Vana_Assets
             VANA_MC_VERSION,
             true
         );
+        // Ensure the agenda controller is loaded with defer to avoid running
+        // before the DOM is ready and to match frontend script strategy.
+        if ( function_exists( 'wp_script_add_data' ) ) {
+            wp_script_add_data( 'vana-agenda-controller', 'defer', true );
+        }
 
         // JS: chips (já existia)
         wp_enqueue_script(

@@ -143,7 +143,7 @@
     height: 100dvh;
     background: var(--vana-surface, #1a1a2e);
     color: var(--vana-on-surface, #e8e0d4);
-    display: flex;
+    display: none;
     flex-direction: column;
     z-index: 900;
     box-shadow: -4px 0 24px rgba(0,0,0,.45);
@@ -152,7 +152,12 @@
     overflow: hidden;
 }
 
+.vana-drawer--agenda[hidden] {
+    display: none !important;
+}
+
 .vana-drawer--agenda:not([hidden]) {
+    display: flex;
     transform: translateX(0);
 }
 

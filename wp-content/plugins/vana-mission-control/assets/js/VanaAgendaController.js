@@ -9,83 +9,173 @@
  *  - Sincroniza tab ativa com vana:day:change externo (Hero)
  */
 (function () {
-    'use strict';
+    (function () {
+        'use strict';
 
-    // Use delegated listeners and lazy DOM lookup so controller works
-    // even if the drawer is injected after scripts run.
+        // VanaAgendaController.js — v2
+        // Controls the schedule drawer: open/close, day tabs, event selects.
 
-    document.addEventListener('click', function (e) {
-        // open trigger (delegated)
-        if (e.target.closest('[data-vana-agenda-open]')) {
-            _openDrawer();
-            return;
+        function init() {
+            var drawer  = document.getElementById('vana-agenda-drawer');
+            var overlay = document.querySelector('[data-vana-agenda-overlay]');
+
+            if (!drawer) {
+                console.warn('[VanaAgenda] #vana-agenda-drawer não encontrado no DOM.');
+                return;
+            }
+
+            // Attach open handlers to any element with the data attribute.
+            document.querySelectorAll('[data-vana-agenda-open]').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    openDrawer();
+                });
+            });
+
+            // Close handlers
+            document.querySelectorAll('[data-vana-agenda-close]').forEach(function (btn) {
+                btn.addEventListener('click', function (e) { e.preventDefault(); closeDrawer(); });
+            });
+
+            if (overlay) {
+                overlay.addEventListener('click', function (e) { e.preventDefault(); closeDrawer(); });
+            }
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !drawer.hasAttribute('hidden')) {
+                    closeDrawer();
+                }
+            });
+
+            // Delegated click inside the drawer for tabs and buttons
+            drawer.addEventListener('click', function (e) {
+                var tab = e.target.closest('[data-vana-agenda-day]');
+                if (tab) {
+                    _switchDay(tab.getAttribute('data-vana-agenda-day'), 'agenda');
+                    return;
+                }
+
+                var playBtn = e.target.closest('[data-vana-play-vod]');
+                if (playBtn) {
+                    _emitMediaSelect(playBtn);
+                    if (window.innerWidth < 768) closeDrawer();
+                    return;
+                }
+
+                var hkBtn = e.target.closest('[data-vana-open-hk]');
+                if (hkBtn) {
+                    _emitHKSelect(hkBtn);
+                    if (window.innerWidth < 768) closeDrawer();
+                    return;
+                }
+
+                var galBtn = e.target.closest('[data-vana-open-gallery]');
+                if (galBtn) {
+                    _emitGallerySelect(galBtn);
+                    if (window.innerWidth < 768) closeDrawer();
+                    return;
+                }
+            });
+
+            // Listen hero day changes to sync
+            document.addEventListener('vana:day:change', function (e) {
+                if (!e.detail || !e.detail.day) return;
+                if (e.detail._source === 'agenda') return; // avoid loop
+                _switchDay(e.detail.day, null);
+            });
         }
 
-        // close triggers (delegated)
-        if (
-            e.target.closest('[data-vana-agenda-close]') ||
-            e.target.closest('[data-vana-agenda-overlay]')
-        ) {
-            _closeDrawer();
-            return;
+        function openDrawer() {
+            var drawer  = document.getElementById('vana-agenda-drawer');
+            var overlay = document.querySelector('[data-vana-agenda-overlay]');
+            var openers = document.querySelectorAll('[data-vana-agenda-open]');
+
+            if (!drawer) return;
+            drawer.removeAttribute('hidden');
+            if (overlay) overlay.removeAttribute('hidden');
+            openers.forEach(function (b) { b.setAttribute('aria-expanded', 'true'); });
+            document.body.classList.add('vana-drawer-open');
+            drawer.removeAttribute('aria-hidden');
+
+            requestAnimationFrame(function () {
+                var focusable = drawer.querySelector('button:not([disabled]), [href], [tabindex]');
+                if (focusable) focusable.focus();
+            });
         }
 
-        // If click is inside the drawer, handle specific actions
-        var drawer = _drawer();
-        if (!drawer) return;
-        if (!drawer.contains(e.target)) return;
+        function closeDrawer() {
+            var drawer  = document.getElementById('vana-agenda-drawer');
+            var overlay = document.querySelector('[data-vana-agenda-overlay]');
+            var openers = document.querySelectorAll('[data-vana-agenda-open]');
 
-        // day tab
-        var tab = e.target.closest('[data-vana-agenda-day]');
-        if (tab) {
-            _switchDay(tab.dataset.vanaAgendaDay);
-            return;
+            if (!drawer) return;
+            drawer.setAttribute('hidden', '');
+            if (overlay) overlay.setAttribute('hidden', '');
+            openers.forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+            document.body.classList.remove('vana-drawer-open');
+            drawer.setAttribute('aria-hidden', 'true');
+
+            var trigger = document.getElementById('vana-agenda-open-btn') || document.querySelector('[data-vana-agenda-open]');
+            if (trigger) trigger.focus();
         }
 
-        // VOD play
-        var playBtn = e.target.closest('[data-vana-play-vod]');
-        if (playBtn) {
-            _emitMediaSelect(playBtn);
-            if (window.innerWidth < 768) _closeDrawer();
-            return;
+        function _switchDay(dayKey, source) {
+            var drawer = document.getElementById('vana-agenda-drawer');
+            if (!drawer || !dayKey) return;
+
+            drawer.querySelectorAll('[data-vana-agenda-day]').forEach(function (tab) {
+                var active = tab.getAttribute('data-vana-agenda-day') === dayKey;
+                tab.classList.toggle('is-active', active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+
+            drawer.querySelectorAll('[data-vana-agenda-panel]').forEach(function (panel) {
+                var active = panel.getAttribute('data-vana-agenda-panel') === dayKey;
+                if (active) {
+                    panel.removeAttribute('hidden');
+                    panel.classList.add('is-active');
+                } else {
+                    panel.setAttribute('hidden', '');
+                    panel.classList.remove('is-active');
+                }
+            });
+
+            if (source === 'agenda') {
+                document.dispatchEvent(new CustomEvent('vana:day:change', { bubbles: true, detail: { day: dayKey, _source: 'agenda' } }));
+            }
         }
 
-        // HK
-        var hkBtn = e.target.closest('[data-vana-open-hk]');
-        if (hkBtn) {
-            _emitHKSelect(hkBtn);
-            if (window.innerWidth < 768) _closeDrawer();
-            return;
+        function _emitMediaSelect(btn) {
+            var evLi = btn.closest('[data-vana-event-key]');
+            var detail = {
+                type: 'vod',
+                event_key: btn.dataset.vanaEventKey || '',
+                video_id: btn.dataset.vanaVideoId || btn.dataset.vanaVideo || '',
+                provider: btn.dataset.vanaProvider || 'youtube',
+                day_key: evLi ? evLi.dataset.vanaDayKey || '' : '',
+            };
+            document.dispatchEvent(new CustomEvent('vana:event:select', { bubbles: true, detail: detail }));
         }
 
-        // Gallery
-        var galBtn = e.target.closest('[data-vana-open-gallery]');
-        if (galBtn) {
-            _emitGallerySelect(galBtn);
-            if (window.innerWidth < 768) _closeDrawer();
-            return;
+        function _emitHKSelect(btn) {
+            var evLi = btn.closest('[data-vana-event-key]');
+            var detail = { type: 'katha', event_key: btn.dataset.vanaOpenHk || '', katha_ids: (btn.dataset.vanaKathaIds||'').split(',').filter(Boolean), day_key: evLi ? evLi.dataset.vanaDayKey || '' : '' };
+            document.dispatchEvent(new CustomEvent('vana:event:select', { bubbles: true, detail: detail }));
         }
-    });
 
-    // ── Escuta vana:day:change do Hero (sincroniza tab) ──────────
-    // NÃO recarrega nada — apenas reflete o estado visual
-    document.addEventListener('vana:day:change', function (e) {
-        const day = e.detail && e.detail.day;
-        if (day) _switchDay(day, /* silent */ true);
-    });
-
-    // Fecha com ESC (lazy drawer lookup)
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            var drawer = _drawer();
-            if (drawer && !drawer.hidden) _closeDrawer();
+        function _emitGallerySelect(btn) {
+            var evLi = btn.closest('[data-vana-event-key]');
+            var detail = { type: 'gallery', event_key: btn.dataset.vanaOpenGallery || '', day_key: evLi ? evLi.dataset.vanaDayKey || '' : '' };
+            document.dispatchEvent(new CustomEvent('vana:event:select', { bubbles: true, detail: detail }));
         }
-    });
 
-    // ════════════════════════════════════════════════════════════
-    // EMISSORES DE EVENTOS
-    // ════════════════════════════════════════════════════════════
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
 
+    }());
     /**
      * Emite vana:event:select com payload completo para o Stage.
      * Chamado ao clicar ▶ em qualquer VOD.
