@@ -37,8 +37,47 @@
         function closeDrawer() { var d=drawer(),o=overlay(); if(!d)return; d.classList.remove('is-open'); if(o)o.classList.remove('is-open'); setVisible(d,false); setVisible(o,false); document.body.style.overflow=''; document.querySelectorAll(SEL.open).forEach(function(btn){btn.setAttribute('aria-expanded','false');}); _isOpen=false; if(_lastFocus&&typeof _lastFocus.focus==='function'){_lastFocus.focus();} emit('vana:agenda:close',{}); }
         function switchDay(dayKey,source){var d=drawer();if(!d||!dayKey)return;d.querySelectorAll(SEL.dayTab).forEach(function(tab){var active=tab.getAttribute('data-vana-agenda-day')===dayKey;tab.setAttribute('aria-selected',active?'true':'false');tab.classList.toggle('is-active',active);});d.querySelectorAll(SEL.panel).forEach(function(panel){var active=panel.getAttribute('data-vana-agenda-panel')===dayKey;setVisible(panel,active);panel.classList.toggle('is-active',active);});_activeDay=dayKey;if(source==='agenda'){emit('vana:day:change',{day:dayKey,_source:'agenda'});}}
         function handlePlayVod(btn){var videoId=btn.getAttribute('data-vana-video-id')||'',provider=btn.getAttribute('data-vana-provider')||'youtube',evKey=btn.getAttribute('data-vana-event-key')||'',dayKey=btn.getAttribute('data-vana-day-key')||'';if(!videoId)return;emit('vana:event:select',{videoId:videoId,provider:provider,eventKey:evKey,dayKey:dayKey});closeDrawer();}
-        function bindAll(){var d=drawer();if(!d){console.warn('[VanaAgenda] #vana-agenda-drawer não encontrado — abortando init.');return;}d.setAttribute('tabindex','-1');trapFocus(d);document.querySelectorAll(SEL.open).forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();openDrawer();});});d.querySelectorAll(SEL.close).forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();closeDrawer();});});var o=overlay();if(o)o.addEventListener('click',closeDrawer);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&_isOpen)closeDrawer();});d.addEventListener('click',function(e){var tab=e.target.closest(SEL.dayTab);if(!tab)return;switchDay(tab.getAttribute('data-vana-agenda-day'),'agenda');});d.addEventListener('click',function(e){var btn=e.target.closest(SEL.playVod);if(!btn)return;handlePlayVod(btn);});var firstTab=d.querySelector(SEL.dayTab+'.is-active')||d.querySelector(SEL.dayTab);if(firstTab){var firstDay=firstTab.getAttribute('data-vana-agenda-day');if(firstDay)switchDay(firstDay,null);}document.addEventListener('vana:day:change',function(e){if(!e.detail||!e.detail.day)return;if(e.detail._source==='agenda')return;switchDay(e.detail.day,null);});}
-        if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',bindAll);}else{bindAll();}
+        function bindAll(){var d=drawer();if(!d){console.warn('[VanaAgenda] #vana-agenda-drawer não encontrado — abortando init.');return;}d.setAttribute('tabindex','-1');trapFocus(d);document.querySelectorAll(SEL.open).forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();openDrawer();});});d.querySelectorAll(SEL.close).forEach(function(btn){btn.addEventListener('click',function(e){e.preventDefault();closeDrawer();});});var o=overlay();if(o)o.addEventListener('click',closeDrawer);document.addEventListener('keydown',function(e){if(e.key==='Escape'&&_isOpen)closeDrawer();});d.addEventListener('click',function(e){var tab=e.target.closest(SEL.dayTab);if(!tab)return;switchDay(tab.getAttribute('data-vana-agenda-day'),'agenda');});d.addEventListener('click',function(e){var btn=e.target.closest(SEL.playVod);if(!btn)return;handlePlayVod(btn);});
+        // ── Event click: fecha gaveta + reload com day + event_key ───────────────
+        d.addEventListener('click', function (e) {
+            var li = e.target.closest('[data-vana-event-key][data-vana-day-key]');
+            if (!li) return;
+            var isVod    = !!e.target.closest('[data-vana-play-vod]');
+            var isHk     = !!e.target.closest('[data-vana-open-hk]');
+            var isGal    = !!e.target.closest('[data-vana-open-gallery]');
+            var isNotify = !!e.target.closest('[data-vana-notify-event]');
+            if (isVod || isHk || isGal || isNotify) return;
+            var evKey  = li.getAttribute('data-vana-event-key')  || '';
+            var dayKey = li.getAttribute('data-vana-day-key')    || '';
+            if (!evKey || !dayKey) return;
+            e.preventDefault();
+            closeDrawer();
+            var url = new URL(window.location.href);
+            url.searchParams.set('day', dayKey);
+            url.searchParams.set('event_key', evKey);
+            window.location.href = url.toString();
+        });
+        // ── VOD Play: fecha gaveta + reload com day + vod_key ────────────────────
+        d.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-vana-play-vod]');
+            if (!btn) return;
+            var videoId  = btn.getAttribute('data-vana-video-id')  || '';
+            var provider = btn.getAttribute('data-vana-provider')  || 'youtube';
+            var evKey    = btn.getAttribute('data-vana-event-key') || '';
+            var dayKey   = btn.getAttribute('data-vana-day-key')   || '';
+            if (!videoId) return;
+            e.preventDefault();
+            document.dispatchEvent(new CustomEvent('vana:event:select', {
+                bubbles: true,
+                detail: { videoId: videoId, provider: provider, eventKey: evKey, dayKey: dayKey }
+            }));
+            closeDrawer();
+            var url = new URL(window.location.href);
+            url.searchParams.set('day', dayKey);
+            if (evKey) url.searchParams.set('event_key', evKey);
+            window.location.href = url.toString();
+        });
+        var firstTab=d.querySelector(SEL.dayTab+'.is-active')||d.querySelector(SEL.dayTab);if(firstTab){var firstDay=firstTab.getAttribute('data-vana-agenda-day');if(firstDay)switchDay(firstDay,null);}document.addEventListener('vana:day:change',function(e){if(!e.detail||!e.detail.day)return;if(e.detail._source==='agenda')return;switchDay(e.detail.day,null);});}
     }());
     /**
      * Emite vana:event:select com payload completo para o Stage.

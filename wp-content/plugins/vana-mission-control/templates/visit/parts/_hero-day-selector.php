@@ -17,112 +17,112 @@
  *   ...
  * ]
  *
- * Regras (conforme CONTRATO.md § 8):
- *   - Se só há 1 dia → exibe conteúdo direto, sem seletor de abas
- *   - Dia atual (hoje) recebe badge "Hoje"
- *   - Aba ativa = hoje se presente, senão primeiro dia
- *   - Sem eventos → exibe 'day.empty'
+<?php
+/**
+ * _hero-day-selector.php — Schema 6.1
+ * Ao clicar num dia → recarrega a página com ?day={day_key}
  */
-if (!defined('ABSPATH')) exit;
+defined( 'ABSPATH' ) || exit;
 
-// ─── Segurança ────────────────────────────────────────────────────────────────
-$days = isset($tour['days']) && is_array($tour['days']) ? $tour['days'] : [];
-if (empty($days)) return;
+// Consome $days (do _bootstrap.php) ou $tour['days']
+$_hds_days = is_array( $days ?? null ) ? $days : ( is_array( $tour['days'] ?? null ) ? $tour['days'] : [] );
 
-// ─── Data de hoje (fuso do servidor WP) ──────────────────────────────────────
-$today = wp_date('Y-m-d');
+if ( count( $_hds_days ) <= 1 ) return; // Regra: 1 dia = sem seletor
 
-// ─── Aba ativa: hoje se presente, senão índice 0 ─────────────────────────────
-$active_index = 0;
-foreach ($days as $i => $day) {
-    $date = trim((string) ($day['date'] ?? ''));
-    if ($date === $today) {
-        $active_index = $i;
-        break;
-    }
+// Agrupa por mês (spec: virada de mês/ano)
+$_hds_groups = [];
+foreach ( $_hds_days as $i => $day ) {
+    $ts  = strtotime( ( $day['day_key'] ?? $day['date_local'] ?? '' ) . ' 12:00:00' );
+    $key = $ts ? date( 'Y-m', $ts ) : 'unknown';
+    $_hds_groups[ $key ][] = [ 'index' => $i, 'day' => $day, 'ts' => $ts ];
 }
 
-// ─── Tour ID para IDs únicos no DOM ──────────────────────────────────────────
-$tour_id = esc_attr((string) ($tour['id'] ?? 'tour'));
+// Detecta se há virada de ano entre grupos
+$_hds_years = array_unique( array_map( fn($k) => substr($k, 0, 4), array_keys( $_hds_groups ) ) );
+$_hds_multi_year = count( $_hds_years ) > 1;
 
-// ─── Caso especial: apenas 1 dia ─────────────────────────────────────────────
-if (count($days) === 1) :
-    $day    = $days[0];
-    $events = isset($day['events']) && is_array($day['events']) ? $day['events'] : [];
-?>
-<div class="vana-day-solo" data-tour="<?php echo $tour_id; ?>">
-    <?php if (empty($events)) : ?>
-        <p class="vana-day__empty">
-            <?php echo esc_html(Vana_Utils::t('day.empty', $lang)); ?>
-        </p>
-    <?php else : ?>
-        <?php include __DIR__ . '/_hero-events.php'; ?>
-    <?php endif; ?>
-</div>
-<?php return; endif; ?>
+// Day key ativo (GET param ou primeiro dia)
+$_hds_active = sanitize_text_field( $_GET['day'] ?? '' );
+if ( ! $_hds_active && ! empty( $_hds_days ) ) {
+    $_hds_active = $_hds_days[0]['day_key'] ?? '';
+}
 
-<?php
-// ─── Múltiplos dias: seletor de abas ─────────────────────────────────────────
+// URL base para os links (preserva ?lang= e outros params, remove ?day=)
+$_hds_base_url = remove_query_arg( 'day' );
 ?>
+
 <div
     class="vana-day-selector"
     role="tablist"
-    aria-label="<?php echo esc_attr(Vana_Utils::t('aria.day_selector', $lang)); ?>"
-    data-tour="<?php echo $tour_id; ?>"
+    aria-label="<?php echo esc_attr( $lang === 'en' ? 'Select day' : 'Selecionar dia' ); ?>"
+    data-vana-day-selector
 >
+    <?php foreach ( $_hds_groups as $month_key => $group_items ) :
+        $ts_first = $group_items[0]['ts'];
+        // Label do mês: só mês se mesmo ano, mês+ano se virada
+        $month_label = $_hds_multi_year
+            ? wp_date( 'M Y', $ts_first )     // "dez 2024"
+            : wp_date( 'MMMM', $ts_first );   // "outubro"
 
-    <?php // ── Abas (triggers) ──────────────────────────────────────────── ?>
-    <div class="vana-day-selector__tabs" role="presentation">
-    <?php foreach ($days as $i => $day) :
-        $date      = trim((string) ($day['date'] ?? ''));
-        $is_active = ($i === $active_index);
-        $is_today  = ($date === $today);
-        $panel_id  = "vana-day-panel-{$tour_id}-{$i}";
-        $tab_id    = "vana-day-tab-{$tour_id}-{$i}";
-
-        // Label do dia
-        if (isset($day['label'])) {
-            $label = Vana_Utils::pick_i18n($day['label'], $lang);
-        } else {
-            // Formata a data no locale do WP
-            $label = ($date !== '')
-                ? wp_date(get_option('date_format'), strtotime($date))
-                : ($lang === 'en' ? 'Day ' . ($i + 1) : 'Dia ' . ($i + 1));
-        }
+        // Fallback: wp_date com 'F' dá nome completo, 'M' abreviado
+        $month_label = wp_date( $_hds_multi_year ? 'M Y' : 'F', $ts_first );
     ?>
-        <button
-            id="<?php echo esc_attr($tab_id); ?>"
-            class="vana-day-selector__tab<?php echo $is_active ? ' vana-day-selector__tab--active' : ''; ?>"
-            role="tab"
-            aria-selected="<?php echo $is_active ? 'true' : 'false'; ?>"
-            aria-controls="<?php echo esc_attr($panel_id); ?>"
-            data-date="<?php echo esc_attr($date); ?>"
-            data-day-key="<?php echo esc_attr( $day['day_key'] ?? $date ); ?>"
-            data-index="<?php echo esc_attr((string) $i); ?>"
-            <?php echo !$is_active ? 'tabindex="-1"' : ''; ?>
-        >
-            <span class="vana-day-selector__tab-label">
-                <?php echo esc_html($label); ?>
-            </span>
-            <?php if ($is_today) : ?>
-            <span
-                class="vana-badge vana-badge--today"
-                aria-label="<?php echo esc_attr(Vana_Utils::t('day.today', $lang)); ?>"
+
+    <div class="vana-day-selector__group">
+        <span class="vana-day-selector__month-label">
+            <?php echo esc_html( $month_label ); ?>
+        </span>
+
+        <div class="vana-day-selector__pills" role="presentation">
+            <?php foreach ( $group_items as $item ) :
+                $day     = $item['day'];
+                $dk      = (string) ( $day['day_key'] ?? '' );
+                $ts      = $item['ts'];
+                $is_act  = ( $dk === $_hds_active );
+
+                // Hoje?
+                $is_today = ( $ts && date( 'Y-m-d', $ts ) === date( 'Y-m-d' ) );
+
+                // Texto do botão: dia numérico
+                $day_num     = $ts ? wp_date( 'j', $ts )   : $dk;
+                $weekday_lbl = $ts ? wp_date( 'D', $ts )   : '';
+
+                // URL do dia
+                $day_url = add_query_arg( 'day', $dk, $_hds_base_url );
+
+                $btn_class = 'vana-day-selector__tab'
+                           . ( $is_act   ? ' vana-day-selector__tab--active'  : '' )
+                           . ( $is_today ? ' vana-day-selector__tab--today'   : '' );
+            ?>
+            <a
+                href="<?php echo esc_url( $day_url ); ?>"
+                class="<?php echo esc_attr( $btn_class ); ?>"
+                role="tab"
+                aria-selected="<?php echo $is_act ? 'true' : 'false'; ?>"
+                data-day-key="<?php echo esc_attr( $dk ); ?>"
+                aria-label="<?php echo esc_attr(
+                    $weekday_lbl . ' ' . $day_num
+                    . ( $is_today ? ( $lang === 'en' ? ' — Today' : ' — Hoje' ) : '' )
+                ); ?>"
             >
-                <?php echo esc_html(Vana_Utils::t('day.today', $lang)); ?>
-            </span>
-            <?php endif; ?>
-        </button>
+                <span class="vana-day-selector__weekday" aria-hidden="true">
+                    <?php echo esc_html( $weekday_lbl ); ?>
+                </span>
+                <span class="vana-day-selector__num">
+                    <?php echo $is_today ? '●' : ''; ?><?php echo esc_html( $day_num ); ?>
+                </span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+    </div>
     <?php endforeach; ?>
-    </div><!-- /.vana-day-selector__tabs -->
+</div>
 
-    <?php // ── Painéis (conteúdo) ───────────────────────────────────────── ?>
-    <?php foreach ($days as $i => $day) :
-        $is_active = ($i === $active_index);
-        $panel_id  = "vana-day-panel-{$tour_id}-{$i}";
-        $tab_id    = "vana-day-tab-{$tour_id}-{$i}";
-        $events    = isset($day['events']) && is_array($day['events']) ? $day['events'] : [];
-    ?>
+<?php unset( $_hds_days, $_hds_groups, $_hds_years, $_hds_multi_year,
+             $_hds_active, $_hds_base_url, $group_items, $item,
+             $day, $dk, $ts, $is_act, $is_today, $day_num,
+             $weekday_lbl, $day_url, $btn_class, $month_key,
+             $ts_first, $month_label ); ?>
     <div
         id="<?php echo esc_attr($panel_id); ?>"
         class="vana-day-selector__panel<?php echo $is_active ? ' vana-day-selector__panel--active' : ''; ?>"

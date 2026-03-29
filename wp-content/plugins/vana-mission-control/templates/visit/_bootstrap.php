@@ -145,6 +145,28 @@ foreach ( $days as $d ) {
 if ( ! $active_day && ! empty( $days ) ) {
     $active_day = $days[0];
 }
+// ── Dia ativo (priority: ?day GET param → first day fallback) ────────────
+$active_day_key = sanitize_text_field( $_GET['day'] ?? '' );
+
+if ( ! $active_day_key && ! empty( $days ) ) {
+    $active_day_key = $days[0]['day_key'] ?? '';
+}
+
+// Encontra o array completo do dia ativo
+$active_day = null;
+foreach ( $days as $_d ) {
+    if (
+        ( $_d['day_key']    ?? '' ) === $active_day_key ||
+        ( $_d['date_local'] ?? '' ) === $active_day_key
+    ) {
+        $active_day = $_d;
+        break;
+    }
+}
+if ( ! $active_day && ! empty( $days ) ) {
+    $active_day = $days[0];
+    $active_day_key = $active_day['day_key'] ?? '';
+}
 
 // ── 4. Índice do dia ativo ────────────────────────────────────────────────────
 $active_index = 0;
