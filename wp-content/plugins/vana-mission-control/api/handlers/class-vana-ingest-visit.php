@@ -32,10 +32,11 @@ final class Vana_Ingest_Visit
             return Vana_Utils::api_response(false, 'Schema inválido: data deve ser um objeto', 422);
         }
 
-        // Schema guardrails
+        // Schema guardrails — aceitar 3.1 (legado) e 6.1 (novo timeline v6)
         $schema_version = sanitize_text_field((string) ($data['schema_version'] ?? ''));
-        if ($schema_version !== '3.1') {
-            return Vana_Utils::api_response(false, 'Schema não suportado: schema_version deve ser 3.1', 422);
+        $allowed_schemas = [ '3.1', '6.1' ];
+        if ( ! in_array( $schema_version, $allowed_schemas, true ) ) {
+            return Vana_Utils::api_response(false, 'Schema não suportado: schema_version deve ser 3.1 ou 6.1', 422);
         }
 
         $days = $data['days'] ?? null;

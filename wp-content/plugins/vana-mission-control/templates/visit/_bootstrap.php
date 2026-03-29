@@ -47,9 +47,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // ── Guard: evita double-resolve em includes aninhados ─────────────────────────
 if ( isset( $vana_bootstrap_loaded ) && $vana_bootstrap_loaded === true ) {
+    error_log( '[_bootstrap] Guard hit - already loaded, returning early' );
     return;
 }
 $vana_bootstrap_loaded = true;
+error_log( '[_bootstrap] Starting (guard bypassed)' );
 
 // ── PRE-LOAD: Carrega funções utilitárias do Stage antes das parts ────────────
 $vana_stage_file = defined( 'VANA_MC_PATH' )
@@ -82,7 +84,10 @@ if ( ! $visit_id || get_post_type( $visit_id ) !== 'vana_visit' ) {
 
 // ── 1. Resolve ViewModel ──────────────────────────────────────────────────────
 $vana_vm = VisitStageResolver::resolve( $visit_id );
-extract( $vana_vm->to_template_vars() );
+$_vm_vars = $vana_vm->to_template_vars();
+error_log( '[_bootstrap] ViewModel keys: ' . implode(',', array_keys($_vm_vars)) );
+extract( $_vm_vars );
+error_log( '[_bootstrap] After extract. isset($timeline): ' . (isset($timeline) ? 'YES' : 'NO') . ' | isset($days): ' . (isset($days) ? 'YES' : 'NO') );
 
 // ── 2. Idioma ─────────────────────────────────────────────────────────────────
 $lang = sanitize_key( $_GET['lang'] ?? 'pt' );
@@ -90,7 +95,10 @@ $lang = in_array( $lang, [ 'pt', 'en' ], true ) ? $lang : 'pt';
 
 // ── 3. Aliases de dados ───────────────────────────────────────────────────────
 $data = $timeline;
+error_log( '[_bootstrap] After extract. $timeline keys: ' . implode(',', array_keys($timeline ?? [])) );
+error_log( '[_bootstrap] $timeline[days] count: ' . count($timeline['days'] ?? []) );
 $days = is_array( $data['days'] ?? null ) ? $data['days'] : [];
+error_log( '[_bootstrap] After assignment. $days count: ' . count($days) );
 
 // ── Index do visit.json processado (útil para lookup rápido de keys) ─────────
 $index = [];

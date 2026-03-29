@@ -11,9 +11,35 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// Restore variables from $GLOBALS if needed (when called from parent template)
+error_log( '[visit-template start] isset($days): ' . (isset($days) ? 'YES' : 'NO') );
+error_log( '[visit-template start] $GLOBALS[_vana_visit][days] count: ' . (isset($GLOBALS['_vana_visit']['days']) ? count($GLOBALS['_vana_visit']['days']) : 'NOT_SET') );
+
+if ( !isset($visit_id) && isset($GLOBALS['_vana_visit']) ) {
+    extract( $GLOBALS['_vana_visit'], EXTR_IF_EXISTS );
+    error_log( '[visit-template] After extract, $days count: ' . count($days ?? []) );
+}
+
+// Also explicitly get days from globals
+if ( !isset($days) ) {
+    $days = $GLOBALS['_vana_visit']['days'] ?? [];
+    error_log( '[visit-template] Assigned days from GLOBALS, count: ' . count($days) );
+}
+if ( !isset($index) ) {
+    $index = isset($GLOBALS['_vana_visit']['index']) ? $GLOBALS['_vana_visit']['index'] : [];
+}
+if ( !isset($lang) ) {
+    $lang = $GLOBALS['_vana_visit']['lang'] ?? 'pt';
+}
+
+error_log( '[visit-template before guard] $days count: ' . count($days ?? []));
+
 if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
+    error_log( '[visit-template] GUARD RETURN - $days still available?: ' . count($days ?? []) );
     return;
 }
+
+error_log( '[visit-template after guard] $days count: ' . count($days ?? []));
 
 // Variáveis disponíveis do _bootstrap.php:
 // $visit_id, $timeline, $active_day, $active_events, $active_event
@@ -133,11 +159,32 @@ if ( ! isset( $visit_id, $timeline, $active_day, $active_events ) ) {
 
     <!-- Inclui a gaveta da agenda dentro do main, antes do fechamento -->
     <?php
+    // Crítico: Garantir que $days, $index, $lang, $visit_id estão presentes
+    if ( !isset($days) || empty($days) ) {
+        $days = $GLOBALS['_vana_visit']['days'] ?? $timeline['days'] ?? [];
+        error_log('[CRITICAL FIX] $days was empty, assigned from globals. Now count: ' . count($days));
+    }
+    if ( !isset($index) ) {
+        $index = $GLOBALS['_vana_visit']['index'] ?? [];
+    }
+    if ( !isset($lang) ) {
+        $lang = $GLOBALS['_vana_visit']['lang'] ?? 'pt';
+    }
+    
+    error_log('[DRAWER INCLUDE] $days count RIGHT NOW: ' . count($days ?? []) . ' | is_array: ' . (is_array($days) ? 'YES' : 'NO'));
+    
     $agenda_part = VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php';
     if ( file_exists( $agenda_part ) ) {
         include $agenda_part;
     }
     ?>
+    <script>
+    // Debug: log to console what we have
+    console.log('[visit-template] Days available: <?php echo count($days ?? []);?>');
+    console.log('[visit-template] Data keys: <?php echo json_encode(array_keys($timeline ?? []));?>');
+    console.log('[visit-template] timeline.days count: <?php echo is_array(($timeline['days'] ?? null)) ? count($timeline['days']) : 'NOT_ARRAY'; ?>');
+    console.log('[visit-template] timeline days: <?php echo json_encode($timeline['days'] ?? 'NOT_SET');?>'.substring(0, 200));
+    </script>
 
   </main>
 

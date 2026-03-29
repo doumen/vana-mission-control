@@ -29,6 +29,10 @@ the_post();
 
 require_once VANA_MC_PATH . 'templates/visit/_bootstrap.php';
 
+error_log( '[single-vana_visit] After _bootstrap.php. $days count: ' . count($days ?? []) );
+error_log( '[single-vana_visit] $timeline keys: ' . implode(',', array_keys($timeline ?? [])) );
+error_log( '[single-vana_visit] $timeline[days] count: ' . count($timeline['days'] ?? []) );
+
 /* ============================================================
    3. METAS DE APRESENTAÇÃO (OG / PWA)
    ============================================================ */
@@ -45,11 +49,11 @@ $timeline_hash   = (string) get_post_meta( $post_id, '_vana_timeline_hash',     
 
 
 /* ============================================================
-  4. DADOS DE VISITA
+  4. DADOS DE VISITA (populated by _bootstrap.php)
   ============================================================ */
 
+// Note: $timeline, $days, $lang, $visit_tz, etc. already defined by _bootstrap.php via extract()
 $visit_data = $timeline;
-$days       = (array) ( $visit_data['days'] ?? [] );
 
 /* ============================================================
   5. ACTIVE VOD INDEX

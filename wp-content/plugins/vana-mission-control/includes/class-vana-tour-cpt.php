@@ -14,6 +14,10 @@ final class Vana_Tour_CPT {
         add_action('init', [__CLASS__, 'register'], 10);
         add_action('init', [__CLASS__, 'register_meta'], 20);
 
+        // Admin metaboxes + save
+        add_action('add_meta_boxes', [__CLASS__, 'add_meta_boxes']);
+        add_action('save_post_vana_tour', [__CLASS__, 'save_meta_box'], 10, 2);
+
         // Admin list table: colunas + conteúdo
         add_filter('manage_vana_tour_posts_columns',        [__CLASS__, 'admin_columns_head']);
         // legacy / alternative hook used by some WP versions/themes
@@ -203,6 +207,103 @@ final class Vana_Tour_CPT {
                 $query->set('meta_key', '_vana_origin_key');
                 $query->set('orderby', 'meta_value');
                 break;
+        }
+    }
+
+    /* ---------------------------
+     * Admin: Metaboxes (edit screen)
+     * --------------------------- */
+
+    public static function add_meta_boxes(): void {
+        add_meta_box(
+            'vana_tour_details',
+            __('Tour Details', 'vana-mission-control'),
+            [__CLASS__, 'render_meta_box'],
+            'vana_tour',
+            'normal',
+            'high'
+        );
+    }
+
+    public static function render_meta_box(WP_Post $post): void {
+        // Nonce
+        wp_nonce_field('vana_tour_meta', 'vana_tour_meta_nonce');
+
+        $region = esc_attr( (string) get_post_meta($post->ID, '_vana_region_code', true) );
+        $season = esc_attr( (string) get_post_meta($post->ID, '_vana_season_code', true) );
+        $y_start = esc_attr( (string) get_post_meta($post->ID, '_vana_year_start', true) );
+        $y_end = esc_attr( (string) get_post_meta($post->ID, '_vana_year_end', true) );
+        $title_pt = esc_attr( (string) get_post_meta($post->ID, '_vana_title_pt', true) );
+        $title_en = esc_attr( (string) get_post_meta($post->ID, '_vana_title_en', true) );
+        $origin = esc_attr( (string) get_post_meta($post->ID, '_vana_origin_key', true) );
+
+        ?>
+        <table class="form-table">
+            <tbody>
+                <tr>
+                    <th><label for="vana_region_code"><?php esc_html_e('Region Code', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_region_code" id="vana_region_code" type="text" value="<?php echo $region; ?>" class="regular-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_season_code"><?php esc_html_e('Season Code', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_season_code" id="vana_season_code" type="text" value="<?php echo $season; ?>" class="regular-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_year_start"><?php esc_html_e('Year Start', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_year_start" id="vana_year_start" type="number" min="0" value="<?php echo $y_start; ?>" class="small-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_year_end"><?php esc_html_e('Year End', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_year_end" id="vana_year_end" type="number" min="0" value="<?php echo $y_end; ?>" class="small-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_title_pt"><?php esc_html_e('Title (PT)', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_title_pt" id="vana_title_pt" type="text" value="<?php echo $title_pt; ?>" class="regular-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_title_en"><?php esc_html_e('Title (EN)', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_title_en" id="vana_title_en" type="text" value="<?php echo $title_en; ?>" class="regular-text" /></td>
+                </tr>
+                <tr>
+                    <th><label for="vana_origin_key"><?php esc_html_e('Origin Key', 'vana-mission-control'); ?></label></th>
+                    <td><input name="vana_origin_key" id="vana_origin_key" type="text" value="<?php echo $origin; ?>" class="regular-text" readonly /></td>
+                </tr>
+            </tbody>
+        </table>
+        <?php
+    }
+
+    public static function save_meta_box(int $post_id, WP_Post $post): void {
+        // Verify nonce
+        if (empty($_POST['vana_tour_meta_nonce']) || !wp_verify_nonce($_POST['vana_tour_meta_nonce'], 'vana_tour_meta')) {
+            return;
+        }
+        // Autosave / permissions
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+        if (!current_user_can('edit_post', $post_id)) return;
+
+        // Sanitize and save
+        if (isset($_POST['vana_region_code'])) {
+            update_post_meta($post_id, '_vana_region_code', sanitize_text_field((string) $_POST['vana_region_code']));
+        }
+        if (isset($_POST['vana_season_code'])) {
+            update_post_meta($post_id, '_vana_season_code', sanitize_text_field((string) $_POST['vana_season_code']));
+        }
+        if (isset($_POST['vana_year_start'])) {
+            update_post_meta($post_id, '_vana_year_start', absint($_POST['vana_year_start']));
+        }
+        if (isset($_POST['vana_year_end'])) {
+            update_post_meta($post_id, '_vana_year_end', absint($_POST['vana_year_end']));
+        }
+        if (isset($_POST['vana_title_pt'])) {
+            update_post_meta($post_id, '_vana_title_pt', sanitize_text_field((string) $_POST['vana_title_pt']));
+        }
+        if (isset($_POST['vana_title_en'])) {
+            update_post_meta($post_id, '_vana_title_en', sanitize_text_field((string) $_POST['vana_title_en']));
+        }
+        // Origin key is readonly in the UI but allow explicit save (if provided)
+        if (isset($_POST['vana_origin_key'])) {
+            update_post_meta($post_id, '_vana_origin_key', sanitize_text_field((string) $_POST['vana_origin_key']));
         }
     }
 }
