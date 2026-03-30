@@ -11,6 +11,14 @@
  */
 defined( 'ABSPATH' ) || exit;
 
+if ( defined('WP_DEBUG') && WP_DEBUG ) {
+    $__ad_days = $tour['days'] ?? $days ?? [];
+    error_log('[AGENDA-DEBUG] days count: ' . count($__ad_days));
+    error_log('[AGENDA-DEBUG] day[0]: ' . wp_json_encode($__ad_days[0] ?? []));
+    error_log('[AGENDA-DEBUG] day[0] day_key: "' . ($__ad_days[0]['day_key'] ?? 'AUSENTE') . '"');
+    unset($__ad_days);
+}
+
 // ── Guarda entradas ──────────────────────────────────────────────────────────
 $agenda_days = is_array( $days ?? null ) ? $days : [];
 if ( empty( $agenda_days ) ) return;
@@ -19,7 +27,15 @@ $idx_events  = $index['events']  ?? [];
 $idx_vods    = $index['vods']    ?? [];
 $idx_kathas  = $index['kathas']  ?? [];
 
-$active_day_key = $agenda_days[0]['day_key'] ?? '';
+$active_day_key = sanitize_text_field(
+    $_GET['v_day'] ?? $_GET['day'] ?? ''
+);
+if ( ! $active_day_key ) {
+    $active_day_key = $agenda_days[0]['day_key']
+                   ?? $agenda_days[0]['date_local']
+                   ?? $agenda_days[0]['date']
+                   ?? '';
+}
 
 // ── Helpers inline ───────────────────────────────────────────────────────────
 
@@ -29,7 +45,8 @@ $active_day_key = $agenda_days[0]['day_key'] ?? '';
 function _vana_agd_day_label( array $day, string $lang ): string {
     $v = $day[ 'label_' . $lang ] ?? $day['label_pt'] ?? '';
     if ( $v !== '' ) return $v;
-    $ts = strtotime( ( $day['day_key'] ?? '' ) . ' 12:00:00' );
+    $_dk_raw = $day['day_key'] ?? $day['date_local'] ?? $day['date'] ?? '';
+    $ts = $_dk_raw ? strtotime( $_dk_raw . ' 12:00:00' ) : 0;
     return $ts ? wp_date( 'd/m', $ts ) : ( $day['day_key'] ?? '—' );
 }
 
@@ -94,7 +111,10 @@ function _vana_agd_badge( string $status, string $lang ): string {
             aria-label="<?php echo esc_attr( $lang === 'en' ? 'Days' : 'Dias' ); ?>"
         >
             <?php foreach ( $agenda_days as $i => $day ) :
-                $dk      = $day['day_key'] ?? '';
+                $dk = $day['day_key']
+                    ?? $day['date_local']
+                    ?? $day['date']
+                    ?? '';
                 $is_act  = ( $dk === $active_day_key );
 
                 // Dot vermelho se algum evento do dia está live

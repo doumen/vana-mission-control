@@ -126,33 +126,14 @@ if ( ! empty( $_visit_raw_json ) ) {
 }
 unset( $_visit_raw_json, $_visit_raw );
 
-// ── Dia ativo (priority: ?day GET param → first day fallback) ───────────────
-$active_day_key = sanitize_text_field( $_GET['day'] ?? '' );
+// ── Dia ativo (priority: ?v_day → ?day → first day fallback) ─────────────────
+$active_day_key = sanitize_text_field( $_GET['v_day'] ?? $_GET['day'] ?? '' );
 
 if ( ! $active_day_key && ! empty( $days ) ) {
-    // Usa day_key do primeiro dia como fallback
-    $active_day_key = $days[0]['day_key'] ?? '';
+    $active_day_key = $days[0]['day_key'] ?? $days[0]['date_local'] ?? '';
 }
 
-// Encontra o array completo do dia ativo
-$active_day = null;
-foreach ( $days as $d ) {
-    if ( ( $d['day_key'] ?? '' ) === $active_day_key ) {
-        $active_day = $d;
-        break;
-    }
-}
-if ( ! $active_day && ! empty( $days ) ) {
-    $active_day = $days[0];
-}
-// ── Dia ativo (priority: ?day GET param → first day fallback) ────────────
-$active_day_key = sanitize_text_field( $_GET['day'] ?? '' );
-
-if ( ! $active_day_key && ! empty( $days ) ) {
-    $active_day_key = $days[0]['day_key'] ?? '';
-}
-
-// Encontra o array completo do dia ativo
+// Encontra o array completo do dia ativo — aceita day_key OU date_local
 $active_day = null;
 foreach ( $days as $_d ) {
     if (
@@ -164,8 +145,8 @@ foreach ( $days as $_d ) {
     }
 }
 if ( ! $active_day && ! empty( $days ) ) {
-    $active_day = $days[0];
-    $active_day_key = $active_day['day_key'] ?? '';
+    $active_day     = $days[0];
+    $active_day_key = $active_day['day_key'] ?? $active_day['date_local'] ?? '';
 }
 
 // ── 4. Índice do dia ativo ────────────────────────────────────────────────────
@@ -308,6 +289,7 @@ if ( ! function_exists( '_vana_build_nav_visit' ) ) {
         $vdata = $json ? json_decode( $json, true ) : [];
         $vdata = is_array( $vdata ) ? $vdata : [];
 
+        // day_key normalization is handled centrally in section 3 (outside this helper)
         // country_code: meta canônico → fallback JSON
         $cc = strtoupper( trim(
             (string) get_post_meta( $id, '_vana_country_code', true )

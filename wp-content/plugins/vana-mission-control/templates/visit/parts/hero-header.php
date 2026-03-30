@@ -112,33 +112,44 @@ unset($_t, $_thumb, $_m);
         <button
             class="vana-header__tours-btn"
             data-drawer="vana-tour-drawer"
-            aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"
+            aria-label="<?php echo esc_attr( vana_t( 'hero.tours', $lang ) ); ?>"
             aria-expanded="false"
             aria-controls="vana-tour-drawer"
         >
             <span class="vana-header__tours-icon" aria-hidden="true">
                 <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
                     <rect width="18" height="2" rx="1" fill="currentColor"/>
-                    <rect y="6" width="18" height="2" rx="1" fill="currentColor"/>
+                    <rect y="6"  width="18" height="2" rx="1" fill="currentColor"/>
                     <rect y="12" width="12" height="2" rx="1" fill="currentColor"/>
                 </svg>
             </span>
-            <span class="vana-header__tours-label">
-                <?php echo esc_html(vana_t('hero.tours', $lang)); ?>
-            </span>
         </button>
 
-        <!-- Centro: label da tour (spec: REGIÃO · ESTAÇÃO · ANO) -->
-        <div class="vana-header__context">
-            <?php if ( $header_label !== '' ): ?>
-                <span class="vana-header__title" title="<?php echo esc_attr( (string) ($tour['title'] ?? $full_label) ); ?>">
-                    <?php echo esc_html( $header_label ); ?>
-                </span>
+        <!-- Centro: Logo + Nome do Site -->
+        <div class="vana-header__brand">
+            <?php
+            $logo_url = '';
+            if ( function_exists( 'get_custom_logo' ) ) {
+                $logo_id  = get_theme_mod( 'custom_logo' );
+                $logo_url = $logo_id ? wp_get_attachment_image_url( $logo_id, 'full' ) : '';
+            }
+            ?>
+            <?php if ( $logo_url ) : ?>
+                <img
+                    src="<?php echo esc_url( $logo_url ); ?>"
+                    alt="<?php echo esc_attr( get_bloginfo( 'name' ) ); ?>"
+                    class="vana-header__logo"
+                    width="32"
+                    height="32"
+                    loading="eager"
+                />
+            <?php else : ?>
+                <span class="vana-header__logo-placeholder" aria-hidden="true">✦</span>
             <?php endif; ?>
+            <span class="vana-header__site-name" style="color:#ffffff;opacity:1;visibility:visible;background:transparent;mix-blend-mode:normal;">Vana Madhuryam Daily</span>
         </div>
 
-        <!-- Direita: agenda + notificações + idioma -->
-                <!-- Direita: só gaveta agenda (🔔 e 🌐 migram para dentro da gaveta) -->
+        <!-- Direita: botão Agenda -->
         <div class="vana-header__actions">
             <button
                 type="button"
@@ -152,14 +163,15 @@ unset($_t, $_thumb, $_m);
             >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="17" rx="2"/>
-                    <line x1="8"  y1="2" x2="8"  y2="6"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="3"  y1="9" x2="21" y2="9"/>
+                    <rect x="3"  y="4"  width="18" height="17" rx="2"/>
+                    <line x1="8"  y1="2"  x2="8"  y2="6"/>
+                    <line x1="16" y1="2"  x2="16" y2="6"/>
+                    <line x1="3"  y1="9"  x2="21" y2="9"/>
                     <polyline points="8 15 12 11 16 15"/>
                 </svg>
             </button>
         </div>
+
     </div>
 </header>
 
@@ -181,12 +193,19 @@ unset($_t, $_thumb, $_m);
     <div class="vana-hero__overlay" aria-hidden="true"></div>
 
     <div class="vana-hero__content">
-
-        <!-- Breadcrumb -->
-        <p class="vana-hero__badge"
-           aria-label="<?php echo esc_attr(vana_t('hero.breadcrumb', $lang)); ?>">
-            <?php echo esc_html(vana_t('hero.breadcrumb', $lang)); ?>
+    <?php // ── Supertítulo da Tour (acima do h1 da cidade) ── ?>
+    <?php if ( $header_label !== '' ) : ?>
+        <p class="vana-hero__supertitle">
+            <?php if ( ! empty( $tour_url ) ) : ?>
+                <a href="<?php echo esc_url( $tour_url ); ?>"
+                   class="vana-hero__supertitle-link">
+                    <?php echo esc_html( $header_label ); ?>
+                </a>
+            <?php else : ?>
+                <?php echo esc_html( $header_label ); ?>
+            <?php endif; ?>
         </p>
+    <?php endif; ?>
 
         <!-- Título + região -->
         <div class="vana-hero__heading">
@@ -255,7 +274,7 @@ unset($_t, $_thumb, $_m);
             <p class="vana-hero__desc"><?php echo esc_html($desc); ?></p>
         <?php endif; ?>
 
-        <!-- Botão de abrir Agenda (adicionado) -->
+        <!-- Botão de abrir Agenda (adicionado)
         <button
             type="button"
             class="vana-hero__agenda-btn"
@@ -265,11 +284,28 @@ unset($_t, $_thumb, $_m);
             aria-label="<?php echo esc_attr( $lang === 'en' ? 'Open Schedule' : 'Abrir Agenda' ); ?>"
         >
             📅 <?php echo esc_html( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?>
-        </button>
+        </button> -->
 
         <?php
         // Use the accessible Hero Day Selector partial (ensures markup matches
         // the JS controller `vana-day-selector.js`).
+        // Passa $days explicitamente para o partial, garantindo que não depende só de $tour['days']
+        // ── DEBUG TEMPORÁRIO ─────────────────────────────────────────
+        if ( defined('WP_DEBUG') && WP_DEBUG ) {
+            error_log('[HERO-DEBUG] $tour[days] count: '
+                . ( isset($_t_days) ? 'já unset' : ( is_array($tour['days'] ?? null) ? count($tour['days']) : 'NULL/INVALID' ) )
+            );
+            error_log('[HERO-DEBUG] $days count: '
+                . ( isset($days) && is_array($days) ? count($days) : 'NULL/NOT SET' )
+            );
+            if ( isset($days) && is_array($days) && ! empty($days) ) {
+                error_log('[HERO-DEBUG] $days[0] keys: ' . implode(', ', array_keys($days[0])));
+                error_log('[HERO-DEBUG] $days[0] full: ' . wp_json_encode($days[0]));
+            }
+        }
+        // ── FIM DEBUG ────────────────────────────────────────────────
+        $days = $tour['days'] ?? (isset($days) ? $days : []);
+        echo '<!-- DEBUG HERO-DAY-SELECTOR: $days count = ' . (is_array($days) ? count($days) : 'N/A') . ' -->';
         require VANA_MC_PATH . 'templates/visit/parts/_hero-day-selector.php';
         ?>
 

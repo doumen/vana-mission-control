@@ -1,92 +1,3 @@
-/* ── Hero Day Selector ─────────────────────────────────────────── */
-.vana-day-selector {
-  display:         flex;
-  flex-wrap:       wrap;
-  gap:             16px;
-  margin:          24px 0 0;
-  justify-content: center;
-}
-
-.vana-day-selector__group {
-  display:        flex;
-  flex-direction: column;
-  align-items:    center;
-  gap:            6px;
-}
-
-.vana-day-selector__month-label {
-  font-family:    'Syne', sans-serif;
-  font-size:      0.68rem;
-  font-weight:    700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color:          rgba(255,255,255,0.45);
-}
-
-.vana-day-selector__pills {
-  display: flex;
-  gap:     8px;
-}
-
-/* Cada botão/link de dia */
-.vana-day-selector__tab {
-  display:         flex;
-  flex-direction:  column;
-  align-items:     center;
-  justify-content: center;
-  gap:             2px;
-  min-width:       52px;
-  padding:         8px 12px;
-  background:      rgba(255,255,255,0.08);
-  border:          1px solid rgba(255,255,255,0.18);
-  border-radius:   999px;
-  color:           rgba(255,255,255,0.75);
-  text-decoration: none;
-  cursor:          pointer;
-  backdrop-filter: blur(6px);
-  transition:      background .2s, border-color .2s,
-           color .2s, transform .15s;
-}
-
-.vana-day-selector__tab:hover {
-  background:   rgba(255,217,6,0.15);
-  border-color: rgba(255,217,6,0.50);
-  color:        var(--vana-gold);
-  transform:    translateY(-2px);
-}
-
-.vana-day-selector__tab--active {
-  background:   var(--vana-gold);
-  border-color: var(--vana-gold);
-  color:        #0f172a;
-  box-shadow:   0 4px 14px rgba(255,217,6,0.35);
-}
-
-.vana-day-selector__tab--active:hover {
-  transform: translateY(-2px);
-}
-
-.vana-day-selector__weekday {
-  font-family:    'Syne', sans-serif;
-  font-size:      0.65rem;
-  font-weight:    700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity:        0.75;
-}
-
-.vana-day-selector__num {
-  font-family: 'Syne', sans-serif;
-  font-size:   1.4rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-/* Responsivo */
-@media (max-width: 480px) {
-  .vana-day-selector__tab  { min-width: 44px; padding: 6px 10px; }
-  .vana-day-selector__num  { font-size: 1.1rem; }
-}
 <?php
 /**
  * Asset: Vana Visit — Estilos
@@ -689,6 +600,46 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
 .vana-header__day { color: var(--vana-muted); font-size: 0.82rem; white-space: nowrap; }
 .vana-header__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+/* ── Header Brand (centro) ──────────────────────────────────── */
+.vana-header__brand {
+    display:         flex;
+    align-items:     center;
+    gap:             8px;
+    flex:            1;
+    justify-content: center;
+    min-width:       0;
+}
+
+.vana-header__logo {
+    width:         32px;
+    height:        32px;
+    border-radius: 4px;
+    object-fit:    cover;
+    flex-shrink:   0;
+}
+
+.vana-header__logo-placeholder {
+    font-size:   1.4rem;
+    color:       var(--vana-gold, #ffd906) !important;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+/* ── Força cor do título no header ─────────────────────────── */
+html body .vana-header .vana-header__brand .vana-header__site-name,
+html body .vana-header__site-name {
+    color:            #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;  /* Safari/Chrome às vezes usa este */
+    opacity:          1       !important;
+    visibility:       visible !important;
+    background-color: transparent !important;
+    mix-blend-mode:   normal  !important;
+}
+
+@media (max-width: 380px) {
+    .vana-header__site-name { display: none !important; }
+}
+
 .vana-header__notify-btn {
   display:         flex;
   align-items:     center;
@@ -726,6 +677,104 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   background:   var(--vana-pink);
   border-color: var(--vana-pink);
   color:        #fff;
+}
+
+/* ── Fix: site-name visível sobre qualquer tema ─────────────── */
+header.vana-header span.vana-header__site-name {
+    color:       #ffffff !important;
+    opacity:     1       !important;
+    visibility:  visible !important;
+    background:  transparent !important;
+}
+
+/* ── Hero Day Selector ─────────────────────────────────────────── */
+.vana-day-selector {
+    display:         flex;
+    flex-wrap:       wrap;
+    gap:             16px;
+    margin:          24px 0 0;
+    justify-content: center;
+}
+
+.vana-day-selector__group {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            6px;
+}
+
+.vana-day-selector__month-label {
+    font-family:    'Syne', sans-serif;
+    font-size:      0.68rem;
+    font-weight:    700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color:          rgba(255,255,255,0.45);
+}
+
+.vana-day-selector__pills {
+    display: flex;
+    gap:     8px;
+}
+
+/* Cada botão/link de dia */
+.vana-day-selector__tab {
+    display:         flex;
+    flex-direction:  column;
+    align-items:     center;
+    justify-content: center;
+    gap:             2px;
+    min-width:       52px;
+    padding:         8px 12px;
+    background:      rgba(255,255,255,0.08);
+    border:          1px solid rgba(255,255,255,0.18);
+    border-radius:   999px;
+    color:           rgba(255,255,255,0.75);
+    text-decoration: none;
+    cursor:          pointer;
+    backdrop-filter: blur(6px);
+    transition:      background .2s, border-color .2s,
+                     color .2s, transform .15s;
+}
+
+.vana-day-selector__tab:hover {
+    background:   rgba(255,217,6,0.15);
+    border-color: rgba(255,217,6,0.50);
+    color:        var(--vana-gold);
+    transform:    translateY(-2px);
+}
+
+.vana-day-selector__tab--active {
+    background:   var(--vana-gold);
+    border-color: var(--vana-gold);
+    color:        #0f172a;
+    box-shadow:   0 4px 14px rgba(255,217,6,0.35);
+}
+
+.vana-day-selector__tab--active:hover {
+    transform: translateY(-2px);
+}
+
+.vana-day-selector__weekday {
+    font-family:    'Syne', sans-serif;
+    font-size:      0.65rem;
+    font-weight:    700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity:        0.75;
+}
+
+.vana-day-selector__num {
+    font-family: 'Syne', sans-serif;
+    font-size:   1.4rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+/* Responsivo */
+@media (max-width: 480px) {
+    .vana-day-selector__tab  { min-width: 44px; padding: 6px 10px; }
+    .vana-day-selector__num  { font-size: 1.1rem; }
 }
 
 /* ============================================================
