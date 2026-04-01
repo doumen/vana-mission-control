@@ -53,13 +53,14 @@ $js_data = [
     'tourId'  => $tour_id ?: null,
     'tourTitle' => $tour_id ? $tour_title : null,
     'tourUrl'   => $tour_id ? $tour_url : null,
+    'timeline'  => $data ?? [],
     'currentVisit' => [
       'id'    => (int) $visit_id,
       'title' => Vana_Utils::resolve_visit_title(
           $data ?? [],
           $lang,
           (int) $visit_id,
-          (string) (($data['location_meta']['city_ref'] ?? '')
+          (string) (($data['metadata']['city_ref'] ?? ''))
       )
       ),
       'url'   => get_permalink( $visit_id ),
@@ -139,7 +140,7 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     function addVod(vod) {
       if (!vod || typeof vod !== 'object') return;
 
-      var vodId = vod.id || vod.vod_id || '';
+      var vodId = vod.vod_key || vod.id || vod.vod_id || '';
       if (!vodId) return;
 
       _vodIndex[String(vodId)] = vod;
