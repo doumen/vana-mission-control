@@ -626,14 +626,19 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
 }
 
 /* ── Força cor do título no header ─────────────────────────── */
-html body .vana-header .vana-header__brand .vana-header__site-name,
-html body .vana-header__site-name {
-    color:            #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;  /* Safari/Chrome às vezes usa este */
-    opacity:          1       !important;
-    visibility:       visible !important;
-    background-color: transparent !important;
-    mix-blend-mode:   normal  !important;
+/* ── Site name — força visibilidade ────────────────────────── */
+.vana-header .vana-header__brand .vana-header__site-name {
+    font-family:    'Syne', sans-serif;
+    font-size:      0.9rem;
+    font-weight:    700;
+    color:          #ffffff !important;
+    opacity:        1       !important;
+    visibility:     visible !important;
+    text-shadow:    0 1px 3px rgba(0,0,0,0.5);
+    white-space:    nowrap;
+    overflow:       hidden;
+    text-overflow:  ellipsis;
+    max-width:      180px;
 }
 
 @media (max-width: 380px) {

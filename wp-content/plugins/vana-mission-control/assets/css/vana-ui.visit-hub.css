@@ -134,18 +134,24 @@
    assets/css/vana-ui.visit-hub.css
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Gaveta ─────────────────────────────────────────────────── */
 /* ── Gaveta Agenda ──────────────────────────────────────────── */
 .vana-drawer--agenda {
-    position:   fixed;
-    top:        0;
-    right:      0;      /* ← era left: 0 */
-    left:       auto;   /* ← reseta qualquer left herdado */
-    bottom:     0;
-    width:      min(320px, 92vw);
-    z-index:    9999;
-    transform:  translateX(100%);   /* entra da direita */
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    position:         fixed;
+    top:              0;
+    right:            0;
+    left:             auto;
+    bottom:           0;
+    width:            min(320px, 92vw);
+    height:           100dvh;
+    background:       var(--vana-surface, #1a1a2e);
+    color:            var(--vana-on-surface, #e8e0d4);
+    display:          flex;
+    flex-direction:   column;
+    overflow:         hidden;
+    z-index:          9999;
+    box-shadow:       -4px 0 24px rgba(0,0,0,.45);
+    transform:        translateX(100%);
+    transition:       transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .vana-drawer--agenda.is-open {
