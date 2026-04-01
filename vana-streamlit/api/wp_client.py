@@ -215,20 +215,48 @@ def trash_tour(tour_id: int) -> bool:
     return True
 
 
-def update_tour(tour_id: int, title: str | None = None, origin_key: str | None = None) -> bool:
+def update_tour(
+    tour_id: int,
+    title: str | None = None,
+    origin_key: str | None = None,
+    title_pt: str | None = None,
+    title_en: str | None = None,
+    region_code: str | None = None,
+    season_code: str | None = None,
+    year_start: int | None = None,
+    year_end: int | None = None,
+) -> bool:
     """
-    Atualiza campos básicos de uma tour via REST API.
-    Ex: update_tour(390, title='Novo Título', origin_key='tour:india-2026')
+    Atualiza campos de uma tour via REST API.
+    Aceita títulos PT/EN e metadados usados pelo plugin (mapeia para meta keys).
+    Ex: update_tour(390, title='Novo Título', title_pt='Título PT')
     """
     url = f"{WP_BASE_URL}/vana_tour/{tour_id}"
     payload = {}
+
     if title is not None:
         payload["title"] = title
+
+    # Meta fields used by the plugin
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
     if origin_key is not None:
-        if not isinstance(payload.get("meta"), dict):
-            payload["meta"] = {}
-        payload["meta"]["_vana_origin_key"] = origin_key
-        payload["meta"]["_tour_origin_key"] = origin_key
+        meta["_vana_origin_key"] = origin_key
+        meta["_tour_origin_key"] = origin_key
+    if title_pt is not None:
+        meta["_vana_title_pt"] = title_pt
+    if title_en is not None:
+        meta["_vana_title_en"] = title_en
+    if region_code is not None:
+        meta["_vana_region_code"] = region_code
+    if season_code is not None:
+        meta["_vana_season_code"] = season_code
+    if year_start is not None:
+        meta["_vana_year_start"] = int(year_start)
+    if year_end is not None:
+        meta["_vana_year_end"] = int(year_end)
+
+    if meta:
+        payload["meta"] = meta
 
     if not payload:
         return False
