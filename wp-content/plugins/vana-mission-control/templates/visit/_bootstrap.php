@@ -100,9 +100,90 @@ error_log( '[_bootstrap] $timeline[days] count: ' . count($timeline['days'] ?? [
 $days = is_array( $data['days'] ?? null ) ? $data['days'] : [];
 error_log( '[_bootstrap] After assignment. $days count: ' . count($days) );
 
+// ── 3b. VOD list — resolve vod_list/active_vod a partir do active_event ──────
+//
+// Schema canônico (VisitEventResolver):
+//   active_event['media']['vods']  → array de VODs do evento ativo
+//
+// Contrato exportado:
+//   $vod_list         array   — VODs com _event_key injetado
+//   $vod_count        int
+//   $active_vod_index int     — P1: viewer_item_id  P2: ?vod=N  P3: 1º youtube
+//   $active_vod       array   — $vod_list[$active_vod_index] ou []
+
+$vod_list = [];
+
+if ( is_array( $active_event ) ) {
+    // Schema 5.1 canônico: media.vods (único path — confirmado em VisitEventResolver)
+    $_raw_vods = $active_event['media']['vods'] ?? [];
+    $_ek       = (string) ( $active_event['event_key'] ?? $active_day_date ?? '' );
+
+    foreach ( (array) $_raw_vods as $_v ) {
+        if ( is_array( $_v ) ) {
+            $_v['_event_key'] = $_ek;
+            $vod_list[] = $_v;
+        }
+    }
+    unset( $_raw_vods, $_ek, $_v );
+}
+
+$vod_count = count( $vod_list );
+
+// ── Índice padrão: primeiro provider youtube (ou vimeo) ──────────────────────
+$_default_vod_index = 0;
+foreach ( $vod_list as $_vi => $_vod ) {
+    if ( in_array(
+        strtolower( (string) ( $_vod['provider'] ?? '' ) ),
+        [ 'youtube', 'vimeo' ],
+        true
+    ) ) {
+        $_default_vod_index = $_vi;
+        break;
+    }
+}
+unset( $_vi, $_vod );
+
+// ── Resolve índice ativo ──────────────────────────────────────────────────────
+// P1: viewer_item_id (video_id string) — vem do VisitStageResolver via extract()
+// P2: ?vod=N numérico — link direto / legado
+// P3: $_default_vod_index
+
+$active_vod_index = $_default_vod_index;
+
+if ( isset( $viewer_item_id ) && $viewer_item_id !== '' ) {
+    // P1 — busca por video_id OU url (viewer_item_id é sempre string, nunca post ID)
+    foreach ( $vod_list as $_vi => $_vod ) {
+        if (
+            ( (string) ( $_vod['video_id'] ?? '' ) === $viewer_item_id ) ||
+            ( (string) ( $_vod['url']      ?? '' ) === $viewer_item_id )
+        ) {
+            $active_vod_index = $_vi;
+            break;
+        }
+    }
+    unset( $_vi, $_vod );
+
+} elseif ( isset( $_GET['vod'] ) && $_GET['vod'] !== '' ) {
+    // P2 — posição numérica com clamp para evitar out-of-bounds
+    $active_vod_index = max(
+        0,
+        min(
+            $vod_count > 0 ? $vod_count - 1 : 0,
+            (int) sanitize_text_field( wp_unslash( $_GET['vod'] ) )
+        )
+    );
+}
+
+unset( $_default_vod_index );
+
+$active_vod = ( $vod_count > 0 && isset( $vod_list[ $active_vod_index ] ) )
+    ? $vod_list[ $active_vod_index ]
+    : [];
+
+    
 // ── Index do visit.json (lookup O(1) para events/vods/kathas) ────────────────
 $index = [];
-$_raw_json = get_post_meta( $visit_id, '_vana_visit_data', true );
+$_raw_json = get_post_meta( $visit_id, '_vana_visit_timeline_json', true );
 if ( ! empty( $_raw_json ) ) {
     $_raw = json_decode( $_raw_json, true );
     if ( is_array( $_raw ) && ! empty( $_raw['index'] ) ) {
@@ -117,7 +198,7 @@ $index = [];
 // Use get_post_meta canonical form (third param true) to fetch the raw
 // visit JSON stored in post meta. Previous code relied on $post_meta
 // array which is not guaranteed to be present in this scope.
-$_visit_raw_json = get_post_meta( $visit_id, '_vana_visit_data', true );
+$_visit_raw_json = get_post_meta( $visit_id, '_vana_visit_timeline_json', true );
 if ( ! empty( $_visit_raw_json ) ) {
     $_visit_raw = json_decode( $_visit_raw_json, true );
     if ( is_array( $_visit_raw ) && ! empty( $_visit_raw['index'] ) ) {

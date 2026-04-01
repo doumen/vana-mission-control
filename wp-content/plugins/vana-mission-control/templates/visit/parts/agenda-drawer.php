@@ -70,10 +70,18 @@ function _vana_agd_badge( string $status, string $lang ): string {
 }
 ?>
 
+<!-- Overlay -->
+<div
+    class="vana-drawer__overlay"
+    id="vana-agenda-overlay"
+    data-vana-agenda-overlay
+    hidden
+></div>
+
 <!-- ╔══════════════════════════════════════════════════════════════
      AGENDA DRAWER — Schema 6.1
      ╚══════════════════════════════════════════════════════════════ -->
-<aside
+<div
     id="vana-agenda-drawer"
     class="vana-drawer vana-drawer--agenda"
     data-vana-agenda-drawer
@@ -385,10 +393,3 @@ function _vana_agd_badge( string $status, string $lang ): string {
     </div><!-- /body -->
 </aside>
 
-<!-- Overlay -->
-<div
-    class="vana-drawer__overlay"
-    id="vana-agenda-overlay"
-    data-vana-agenda-overlay
-    hidden
-></div>

@@ -77,8 +77,17 @@ require_once VANA_MC_PATH . "includes/class-vana-visit-cpt.php";
 require_once VANA_MC_PATH . "includes/class-vana-submission-cpt.php"; // ← ALLOWED_HOSTS, MAX_IMAGES
 require_once VANA_MC_PATH . "includes/class-vana-gallery-metabox.php";
 Vana_Gallery_Metabox::init();
-require_once VANA_MC_PATH . "includes/class-vana-tour-metabox.php";
-Vana_Tour_Metabox::init();
+$__vana__tour_metabox_path = VANA_MC_PATH . "includes/class-vana-tour-metabox.php";
+if (file_exists($__vana__tour_metabox_path)) {
+    require_once $__vana__tour_metabox_path;
+    if (class_exists('Vana_Tour_Metabox')) {
+        Vana_Tour_Metabox::init();
+    } else {
+        error_log('Vana MC: class Vana_Tour_Metabox not found after include: ' . $__vana__tour_metabox_path);
+    }
+} else {
+    error_log('Vana MC: missing include file: ' . $__vana__tour_metabox_path);
+}
 
 // ── Storage / Media (v2) ──────────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-image-processor.php"; // ← NOVO

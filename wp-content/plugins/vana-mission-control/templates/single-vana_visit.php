@@ -59,10 +59,18 @@ $visit_data = $timeline;
   5. ACTIVE VOD INDEX
   ============================================================ */
 
-$active_vod_index = max(
-    0,
-    (int) sanitize_text_field( wp_unslash( $_GET['vod'] ?? '0' ) )
-);
+// ── 5. ACTIVE VOD INDEX ───────────────────────────────────────────────────────
+// Calculado em _bootstrap.php seção 3b.
+// Guard de segurança: nunca sobrescreve o valor já resolvido.
+if ( ! isset( $active_vod_index ) ) {
+    $active_vod_index = max(
+        0,
+        (int) sanitize_text_field( wp_unslash( $_GET['vod'] ?? '0' ) )
+    );
+}
+$active_vod  = $active_vod  ?? [];
+$vod_list    = $vod_list    ?? [];
+$vod_count   = $vod_count   ?? 0;
 
 /* ============================================================
   6. META DADOS PARA <head>
