@@ -762,6 +762,29 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     initCopyLink();
     initTabsKeyboard();
     initScheduleVod();
+    // ── Drawer → Stage bridge (vana:event:select) ──────────────
+    document.addEventListener('vana:event:select', function (e) {
+      var d = e.detail || {};
+      if (!d.videoId && !d.vod_id) return;
+      var idx   = getVodIndex();
+      var found = null;
+      if (d.vod_id && idx[String(d.vod_id)]) {
+        found = idx[String(d.vod_id)];
+      } else {
+        Object.keys(idx).forEach(function (k) {
+          if (idx[k].video_id === d.videoId) found = idx[k];
+        });
+      }
+      if (found) {
+        swapStageYouTube(
+          found.video_id,
+          found['title_' + CFG.lang] || found.title_pt || found.title || '',
+          d.segStart || null
+        );
+      } else if (d.videoId) {
+        swapStageYouTube(d.videoId, d.title || '', d.segStart || null);
+      }
+    });
     initNotify();
     initTitlePopover();
   }
