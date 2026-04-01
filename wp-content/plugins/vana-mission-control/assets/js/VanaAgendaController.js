@@ -34,7 +34,8 @@
     }
 
     function dispatch(name, detail) {
-        document.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail || {} }));
+        var ev = new CustomEvent(name, { bubbles: true, cancelable: true, detail: detail || {} });
+        return document.dispatchEvent(ev);
     }
 
     function getFocusable(root) {
@@ -221,10 +222,11 @@
             var dayKey   = btn.getAttribute('data-vana-day-key')   || '';
             if (!videoId) return;
             e.preventDefault();
-            dispatch('vana:event:select', {
+            var proceed = dispatch('vana:event:select', {
                 type: 'video', videoId: videoId, provider: provider,
                 eventKey: evKey, dayKey: dayKey
             });
+            if (!proceed) return;
             closeDrawer();
             var url = new URL(window.location.href);
             url.searchParams.set('day', dayKey);

@@ -60,8 +60,7 @@ $js_data = [
           $data ?? [],
           $lang,
           (int) $visit_id,
-          (string) (($data['metadata']['city_ref'] ?? ''))
-      )
+          (string) ($data['metadata']['city_ref'] ?? '')
       ),
       'url'   => get_permalink( $visit_id ),
     ],
@@ -777,12 +776,14 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
         });
       }
       if (found) {
+        e.preventDefault();
         swapStageYouTube(
           found.video_id,
           found['title_' + CFG.lang] || found.title_pt || found.title || '',
           d.segStart || null
         );
       } else if (d.videoId) {
+        e.preventDefault();
         swapStageYouTube(d.videoId, d.title || '', d.segStart || null);
       }
     });
