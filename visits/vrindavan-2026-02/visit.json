@@ -1,0 +1,399 @@
+{
+  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
+  "schema_version": "3.1",
+  "visit_ref": "vrindavan-2026-02",
+  "tour_ref": "india-2026",
+  "visit_id": "389",
+  "title_pt": "Vrindavan",
+  "title_en": "Vrindavan",
+  "description_pt": "Festival Rupa Goswami",
+  "description_en": "Rupa Goswami Festival",
+  "timezone": "Asia/Kolkata",
+  "cover_url": "",
+  "metadata": {
+    "city_pt": "Vṛndāvana",
+    "city_en": "Vrindavan",
+    "country": "IN",
+    "date_start": "2026-02-18",
+    "date_end": "2026-02-27",
+    "timezone": "Asia/Kolkata",
+    "status": "completed"
+  },
+  "days": [
+    {
+      "day_key": "2026-02-21",
+      "label_pt": "21 fev",
+      "label_en": "Feb 21",
+      "primary_event": "20260221-1703-programa",
+      "events": [
+        {
+          "event_key": "20260221-0530-mangala",
+          "type": "mangala",
+          "title_pt": "Maṅgala-ārati",
+          "title_en": "Maṅgala-ārati",
+          "time": "05:30",
+          "status": "past",
+          "location": {
+            "name": "Rūpa Sanātana Gauḍīya Maṭha",
+            "lat": 27.5815,
+            "lng": 77.6997
+          },
+          "vods": [
+            {
+              "vod_key": "vod-2026-02-21-003",
+              "provider": "youtube",
+              "video_id": "fWEJsIxLlSQ",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
+              "duration_s": null,
+              "title_pt": "Mangala Arati",
+              "title_en": "Mangala Arati",
+              "vod_part": 1,
+              "segments": []
+            }
+          ],
+          "kathas": [],
+          "photos": [],
+          "sangha": []
+        },
+        {
+          "event_key": "20260221-1703-programa",
+          "type": "programa",
+          "title_pt": "Programa — 21 fev",
+          "title_en": "Program — Feb 21",
+          "time": "17:03",
+          "status": "past",
+          "location": {
+            "name": "Gopīnātha Bhavana",
+            "lat": 27.5794,
+            "lng": 77.6952
+          },
+          "vods": [
+            {
+              "vod_key": "vod-20260221-002",
+              "provider": "youtube",
+              "video_id": "dQw4w9WgXcQ",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+              "duration_s": 13802,
+              "title_pt": "Programa completo — 21 fev",
+              "title_en": "Full Program — Feb 21",
+              "vod_part": 1,
+              "segments": [
+                {
+                  "segment_id": "seg-20260221-002",
+                  "type": "kirtan",
+                  "title_pt": "Kirtan de abertura",
+                  "title_en": "Opening Kirtan",
+                  "timestamp_start": 0,
+                  "timestamp_end": 2732
+                },
+                {
+                  "segment_id": "seg-20260221-004",
+                  "type": "harikatha",
+                  "title_pt": "Hari-Kathā — SB 10.31",
+                  "title_en": "Hari-Kathā — SB 10.31",
+                  "timestamp_start": 4801,
+                  "timestamp_end": 9000,
+                  "katha_id": 678
+                }
+              ]
+            }
+          ],
+          "kathas": [
+            {
+              "katha_id": 678,
+              "katha_key": "katha-20260221-sb1031",
+              "title_pt": "SB 10.31 — Gopī-gīta",
+              "title_en": "SB 10.31 — Gopī-gīta",
+              "scripture": "SB 10.31",
+              "language": "hi",
+              "sources": [
+                {
+                  "vod_key": "vod-20260221-002",
+                  "segment_id": "seg-20260221-004",
+                  "timestamp_start": 4801,
+                  "timestamp_end": 9000,
+                  "vod_part": 1
+                }
+              ],
+              "passages": [
+                {
+                  "passage_id": "hkp-20260221-001",
+                  "passage_key": "hkp-20260221-001",
+                  "title_pt": "Maṅgalācaraṇa",
+                  "title_en": "Maṅgalācaraṇa",
+                  "teaching_pt": "Gurudeva abre com a invocação...",
+                  "teaching_en": "Gurudeva opens with the invocation...",
+                  "key_quote": "oṁ ajñāna-timirāndhasya",
+                  "source_ref": {
+                    "vod_key": "vod-20260221-002",
+                    "segment_id": "seg-20260221-004",
+                    "timestamp_start": 4801,
+                    "timestamp_end": 5280
+                  },
+                  "order": 1
+                }
+              ]
+            }
+          ],
+          "photos": [],
+          "sangha": []
+        }
+      ],
+      "tithi": "",
+      "tithi_name_pt": ""
+    },
+    {
+      "day_key": "2026-02-22",
+      "label_pt": "22 fev",
+      "label_en": "Feb 22",
+      "primary_event": "20260222-1800-hk",
+      "events": [
+        {
+          "event_key": "20260222-1800-hk",
+          "type": "programa",
+          "title_pt": "Hari-Kathā — 22 fev",
+          "title_en": "Hari-Kathā — Feb 22",
+          "time": "18:00",
+          "status": "past",
+          "location": {
+            "name": "Gopīnātha Bhavana",
+            "lat": 27.5794,
+            "lng": 77.6952
+          },
+          "vods": [],
+          "kathas": [],
+          "photos": [],
+          "sangha": []
+        }
+      ],
+      "tithi": "",
+      "tithi_name_pt": ""
+    },
+    {
+      "day_key": "2026-02-23",
+      "label_pt": "23 fev",
+      "label_en": "Feb 23",
+      "primary_event": "20260223-1700-programa",
+      "events": [
+        {
+          "event_key": "20260223-1700-programa",
+          "type": "programa",
+          "title_pt": "Programa — 23 fev",
+          "title_en": "Program — Feb 23",
+          "time": "17:00",
+          "status": "past",
+          "location": {
+            "name": "Gopīnātha Bhavana",
+            "lat": 27.5794,
+            "lng": 77.6952
+          },
+          "vods": [],
+          "kathas": [],
+          "photos": [],
+          "sangha": []
+        }
+      ],
+      "tithi": "",
+      "tithi_name_pt": ""
+    }
+  ],
+  "orphans": {
+    "vods": [],
+    "photos": [],
+    "sangha": [],
+    "kathas": []
+  },
+  "index": {
+    "days": {
+      "2026-02-21": {
+        "position": 0,
+        "label_pt": "21 fev",
+        "label_en": "Feb 21",
+        "tithi": null,
+        "tithi_name_pt": null,
+        "tithi_name_en": null,
+        "primary_event": "20260221-1703-programa",
+        "events": [
+          "20260221-0530-mangala",
+          "20260221-1703-programa"
+        ]
+      },
+      "2026-02-22": {
+        "position": 1,
+        "label_pt": "22 fev",
+        "label_en": "Feb 22",
+        "tithi": null,
+        "tithi_name_pt": null,
+        "tithi_name_en": null,
+        "primary_event": "20260222-1800-hk",
+        "events": [
+          "20260222-1800-hk"
+        ]
+      },
+      "2026-02-23": {
+        "position": 2,
+        "label_pt": "23 fev",
+        "label_en": "Feb 23",
+        "tithi": null,
+        "tithi_name_pt": null,
+        "tithi_name_en": null,
+        "primary_event": "20260223-1700-programa",
+        "events": [
+          "20260223-1700-programa"
+        ]
+      }
+    },
+    "events": {
+      "20260221-0530-mangala": {
+        "day_key": "2026-02-21",
+        "position": 0,
+        "type": "mangala",
+        "title_pt": "Maṅgala-ārati",
+        "title_en": "Maṅgala-ārati",
+        "time": "05:30",
+        "status": "past",
+        "location": "Rūpa Sanātana Gauḍīya Maṭha",
+        "vods": [],
+        "kathas": [],
+        "photos": [],
+        "sangha": []
+      },
+      "20260221-1703-programa": {
+        "day_key": "2026-02-21",
+        "position": 1,
+        "type": "programa",
+        "title_pt": "Programa — 21 fev",
+        "title_en": "Program — Feb 21",
+        "time": "17:03",
+        "status": "past",
+        "location": "Gopīnātha Bhavana",
+        "vods": [
+          "vod-20260221-002"
+        ],
+        "kathas": [
+          678
+        ],
+        "photos": [],
+        "sangha": []
+      },
+      "20260222-1800-hk": {
+        "day_key": "2026-02-22",
+        "position": 0,
+        "type": "programa",
+        "title_pt": "Hari-Kathā — 22 fev",
+        "title_en": "Hari-Kathā — Feb 22",
+        "time": "18:00",
+        "status": "past",
+        "location": "Gopīnātha Bhavana",
+        "vods": [],
+        "kathas": [],
+        "photos": [],
+        "sangha": []
+      },
+      "20260223-1700-programa": {
+        "day_key": "2026-02-23",
+        "position": 0,
+        "type": "programa",
+        "title_pt": "Programa — 23 fev",
+        "title_en": "Program — Feb 23",
+        "time": "17:00",
+        "status": "past",
+        "location": "Gopīnātha Bhavana",
+        "vods": [],
+        "kathas": [],
+        "photos": [],
+        "sangha": []
+      }
+    },
+    "vods": {
+      "vod-20260221-002": {
+        "event_key": "20260221-1703-programa",
+        "day_key": "2026-02-21",
+        "provider": "youtube",
+        "video_id": "dQw4w9WgXcQ",
+        "url": null,
+        "vod_part": 1,
+        "duration_s": 13802,
+        "thumb_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        "segments": [
+          "seg-20260221-002",
+          "seg-20260221-004"
+        ]
+      }
+    },
+    "segments": {
+      "seg-20260221-002": {
+        "vod_key": "vod-20260221-002",
+        "event_key": "20260221-1703-programa",
+        "day_key": "2026-02-21",
+        "type": "kirtan",
+        "title_pt": "Kirtan de abertura",
+        "title_en": "Opening Kirtan",
+        "timestamp_start": 0,
+        "timestamp_end": 2732,
+        "katha_id": null
+      },
+      "seg-20260221-004": {
+        "vod_key": "vod-20260221-002",
+        "event_key": "20260221-1703-programa",
+        "day_key": "2026-02-21",
+        "type": "harikatha",
+        "title_pt": "Hari-Kathā — SB 10.31",
+        "title_en": "Hari-Kathā — SB 10.31",
+        "timestamp_start": 4801,
+        "timestamp_end": 9000,
+        "katha_id": 678
+      }
+    },
+    "kathas": {
+      "678": {
+        "katha_key": "katha-20260221-sb1031",
+        "event_key": "20260221-1703-programa",
+        "day_key": "2026-02-21",
+        "title_pt": "SB 10.31 — Gopī-gīta",
+        "title_en": "SB 10.31 — Gopī-gīta",
+        "scripture": "SB 10.31",
+        "language": "hi",
+        "sources": [
+          {
+            "vod_key": "vod-20260221-002",
+            "segment_id": "seg-20260221-004"
+          }
+        ],
+        "passages": [
+          "hkp-20260221-001"
+        ],
+        "passage_count": 1
+      }
+    },
+    "passages": {
+      "hkp-20260221-001": {
+        "katha_id": 678,
+        "event_key": "20260221-1703-programa",
+        "day_key": "2026-02-21",
+        "order": 1,
+        "vod_key": "vod-20260221-002",
+        "segment_id": "seg-20260221-004",
+        "timestamp_start": 4801,
+        "timestamp_end": 5280
+      }
+    },
+    "photos": [],
+    "sangha": []
+  },
+  "stats": {
+    "total_days": 3,
+    "total_events": 4,
+    "total_vods": 1,
+    "total_segments": 2,
+    "total_kathas": 1,
+    "total_passages": 1,
+    "total_photos": 0,
+    "total_sangha": 0
+  },
+  "generated_at": "2026-03-31T12:38:37.568067+00:00",
+  "generated_by": "vana-trator",
+  "updated_at": "2026-03-31T12:38:37Z"
+}
