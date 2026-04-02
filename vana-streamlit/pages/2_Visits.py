@@ -492,6 +492,144 @@ with tab_edit:
         if "edit_json" not in st.session_state:
             st.info("⬆️ Selecione uma visita e clique em **Carregar JSON**.")
         else:
+            # --- Friendly editor -------------------------------------------------
+            try:
+                payload = json.loads(st.session_state["edit_json"])
+            except Exception:
+                payload = None
+
+            with st.expander("✏️ Editor amigável (Schema 6.1)", expanded=False):
+                if not payload or not isinstance(payload, dict):
+                    st.warning("JSON inválido — corrija no editor bruto abaixo.")
+                else:
+                    # Detect 6.1 by schema_version or presence of days with vods
+                    is_61 = payload.get("schema_version") == "6.1" or any(
+                        isinstance(d, dict) and (d.get("events") or d.get("items") or d.get("visits"))
+                        for d in (payload.get("days") or [])
+                    )
+
+                    if not is_61:
+                        st.info("Este editor foi otimizado para Schema 6.1. O JSON carregado parece diferente — use o editor bruto ou converta para 6.1.")
+
+                    # Basic visit fields
+                    col_a, col_b = st.columns([3, 2])
+                    title_pt = col_a.text_input("Título (pt)", value=payload.get("title_pt", ""))
+                    timezone = col_b.text_input("Timezone", value=payload.get("timezone", "Asia/Kolkata"))
+                    cover_url = st.text_input("Cover URL", value=payload.get("cover_url", ""))
+
+                    days = payload.get("days") if isinstance(payload.get("days"), list) else []
+                    if not days:
+                        st.info("Nenhum dia encontrado no timeline.")
+                    else:
+                        # Day selector
+                        day_labels = [f"{i} — {d.get('label_pt') or d.get('date_local') or d.get('key','') }" for i, d in enumerate(days)]
+                        sel_day = st.selectbox("Selecionar dia", day_labels, key="s61_day_sel")
+                        d_idx = int(str(sel_day).split(" ")[0])
+                        day_obj = days[d_idx]
+                        st.markdown(f"**Dia {d_idx} — {day_obj.get('label_pt','—')}**")
+
+                        # Events list (schema 6.1 events usually under 'events' or 'items')
+                        events_list = day_obj.get("events") or day_obj.get("items") or day_obj.get("visits") or []
+                        if not events_list:
+                            st.info("Nenhum evento encontrado neste dia.")
+                        else:
+                            event_keys = [str(ev.get('key') or ev.get('eventKey') or ev.get('event_id') or ev.get('title_pt') or ev.get('title') or f'ev{idx}') for idx, ev in enumerate(events_list)]
+                            sel_event_label = st.selectbox("Selecionar evento", event_keys, key="s61_ev_sel")
+                            ev_idx = event_keys.index(sel_event_label)
+                            ev_obj = events_list[ev_idx]
+
+                            # Show/edit common event fields
+                            ev_col1, ev_col2 = st.columns([3, 1])
+                            ev_title = ev_col1.text_input("Título do evento (pt)", value=ev_obj.get('title_pt') or ev_obj.get('title',''))
+                            ev_key = ev_col2.text_input("event key", value=ev_obj.get('key') or ev_obj.get('eventKey') or '')
+                            if st.button("Aplicar alterações ao evento", key=f"apply_ev_{d_idx}_{ev_idx}"):
+                                if ev_key:
+                                    ev_obj['key'] = ev_key
+                                if ev_title:
+                                    ev_obj['title_pt'] = ev_title
+                                # write back
+                                if 'events' in day_obj:
+                                    day_obj['events'][ev_idx] = ev_obj
+                                elif 'items' in day_obj:
+                                    day_obj['items'][ev_idx] = ev_obj
+                                payload['days'][d_idx] = day_obj
+                                st.session_state['edit_json'] = json.dumps(payload, ensure_ascii=False, indent=2)
+                                st.success('Evento atualizado no JSON editável.')
+
+                            st.markdown('---')
+                            # VODs editing for the event (canonical: ev_obj['vods'])
+                            vods = ev_obj.get('vods') or ev_obj.get('media', {}).get('vods') or []
+                            st.markdown('**VODs do evento**')
+                            if vods:
+                                for i, v in enumerate(vods):
+                                    with st.expander(f'VOD {i}: {v.get("vodKey") or v.get("video_id")}', expanded=False):
+                                        v_vodkey = st.text_input('vodKey', value=v.get('vodKey') or v.get('vod_key') or '', key=f'vodkey_{d_idx}_{ev_idx}_{i}')
+                                        v_vid = st.text_input('video_id', value=v.get('video_id') or v.get('url') or '', key=f'videoid_{d_idx}_{ev_idx}_{i}')
+                                        if st.button('Atualizar VOD', key=f'upd_vod_{d_idx}_{ev_idx}_{i}'):
+                                            # normalize
+                                            newv = {k:vv for k,vv in [('vodKey',v_vodkey)] if v_vodkey}
+                                            if v_vid:
+                                                newv['video_id'] = v_vid
+                                            vods[i] = newv
+                                            ev_obj['vods'] = vods
+                                            payload['days'][d_idx] = day_obj
+                                            st.session_state['edit_json'] = json.dumps(payload, ensure_ascii=False, indent=2)
+                                            st.experimental_rerun()
+                                        if st.button('Remover VOD', key=f'rem_vod_{d_idx}_{ev_idx}_{i}'):
+                                            vods.pop(i)
+                                            ev_obj['vods'] = vods
+                                            payload['days'][d_idx] = day_obj
+                                            st.session_state['edit_json'] = json.dumps(payload, ensure_ascii=False, indent=2)
+                                            st.experimental_rerun()
+                            else:
+                                st.info('Nenhum VOD encontrado no evento.')
+
+                            st.markdown('---')
+                            # Add new VOD
+                            with st.form(key=f'form_add_vod_{d_idx}_{ev_idx}'):
+                                add_vod_key = st.text_input('Novo vodKey (opcional)')
+                                add_video_id = st.text_input('Novo video_id (ex: YouTube ID)')
+                                add_sub = st.form_submit_button('Adicionar VOD')
+                                if add_sub:
+                                    nv = {}
+                                    if add_vod_key:
+                                        nv['vodKey'] = add_vod_key
+                                    if add_video_id:
+                                        nv['video_id'] = add_video_id
+                                    if 'vods' not in ev_obj or not isinstance(ev_obj.get('vods'), list):
+                                        ev_obj['vods'] = []
+                                    ev_obj['vods'].append(nv)
+                                    payload['days'][d_idx] = day_obj
+                                    st.session_state['edit_json'] = json.dumps(payload, ensure_ascii=False, indent=2)
+                                    st.success('VOD adicionado ao evento (salve o JSON para persistir).')
+
+                    # Save / download helpers for schema 6.1
+                    st.markdown('---')
+                    st.markdown('**Salvar/Exportar**')
+                    col_save_a, col_save_b = st.columns([3,2])
+                    filepath = col_save_a.text_input('Salvar em arquivo local (caminho)', value='', placeholder='ex: trator/payloads/my_timeline.json')
+                    if col_save_b.button('Salvar arquivo (com .bak)'):
+                        if not filepath:
+                            st.error('Forneça um caminho de arquivo para salvar.')
+                        else:
+                            try:
+                                import shutil
+                                # backup
+                                try:
+                                    shutil.copy2(filepath, filepath + '.bak')
+                                except Exception:
+                                    pass
+                                with open(filepath, 'w', encoding='utf-8') as wf:
+                                    json.dump(payload, wf, ensure_ascii=False, indent=2)
+                                st.success(f'Salvo em {filepath} (backup .bak criado quando possível).')
+                            except Exception as e:
+                                st.error(f'Erro ao salvar: {e}')
+
+                    if st.button('Download JSON atual'):
+                        st.download_button('Download JSON', data=json.dumps(payload, ensure_ascii=False, indent=2), file_name='visit-timeline-6.1.json', mime='application/json')
+
+            # --- End friendly editor ---------------------------------------------
+
             edited_raw = st.text_area(
                 "JSON editável:",
                 value=st.session_state["edit_json"],
