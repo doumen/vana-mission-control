@@ -20,7 +20,23 @@
       "label_pt": "04 de Abril",
       "label_en": "April 04",
       "primary_event": "",
-      "events": []
+      "events": [
+        {
+          "event_key": "20260402-0500-mangalarati",
+          "type": "mangala",
+          "title_pt": "Mangala Arati",
+          "title_en": "Mangala Arati",
+          "time": "05:00",
+          "status": "upcoming",
+          "location": {},
+          "vods": [],
+          "kathas": [],
+          "photos": [],
+          "sangha": []
+        }
+      ],
+      "tithi": "",
+      "tithi_name_pt": ""
     }
   ],
   "orphans": {
