@@ -40,12 +40,12 @@
           },
           "vods": [
             {
-              "vod_key": "vod-2026-02-21-003",
+              "vod_key": "vod-20260221-003",
               "provider": "youtube",
               "video_id": "fWEJsIxLlSQ",
               "url": null,
               "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
-              "duration_s": null,
+              "duration_s": 0,
               "title_pt": "Mangala Arati",
               "title_en": "Mangala Arati",
               "vod_part": 1,
