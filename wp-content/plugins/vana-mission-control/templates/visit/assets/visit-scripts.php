@@ -671,6 +671,8 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     var stage = document.querySelector('.vana-stage');
     if (!stage && iframe) stage = iframe.closest('section');
     if (stage) stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Return true if we updated something (iframe/title/scroll)
+    return !!(iframe || titleEl || stage);
   }
 
   /* ----------------------------------------------------------
@@ -764,6 +766,7 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     initScheduleVod();
     // ── Drawer → Stage bridge (vana:event:select) ──────────────
     document.addEventListener('vana:event:select', function (e) {
+      try { console.debug('vana:event:select', e && e.detail); } catch (_) {}
       var d = e.detail || {};
       if (!d.videoId && !d.vod_id) return;
       var idx   = getVodIndex();
@@ -776,15 +779,31 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
         });
       }
       if (found) {
-        e.preventDefault();
-        swapStageYouTube(
-          found.video_id,
-          found['title_' + CFG.lang] || found.title_pt || found.title || '',
-          d.segStart || null
-        );
+        try { e.preventDefault(); } catch (_) {}
+        var swapped = false;
+        try {
+          swapped = swapStageYouTube(
+            found.video_id,
+            found['title_' + CFG.lang] || found.title_pt || found.title || '',
+            d.segStart || null
+          ) || false;
+        } catch (err) {
+          console.error('swapStageYouTube threw', err);
+          swapped = false;
+        }
+        if (!swapped) console.warn('Stage swap failed for', found && found.video_id);
+        return;
       } else if (d.videoId) {
-        e.preventDefault();
-        swapStageYouTube(d.videoId, d.title || '', d.segStart || null);
+        try { e.preventDefault(); } catch (_) {}
+        var swapped2 = false;
+        try {
+          swapped2 = swapStageYouTube(d.videoId, d.title || '', d.segStart || null) || false;
+        } catch (err) {
+          console.error('swapStageYouTube threw', err);
+          swapped2 = false;
+        }
+        if (!swapped2) console.warn('Stage swap failed for', d.videoId);
+        return;
       }
     });
     initNotify();
