@@ -1,0 +1,34 @@
+{
+  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
+  "schema_version": "6.1",
+  "visit_ref": "india_2026:vrindavan_2026_02",
+  "tour_ref": "__sem_tour__",
+  "title_pt": "",
+  "title_en": "",
+  "metadata": {
+    "city_pt": "",
+    "city_en": "",
+    "country": "IN",
+    "date_start": "",
+    "date_end": "",
+    "timezone": "Asia/Kolkata",
+    "status": "upcoming"
+  },
+  "days": [
+    {
+      "day_key": "2026-02-21",
+      "label_pt": "21 de Fev",
+      "label_en": "Febr 21",
+      "primary_event": "",
+      "events": []
+    }
+  ],
+  "orphans": {
+    "vods": [],
+    "photos": [],
+    "sangha": [],
+    "kathas": []
+  },
+  "stats": {},
+  "index": {}
+}
