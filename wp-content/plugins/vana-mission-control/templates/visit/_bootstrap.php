@@ -53,6 +53,24 @@ if ( isset( $vana_bootstrap_loaded ) && $vana_bootstrap_loaded === true ) {
 $vana_bootstrap_loaded = true;
 error_log( '[_bootstrap] Starting (guard bypassed)' );
 
+// ── Legacy query param aliases (compatibility)
+// Accept older URLs using ?event=... or ?item=... and map them to
+// the canonical keys used by VisitStageResolver.
+if ( isset( $_GET['event'] ) ) {
+    if ( ! isset( $_GET['event_key'] ) ) {
+        $_GET['event_key'] = $_GET['event'];
+    }
+    if ( ! isset( $_GET['viewer_event_key'] ) ) {
+        $_GET['viewer_event_key'] = $_GET['event'];
+    }
+}
+if ( isset( $_GET['item'] ) && ! isset( $_GET['viewer_item_id'] ) ) {
+    $_GET['viewer_item_id'] = $_GET['item'];
+}
+if ( isset( $_GET['vod_id'] ) && ! isset( $_GET['viewer_item_id'] ) ) {
+    $_GET['viewer_item_id'] = $_GET['vod_id'];
+}
+
 // ── PRE-LOAD: Carrega funções utilitárias do Stage antes das parts ────────────
 $vana_stage_file = defined( 'VANA_MC_PATH' )
     ? VANA_MC_PATH . 'inc/vana-stage.php'

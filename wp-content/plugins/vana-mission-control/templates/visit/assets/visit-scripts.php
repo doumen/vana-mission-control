@@ -657,11 +657,33 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     var sec    = segStart ? timeToSec(segStart) : 0;
     var iframe = document.getElementById('vanaStageIframe');
 
+    var src = 'https://www.youtube-nocookie.com/embed/' + videoId
+      + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
+    if (sec > 0) src += '&start=' + sec;
+
     if (iframe) {
-      var src = 'https://www.youtube-nocookie.com/embed/' + videoId
-        + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
-      if (sec > 0) src += '&start=' + sec;
       iframe.src = src;
+    } else {
+      // Create iframe dynamically when not present in SSR
+      var stageVideo = document.querySelector('.vana-stage-video');
+      if (stageVideo) {
+        var wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        var newIframe = document.createElement('iframe');
+        newIframe.id = 'vanaStageIframe';
+        newIframe.src = src;
+        newIframe.title = title || '';
+        newIframe.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;border:0;');
+        newIframe.setAttribute('allowfullscreen', '');
+        newIframe.setAttribute('allow', 'autoplay');
+        newIframe.setAttribute('loading', 'lazy');
+        // Clear existing placeholder and append iframe
+        stageVideo.innerHTML = '';
+        stageVideo.appendChild(newIframe);
+        iframe = newIframe;
+      }
     }
 
     var titleEl = document.getElementById('vanaStageTitle')
@@ -820,6 +842,108 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
 }(<?php echo wp_json_encode($js_data); ?>));
 </script>
 
+<!-- Fallback: ensure agenda open buttons work if VanaAgenda failed to initialize -->
+<script>
+(function () {
+  'use strict';
+  if (typeof window.VanaAgenda === 'undefined') {
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        var opens = document.querySelectorAll('[data-vana-agenda-open]');
+        if (!opens || !opens.length) return;
+
+        function openFallback() {
+          var d = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          var o = document.getElementById('vana-agenda-overlay') || document.querySelector('[data-vana-agenda-overlay]');
+          if (!d) return;
+          d.removeAttribute('hidden');
+          if (o) o.removeAttribute('hidden');
+          d.classList.add('is-open');
+          if (o) o.classList.add('is-open');
+          document.body.style.overflow = 'hidden';
+          document.body.classList.add('vana-drawer-open');
+          d.removeAttribute('aria-hidden');
+          var closeBtn = d.querySelector('[data-vana-agenda-close]');
+          if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus(); else d.focus();
+        }
+
+        function closeFallback() {
+          var d = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          var o = document.getElementById('vana-agenda-overlay') || document.querySelector('[data-vana-agenda-overlay]');
+          if (!d) return;
+          d.classList.remove('is-open');
+          if (o) o.classList.remove('is-open');
+          // Hide after potential transition (0 if none)
+          var delay = 0;
+          setTimeout(function () {
+            d.setAttribute('hidden', '');
+            if (o) o.setAttribute('hidden', '');
+          }, delay);
+          document.body.style.overflow = '';
+          document.body.classList.remove('vana-drawer-open');
+          d.setAttribute('aria-hidden', 'true');
+        }
+
+        opens.forEach(function (btn) {
+          btn.addEventListener('click', function (e) { e.preventDefault(); openFallback(); });
+        });
+
+        var overlayEl = document.querySelector('[data-vana-agenda-overlay]');
+        if (overlayEl) overlayEl.addEventListener('click', closeFallback);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeFallback(); });
+
+        // Tabs de dia fallback: alterna painéis dentro da gaveta
+        try {
+          var drawerEl = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          if (drawerEl) {
+            var tabSelector = '[data-vana-agenda-day]';
+            var panelSelector = '[data-vana-agenda-panel]';
+
+            function switchDayFallback(dayKey) {
+              if (!drawerEl) return;
+              drawerEl.querySelectorAll(tabSelector).forEach(function (tab) {
+                var active = tab.getAttribute('data-vana-agenda-day') === dayKey;
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+                tab.classList.toggle('is-active', active);
+              });
+              drawerEl.querySelectorAll(panelSelector).forEach(function (panel) {
+                var active = panel.getAttribute('data-vana-agenda-panel') === dayKey;
+                if (active) {
+                  panel.removeAttribute('hidden');
+                  panel.classList.add('is-active');
+                } else {
+                  panel.setAttribute('hidden', '');
+                  panel.classList.remove('is-active');
+                }
+              });
+            }
+
+            // attach handlers
+            drawerEl.querySelectorAll(tabSelector).forEach(function (tab) {
+              tab.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                var dayKey = tab.getAttribute('data-vana-agenda-day');
+                if (dayKey) switchDayFallback(dayKey);
+              });
+            });
+
+            // activate initial tab if present
+            var firstActive = drawerEl.querySelector(tabSelector + '.is-active') || drawerEl.querySelector(tabSelector);
+            if (firstActive) {
+              var initialDay = firstActive.getAttribute('data-vana-agenda-day');
+              if (initialDay) switchDayFallback(initialDay);
+            }
+          }
+        } catch (err) {
+          console.warn('Agenda tabs fallback failed', err);
+        }
+      } catch (err) {
+        console.error('Agenda fallback init failed', err);
+      }
+    });
+  }
+})();
+</script>
 
 <?php /* ── HARI-KATHĀ LOADER + TOUR DRAWER ───────────────────── */ ?>
 <script>
