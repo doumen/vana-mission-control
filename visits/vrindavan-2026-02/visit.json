@@ -189,7 +189,20 @@
             "lat": 27.5794,
             "lng": 77.6952
           },
-          "vods": [],
+          "vods": [
+            {
+              "vod_key": "vod-20260223-001",
+              "provider": "youtube",
+              "video_id": "BXvBKbPMiaI",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/BXvBKbPMiaI/maxresdefault.jpg",
+              "duration_s": null,
+              "title_pt": "Programa da Noite",
+              "title_en": "Night Program",
+              "vod_part": 1,
+              "segments": []
+            }
+          ],
           "kathas": [],
           "photos": [],
           "sangha": []
