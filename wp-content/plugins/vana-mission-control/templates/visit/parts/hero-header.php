@@ -153,8 +153,9 @@ unset($_t, $_thumb, $_m);
         <!-- Direita: botão Agenda -->
         <button
             type="button"
-            class="vana-header__agenda-btn btn-agenda"
+            class="vana-header__agenda-btn"
             data-drawer="vana-agenda-drawer"
+            data-vana-agenda-open
             aria-expanded="false"
             aria-controls="vana-agenda-drawer"
             aria-label="<?php echo esc_attr( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?>"
