@@ -12,6 +12,7 @@ import re as _re
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
+import copy
 
 import streamlit as st
 
@@ -335,12 +336,19 @@ if not visit_ref:
 wp_id = ref_to_meta.get(visit_ref, {}).get("wp_id")
 visit = _load(visit_ref, wp_id=wp_id)
 
+# Desacopla do cache (evita mutação do objeto cacheado)
+visit = copy.deepcopy(visit)
+
 # Feedback de migração de schema (FORA do cache)
 migrated_from = None
 if isinstance(visit, dict):
     migrated_from = visit.pop("__migrated_from__", None)
 if migrated_from:
     st.toast(f"⬆️ Schema migrado: {migrated_from} → 6.1", icon="ℹ️")
+    st.info("O schema foi migrado em memória. Se a sidebar mostrar dados antigos, limpe o cache.")
+    if st.button("🔄 Limpar cache e recarregar agora"):
+        st.cache_data.clear()
+        st.rerun()
 
 schema_atual = visit.get("schema_version", "") if isinstance(visit, dict) else ""
 if schema_atual and schema_atual != "6.1" and schema_atual not in MIGRATABLE_VERSIONS:
@@ -1189,41 +1197,44 @@ with tab_publicar:
     col_val, col_pub = st.columns(2)
 
     with col_val:
-        if st.button("🔍 Validar Schema", type="secondary", use_container_width=True):
-            with st.spinner("Validando..."):
-                result: TratorResult = run_trator(
-                    visit     = visit,
-                    dry_run   = True,
-                    tour_key  = tour_k,
-                )
-            _render_trator_result(result, dry=True)
+        btn_validar = st.button("🔍 Validar Schema", type="secondary", use_container_width=True, key="btn_validar")
 
     with col_pub:
-        if st.button(
-            "🚀 Publicar no WordPress" if not dry_run else "🧪 Dry Run",
+        btn_publicar = st.button(
+            "🧪 Dry Run" if dry_run else "🚀 Publicar no WordPress",
             type="primary",
             use_container_width=True,
+            key="btn_publicar",
             disabled=not editor_name,
-        ):
-            if not editor_name:
-                st.warning("Digite seu nome na sidebar.")
-            else:
-                with st.spinner("Rodando Trator..."):
-                    result = run_trator(
-                        visit     = visit,
-                        wp_url    = wp_url    if not dry_run else None,
-                        wp_secret = wp_secret if not dry_run else None,
-                        tour_key  = tour_k,
-                        dry_run   = dry_run,
-                    )
-                _render_trator_result(result, dry=dry_run)
+        )
 
-                # Salva versão processada de volta ao GitHub
-                if result.success and not dry_run and result.processed:
-                    _save(
-                        gh, visit_ref, result.processed,
-                        editor_name, "trator: index + stats atualizados"
-                    )
+    if not editor_name:
+        st.caption("⚠️ Digite seu nome na sidebar para publicar.")
+
+    if btn_validar or btn_publicar:
+        is_dry = bool(dry_run) or bool(btn_validar)
+
+        with st.spinner("⚙️ Processando..."):
+            result = run_trator(
+                visit     = visit,
+                wp_url    = wp_url    if (btn_publicar and not dry_run) else None,
+                wp_secret = wp_secret if (btn_publicar and not dry_run) else None,
+                tour_key  = tour_k,
+                dry_run   = is_dry,
+            )
+
+        _render_trator_result(result, dry=is_dry)
+
+        # Se publicou com sucesso e havia migração pendente, informar
+        if result.success and not is_dry and migrated_from:
+            st.info("💾 Schema 6.1 persistido no WordPress via publicação.")
+
+        # Se o Trator produziu processed, salva de volta ao GitHub
+        if result.success and not is_dry and result.processed:
+            _save(
+                gh, visit_ref, result.processed,
+                editor_name, "trator: index + stats atualizados"
+            )
 
     # ── Preview JSON ──────────────────────────────────────────────────
     st.divider()
