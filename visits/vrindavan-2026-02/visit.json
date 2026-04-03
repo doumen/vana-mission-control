@@ -196,7 +196,7 @@
               "video_id": "BXvBKbPMiaI",
               "url": null,
               "thumb_url": "https://img.youtube.com/vi/BXvBKbPMiaI/maxresdefault.jpg",
-              "duration_s": null,
+              "duration_s": 0,
               "title_pt": "Programa da Noite",
               "title_en": "Night Program",
               "vod_part": 1,
@@ -316,7 +316,9 @@
         "time": "17:00",
         "status": "past",
         "location": "Gopīnātha Bhavana",
-        "vods": [],
+        "vods": [
+          "vod-20260223-001"
+        ],
         "kathas": [],
         "photos": [],
         "sangha": []
@@ -347,6 +349,17 @@
           "seg-20260221-002",
           "seg-20260221-004"
         ]
+      },
+      "vod-20260223-001": {
+        "event_key": "20260223-1700-programa",
+        "day_key": "2026-02-23",
+        "provider": "youtube",
+        "video_id": "BXvBKbPMiaI",
+        "url": null,
+        "vod_part": 1,
+        "duration_s": 0,
+        "thumb_url": "https://img.youtube.com/vi/BXvBKbPMiaI/maxresdefault.jpg",
+        "segments": []
       }
     },
     "segments": {
@@ -412,14 +425,14 @@
   "stats": {
     "total_days": 3,
     "total_events": 4,
-    "total_vods": 2,
+    "total_vods": 3,
     "total_segments": 2,
     "total_kathas": 1,
     "total_passages": 1,
     "total_photos": 0,
     "total_sangha": 0
   },
-  "generated_at": "2026-04-03T19:35:56.157582+00:00",
+  "generated_at": "2026-04-03T19:48:59.460376+00:00",
   "generated_by": "vana-trator",
   "updated_at": "2026-03-31T12:38:37Z"
 }
