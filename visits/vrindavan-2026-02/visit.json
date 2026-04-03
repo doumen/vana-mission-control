@@ -1,6 +1,6 @@
 {
   "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
-  "schema_version": "3.1",
+  "schema_version": "6.1",
   "visit_ref": "vrindavan-2026-02",
   "tour_ref": "india-2026",
   "visit_id": "389",
@@ -211,8 +211,8 @@
         "position": 0,
         "label_pt": "21 fev",
         "label_en": "Feb 21",
-        "tithi": null,
-        "tithi_name_pt": null,
+        "tithi": "",
+        "tithi_name_pt": "",
         "tithi_name_en": null,
         "primary_event": "20260221-1703-programa",
         "events": [
@@ -224,8 +224,8 @@
         "position": 1,
         "label_pt": "22 fev",
         "label_en": "Feb 22",
-        "tithi": null,
-        "tithi_name_pt": null,
+        "tithi": "",
+        "tithi_name_pt": "",
         "tithi_name_en": null,
         "primary_event": "20260222-1800-hk",
         "events": [
@@ -236,8 +236,8 @@
         "position": 2,
         "label_pt": "23 fev",
         "label_en": "Feb 23",
-        "tithi": null,
-        "tithi_name_pt": null,
+        "tithi": "",
+        "tithi_name_pt": "",
         "tithi_name_en": null,
         "primary_event": "20260223-1700-programa",
         "events": [
@@ -255,7 +255,9 @@
         "time": "05:30",
         "status": "past",
         "location": "Rūpa Sanātana Gauḍīya Maṭha",
-        "vods": [],
+        "vods": [
+          "vod-20260221-003"
+        ],
         "kathas": [],
         "photos": [],
         "sangha": []
@@ -308,6 +310,17 @@
       }
     },
     "vods": {
+      "vod-20260221-003": {
+        "event_key": "20260221-0530-mangala",
+        "day_key": "2026-02-21",
+        "provider": "youtube",
+        "video_id": "fWEJsIxLlSQ",
+        "url": null,
+        "vod_part": 1,
+        "duration_s": 0,
+        "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
+        "segments": []
+      },
       "vod-20260221-002": {
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
@@ -380,20 +393,20 @@
         "timestamp_end": 5280
       }
     },
-    "photos": [],
-    "sangha": []
+    "photos": {},
+    "sangha": {}
   },
   "stats": {
     "total_days": 3,
     "total_events": 4,
-    "total_vods": 1,
+    "total_vods": 2,
     "total_segments": 2,
     "total_kathas": 1,
     "total_passages": 1,
     "total_photos": 0,
     "total_sangha": 0
   },
-  "generated_at": "2026-03-31T12:38:37.568067+00:00",
+  "generated_at": "2026-04-03T19:35:56.157582+00:00",
   "generated_by": "vana-trator",
   "updated_at": "2026-03-31T12:38:37Z"
 }
