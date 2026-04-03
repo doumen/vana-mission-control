@@ -676,16 +676,10 @@ class TratorPublisher:
         """
         envelope = self._build_envelope(visit, tour_key)
 
-        # The WP plugin currently expects timeline schema_version == '3.1'.
-        # Ensure outgoing envelope is compatible even if internal SCHEMA_VERSION differs.
-        try:
-            envelope_data = envelope.get("data", {})
-            if isinstance(envelope_data, dict):
-                envelope_data["schema_version"] = "3.1"
-                envelope["data"] = envelope_data
-        except Exception:
-            # Non-fatal — we'll let the request proceed and WP will validate.
-            pass
+        # Note: do NOT modify schema_version here — leave the envelope.data.schema_version
+        # as produced by _build_envelope(). Forcing a downgrade to '3.1' corrupts
+        # Schema 6.1 timelines when publishing (see R-ROOT-02 loop).  Keep envelope
+        # intact and let WP-side compatibility be handled elsewhere if necessary.
 
         body_str = json.dumps(envelope, ensure_ascii=False, separators=(",", ":"))
         params   = self._sign(body_str)
