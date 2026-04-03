@@ -264,3 +264,68 @@ def update_tour(
     resp = requests.post(url, auth=WP_AUTH, json=payload, timeout=15)
     resp.raise_for_status()
     return True
+
+def list_visits_wp(per_page: int = 100) -> list[dict]:
+    """Lista vana_visit do WP REST API, retorna metadados leves."""
+    import json as _json
+    import streamlit as st
+
+    base   = st.secrets["vana"]["api_base"].rstrip("/")
+    user   = st.secrets["vana"]["wp_user"]
+    passwd = st.secrets["vana"]["wp_app_password"]
+
+    r = requests.get(
+        f"{base}/wp/v2/vana_visit",
+        params={
+            "per_page": per_page,
+            "status":   "any",
+            "_fields":  "id,slug,status,link,modified,meta",
+        },
+        auth=(user, passwd),
+        timeout=20,
+    )
+    r.raise_for_status()
+
+    results = []
+    for item in r.json():
+        meta = item.get("meta", {})
+
+        # ── Lê o campo correto ─────────────────────────────────────
+        raw = (
+            meta.get("_vana_visit_timeline_json")   # ← campo real no WP
+            or meta.get("_vana_data")               # fallback legado
+            or {}
+        )
+        if isinstance(raw, str):
+            try:
+                vana_data = _json.loads(raw)
+            except Exception:
+                vana_data = {}
+        else:
+            vana_data = raw or {}
+        # ──────────────────────────────────────────────────────────
+
+        results.append({
+            "id":        item.get("id"),
+            "wp_id":     item.get("id"),             # ← expõe o id para _load()
+            "visit_ref": (
+                vana_data.get("visit_ref")
+                or meta.get("_vana_origin_key", "").replace("visit:", "")
+                or item.get("slug", "")
+            ),
+            "tour_ref": (
+                vana_data.get("tour_ref")
+                or meta.get("_vana_parent_origin_key", "").replace("tour:", "")
+                or "__sem_tour__"
+            ),
+            "title_pt":   vana_data.get("title_pt", ""),
+            "schema_ver": vana_data.get("schema_version", "?"),
+            "status":     vana_data.get("metadata", {}).get("status", "?"),
+            "date_start": vana_data.get("metadata", {}).get("date_start", ""),
+            "wp_status":  item.get("status", ""),
+            "permalink":  item.get("link", ""),
+            "updated_at": item.get("modified", ""),
+        })
+
+    results.sort(key=lambda x: x["date_start"], reverse=True)
+    return results

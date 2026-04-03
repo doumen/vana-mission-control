@@ -47,7 +47,13 @@
           ],
           "katha_refs": [],
           "photo_refs": [],
-          "sangha_refs": []
+          "sangha_refs": [],
+          "vods": [
+            {
+              "vodKey": "test-cli",
+              "video_id": "dQw4w9WgXcQ"
+            }
+          ]
         },
         {
           "event_key": "kirtana-teste-pre-20260324",

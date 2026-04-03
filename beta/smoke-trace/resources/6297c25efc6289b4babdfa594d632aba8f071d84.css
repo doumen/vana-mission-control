@@ -1,0 +1,464 @@
+/*
+Theme Name: Astra Child
+Template: astra
+Version: 1.0.0
+*/
+/* MOMENTOS DA SANGHA — Mural Devocional Elegante */
+.vana-sangha-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 25px;
+  margin-top: 30px;
+}
+
+.vana-moment {
+  background: #fff;
+  border: 1px solid var(--vana-line);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vana-moment:hover {
+  transform: translateY(-6px);
+  border-color: var(--vana-gold);
+  box-shadow: 0 14px 30px rgba(255, 217, 6, 0.12);
+}
+
+.vana-moment-btn {
+  all: unset;
+  display: block;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.vana-moment-btn:focus-visible {
+  outline: 3px solid var(--vana-gold);
+  outline-offset: 4px;
+  border-radius: 18px;
+}
+
+.vana-moment-inner { padding: 22px 22px 10px; }
+
+.vana-moment-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.vana-moment-avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--vana-hero-gradient);
+  border: 1px solid var(--vana-line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--vana-text);
+  font-weight: 900;
+  font-family: 'Syne', sans-serif;
+  flex-shrink: 0;
+}
+
+.vana-moment-name {
+  font-family: 'Syne', sans-serif;
+  font-weight: 900;
+  color: var(--vana-text);
+  font-size: 1.1rem;
+}
+
+.vana-moment-text {
+  position: relative;
+  background: var(--vana-bg-soft);
+  border: 1px solid var(--vana-line);
+  border-radius: 16px;
+  padding: 16px;
+  color: #334155;
+  line-height: 1.6;
+  font-size: 1.05rem;
+  font-style: italic;
+  margin: 0 0 20px;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* O triângulo do balão de fala (Speech Bubble) */
+.vana-moment-text:after {
+  content: "";
+  position: absolute;
+  top: -8px; left: 20px;
+  width: 14px; height: 14px;
+  background: var(--vana-bg-soft);
+  border-left: 1px solid var(--vana-line);
+  border-top: 1px solid var(--vana-line);
+  transform: rotate(45deg);
+}
+
+.vana-moment-media {
+  margin: 0 22px 15px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  border: 6px solid #fff;
+  box-shadow: 0 6px 15px rgba(0,0,0,0.12);
+}
+
+.vana-moment-media img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.vana-moment-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 22px 20px;
+  color: var(--vana-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.vana-moment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid var(--vana-line);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--vana-muted);
+}
+
+.vana-moment-badge .dashicons {
+  font-size: 14px;
+  width: 14px; height: 14px;
+  color: var(--vana-gold);
+}
+
+/* ============================================
+   GAVETA LATERAL — TOUR SELECTOR
+   Identidade: vanamadhuryam.com
+   v1.0 — 2026-02-23
+   ============================================ */
+
+#vana-tour-drawer-overlay {
+    background: rgba(80, 20, 100, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+#vana-tour-drawer {
+    background: #ffffff;
+    border-right: 4px solid #FFD700;
+    box-shadow: 4px 0 32px rgba(233, 30, 140, 0.2);
+    color: #1A1A2E;
+    font-family: 'Open Sans', 'Lato', sans-serif;
+}
+
+#vana-tour-drawer .drawer-header {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: #1A3BC1;
+    font-family: Georgia, serif;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid #FFA500;
+}
+
+#vana-tour-drawer .drawer-close {
+    background: transparent;
+    border: none;
+    color: #1A3BC1;
+    font-size: 1.3rem;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s, transform 0.2s;
+    line-height: 1;
+}
+#vana-tour-drawer .drawer-close:hover {
+    opacity: 1;
+    transform: scale(1.15);
+}
+
+#vana-tour-drawer .tour-list {
+    padding: 6px 0;
+}
+
+#vana-tour-drawer .tour-list::before {
+    content: '';
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg, #FFD700, #E91E8C, #7B2FBE);
+    margin-bottom: 6px;
+}
+
+#vana-tour-drawer .tour-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+    cursor: pointer;
+    text-decoration: none;
+    color: #1A1A2E;
+    transition: background 0.2s, padding-left 0.2s;
+    position: relative;
+}
+
+#vana-tour-drawer .tour-item:hover {
+    background: linear-gradient(90deg, rgba(255,215,0,0.12), transparent);
+    padding-left: 26px;
+}
+
+#vana-tour-drawer .tour-item:hover::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #FFD700, #FFA500);
+    border-radius: 0 2px 2px 0;
+}
+
+#vana-tour-drawer .tour-item.is-current {
+    background: linear-gradient(90deg, rgba(233,30,140,0.08), transparent);
+    padding-left: 26px;
+}
+
+#vana-tour-drawer .tour-item.is-current::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, #E91E8C, #7B2FBE);
+    border-radius: 0 2px 2px 0;
+}
+
+#vana-tour-drawer .tour-item .tour-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #1A1A2E;
+    flex: 1;
+}
+
+#vana-tour-drawer .tour-item.is-current .tour-title {
+    color: #1A3BC1;
+    font-weight: 700;
+}
+
+#vana-tour-drawer .tour-item .tour-badge {
+    font-size: 0.70rem;
+    font-weight: 600;
+    color: #1A3BC1;
+    background: rgba(255, 215, 0, 0.25);
+    border: 1px solid rgba(255, 215, 0, 0.6);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+    white-space: nowrap;
+}
+
+#vana-tour-drawer .tour-item.is-current .tour-badge {
+    background: rgba(233, 30, 140, 0.12);
+    border-color: rgba(233, 30, 140, 0.4);
+    color: #E91E8C;
+}
+
+#vana-tour-drawer .tour-item .tour-arrow {
+    color: #FFD700;
+    margin-left: 8px;
+    font-size: 0.9rem;
+    transition: transform 0.2s, color 0.2s;
+}
+
+#vana-tour-drawer .tour-item:hover .tour-arrow,
+#vana-tour-drawer .tour-item.is-current .tour-arrow {
+    transform: translateX(4px);
+    color: #E91E8C;
+}
+
+#vana-tour-drawer .drawer-footer {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    text-align: center;
+    font-size: 0.7rem;
+    color: #1A3BC1;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border-top: 2px solid #FFA500;
+}
+
+
+/* ============================================
+   GAVETA LATERAL — TOUR SELECTOR
+   Identidade: vanamadhuryam.com
+   v2.0 — seletores reais — 2026-02-23
+   ============================================ */
+
+/* --- Botão "Tours" no header --- */
+.vana-header__tours-icon,
+.vana-header__tours-label {
+    color: #1A3BC1;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+/* --- Overlay --- */
+.vana-drawer__overlay {
+    background: rgba(80, 20, 100, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+/* --- Container principal da gaveta --- */
+.vana-drawer,
+[class*="vana-drawer"]:not([class*="__"]) {
+    background: #ffffff !important;
+    border-right: 4px solid #FFD700 !important;
+    box-shadow: 4px 0 32px rgba(233, 30, 140, 0.2) !important;
+    color: #1A1A2E !important;
+    font-family: 'Questrial', sans-serif !important;
+}
+
+/* --- Cabeçalho da gaveta --- */
+.vana-drawer__header {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+    color: #1A3BC1 !important;
+    font-family: 'Syne', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.25em !important;
+    text-transform: uppercase !important;
+    padding: 16px 20px !important;
+    border-bottom: 2px solid #FFA500 !important;
+}
+
+/* --- Botão fechar X --- */
+.vana-drawer__close {
+    background: transparent !important;
+    border: none !important;
+    color: #1A3BC1 !important;
+    font-size: 1.3rem !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    opacity: 0.85 !important;
+    transition: opacity 0.2s, transform 0.2s !important;
+}
+.vana-drawer__close:hover {
+    opacity: 1 !important;
+    transform: scale(1.15) !important;
+}
+
+/* --- Lista de tours --- */
+.vana-drawer__tour-list {
+    padding: 6px 0 !important;
+    list-style: none !important;
+    margin: 0 !important;
+}
+
+/* Linha gradiente decorativa abaixo do header */
+.vana-drawer__tour-list::before {
+    content: '' !important;
+    display: block !important;
+    height: 3px !important;
+    background: linear-gradient(90deg, #FFD700, #E91E8C, #7B2FBE) !important;
+    margin-bottom: 6px !important;
+}
+
+/* --- Botão individual de cada tour --- */
+.vana-drawer__tour-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    padding: 14px 20px !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.3) !important;
+    background: transparent !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    color: #1A1A2E !important;
+    font-family: 'Questrial', sans-serif !important;
+    position: relative !important;
+    transition: background 0.2s, padding-left 0.2s !important;
+}
+
+.vana-drawer__tour-btn:hover {
+    background: linear-gradient(90deg, rgba(255,215,0,0.12), transparent) !important;
+    padding-left: 26px !important;
+}
+
+.vana-drawer__tour-btn:hover::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 0; top: 0; bottom: 0 !important;
+    width: 4px !important;
+    background: linear-gradient(180deg, #FFD700, #FFA500) !important;
+    border-radius: 0 2px 2px 0 !important;
+}
+
+/* Tour ativo */
+.vana-drawer__tour-btn[aria-current="true"],
+.vana-drawer__tour-btn.is-current {
+    background: linear-gradient(90deg, rgba(233,30,140,0.08), transparent) !important;
+    padding-left: 26px !important;
+}
+
+.vana-drawer__tour-btn[aria-current="true"]::before,
+.vana-drawer__tour-btn.is-current::before {
+    content: '' !important;
+    position: absolute !important;
+    left: 0; top: 0; bottom: 0 !important;
+    width: 4px !important;
+    background: linear-gradient(180deg, #E91E8C, #7B2FBE) !important;
+    border-radius: 0 2px 2px 0 !important;
+}
+
+/* --- Nome do tour --- */
+.vana-drawer__tour-name {
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+    color: #1A1A2E !important;
+    flex: 1 !important;
+}
+
+.vana-drawer__tour-btn[aria-current="true"] .vana-drawer__tour-name,
+.vana-drawer__tour-btn.is-current .vana-drawer__tour-name {
+    color: #1A3BC1 !important;
+    font-weight: 700 !important;
+}
+
+/* --- Meta (data/contagem) --- */
+.vana-drawer__tour-meta {
+    font-size: 0.70rem !important;
+    font-weight: 600 !important;
+    color: #1A3BC1 !important;
+    background: rgba(255, 215, 0, 0.25) !important;
+    border: 1px solid rgba(255, 215, 0, 0.6) !important;
+    padding: 2px 8px !important;
+    border-radius: 12px !important;
+    margin-left: 10px !important;
+    white-space: nowrap !important;
+}
+
+.vana-drawer__tour-btn[aria-current="true"] .vana-drawer__tour-meta,
+.vana-drawer__tour-btn.is-current .vana-drawer__tour-meta {
+    background: rgba(233, 30, 140, 0.12) !important;
+    border-color: rgba(233, 30, 140, 0.4) !important;
+    color: #E91E8C !important;
+}

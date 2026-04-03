@@ -178,13 +178,60 @@ error_log( '[visit-template after guard] $days count: ' . count($days ?? []));
         include $agenda_part;
     }
     ?>
-    <script>
-    // Debug: log to console what we have
-    console.log('[visit-template] Days available: <?php echo count($days ?? []);?>');
-    console.log('[visit-template] Data keys: <?php echo json_encode(array_keys($timeline ?? []));?>');
-    console.log('[visit-template] timeline.days count: <?php echo is_array(($timeline['days'] ?? null)) ? count($timeline['days']) : 'NOT_ARRAY'; ?>');
-    console.log('[visit-template] timeline days: <?php echo json_encode($timeline['days'] ?? 'NOT_SET');?>'.substring(0, 200));
-    </script>
+        <script>
+        /* ── Vana CFG — Schema 6.1 ─────────────────────────────────────────────
+             Expõe o timeline SSR ao JS para:
+                 - getVodIndex()        → monta _vodIndex[vod_key] = vod
+                 - vana:event:select    → swapStageYouTube()
+                 - initAgendaDrawer()   → renderiza agenda lateral
+             ─────────────────────────────────────────────────────────────────── */
+        window.CFG = {
+
+            // ── Identidade da visita ──────────────────────────────────────────
+            visitId:      <?php echo (int) $visit_id; ?>,
+            visitRef:     <?php echo wp_json_encode( $timeline['visit_ref']  ?? '' ); ?>,
+            lang:         <?php echo wp_json_encode( $lang ); ?>,
+            timezone:     <?php echo wp_json_encode( $visit_tz_str ?? 'UTC' ); ?>,
+
+            // ── Dia e evento ativos (SSR) ─────────────────────────────────────
+            activeDayKey:   <?php echo wp_json_encode( $active_day_date ?? '' ); ?>,
+            activeEventKey: <?php echo wp_json_encode( $active_event['event_key'] ?? '' ); ?>,
+
+            // ── Timeline completo (Schema 6.1) ───────────────────────────────
+            // days[]  → fonte da verdade para agenda e VODs
+            // index{} → lookup O(1) para vods/segments/kathas
+            timeline: <?php
+                echo wp_json_encode( [
+                    'days'    => $timeline['days']    ?? [],
+                    'index'   => $timeline['index']   ?? [],
+                    'orphans' => $timeline['orphans'] ?? [],
+                    'stats'   => $timeline['stats']   ?? [],
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+            ?>,
+
+            // ── REST roots ───────────────────────────────────────────────────
+            restRoot:  <?php echo wp_json_encode( rest_url( 'vana/v1' ) ); ?>,
+            restNonce: <?php echo wp_json_encode( wp_create_nonce( 'wp_rest' ) ); ?>,
+
+            // ── Flags de modo ────────────────────────────────────────────────
+            visitStatus: <?php echo wp_json_encode( $visit_status ?? 'past' ); ?>,
+            stageMode:   <?php echo wp_json_encode( $stage_mode   ?? 'vod'  ); ?>,
+        };
+
+        /* ── Debug SSR (remove em produção) ─────────────────────────────── */
+        console.log('[visit-template] Data keys:',
+            <?php echo wp_json_encode( array_keys( $timeline ?? [] ) ); ?>
+        );
+        console.log('[visit-template] Days available:',
+            <?php echo is_array( $timeline['days'] ?? null ) ? count( $timeline['days'] ) : 0; ?>
+        );
+        console.log('[visit-template] timeline.days count:',
+            CFG.timeline.days.length
+        );
+        console.log('[visit-template] timeline days:',
+            JSON.stringify(CFG.timeline.days).substring(0, 200)
+        );
+        </script>
 
   </main>
 

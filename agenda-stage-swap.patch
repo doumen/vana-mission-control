@@ -1,0 +1,80 @@
+*** Begin Patch
+*** Update File: wp-content/plugins/vana-mission-control/templates/visit/assets/visit-scripts.php
+@@
+-    // ── Drawer → Stage bridge (vana:event:select) ──────────────
+-    document.addEventListener('vana:event:select', function (e) {
+-      var d = e.detail || {};
+-      if (!d.videoId && !d.vod_id) return;
+-      var idx   = getVodIndex();
+-      var found = null;
+-      if (d.vod_id && idx[String(d.vod_id)]) {
+-        found = idx[String(d.vod_id)];
+-      } else {
+-        Object.keys(idx).forEach(function (k) {
+-          if (idx[k].video_id === d.videoId) found = idx[k];
+-        });
+-      }
+-      if (found) {
+-        e.preventDefault();
+-        swapStageYouTube(
+-          found.video_id,
+-          found['title_' + CFG.lang] || found.title_pt || found.title || '',
+-          d.segStart || null
+-        );
+-      } else if (d.videoId) {
+-        e.preventDefault();
+-        swapStageYouTube(d.videoId, d.title || '', d.segStart || null);
+-      }
+-    });
++    // ── Drawer → Stage bridge (vana:event:select) ──────────────
++    document.addEventListener('vana:event:select', function (e) {
++      try { console.debug('vana:event:select', e && e.detail); } catch (_) {}
++      var d = e.detail || {};
++      if (!d.videoId && !d.vod_id) return;
++      var idx   = getVodIndex();
++      var found = null;
++      if (d.vod_id && idx[String(d.vod_id)]) {
++        found = idx[String(d.vod_id)];
++      } else {
++        Object.keys(idx).forEach(function (k) {
++          if (idx[k].video_id === d.videoId) found = idx[k];
++        });
++      }
++
++      if (found) {
++        try { e.preventDefault(); } catch (_) {}
++        var swapped = false;
++        try {
++          swapped = swapStageYouTube(
++            found.video_id,
++            found['title_' + CFG.lang] || found.title_pt || found.title || '',
++            d.segStart || null
++          ) || false;
++        } catch (err) {
++          console.error('swapStageYouTube threw', err);
++          swapped = false;
++        }
++        if (!swapped) console.warn('Stage swap failed for', found && found.video_id);
++        return;
++      } else if (d.videoId) {
++        try { e.preventDefault(); } catch (_) {}
++        var swapped2 = false;
++        try {
++          swapped2 = swapStageYouTube(d.videoId, d.title || '', d.segStart || null) || false;
++        } catch (err) {
++          console.error('swapStageYouTube threw', err);
++          swapped2 = false;
++        }
++        if (!swapped2) console.warn('Stage swap failed for', d.videoId);
++        return;
++      }
++    });
+@@
+   function swapStageYouTube(videoId, title, segStart) {
+@@
+-    if (stage) stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
++    if (stage) stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
++    // Return true if we updated something (iframe/title/scroll)
++    return !!(iframe || titleEl || stage);
+   }
+*** End Patch

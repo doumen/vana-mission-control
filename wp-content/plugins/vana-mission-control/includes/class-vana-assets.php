@@ -81,6 +81,13 @@ class Vana_Assets
             true
         );
 
+        wp_localize_script(
+            'vana-event-controller',
+            'vana_rest_root',
+            rest_url( 'vana/v1' )
+        );
+
+
         // JS: day selector ← NOVO (patch que acabamos de criar)
         wp_enqueue_script(
             'vana-day-selector',

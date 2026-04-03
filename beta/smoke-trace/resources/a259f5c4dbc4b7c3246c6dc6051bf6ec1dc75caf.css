@@ -1,0 +1,20 @@
+/* vana-style.css - Versão de Alta Especificidade */
+.passage-card, .entry-content .passage-card {
+    border-left: 6px solid #ff9933 !important;
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    padding: 1.5rem !important;
+    margin: 2rem 0 !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+    display: block !important;
+}
+
+/* Cores por Emoção */
+.passage-card[data-emotion="madhura"] { border-left-color: #ec407a !important; }
+.passage-card[data-emotion="adbhuta"] { border-left-color: #ffd54f !important; }
+
+.passage-title, .entry-content h3.passage-title {
+    color: #8e44ad !important;
+    font-weight: 800 !important;
+    margin-top: 0 !important;
+}

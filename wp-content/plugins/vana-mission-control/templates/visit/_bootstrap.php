@@ -132,8 +132,9 @@ error_log( '[_bootstrap] After assignment. $days count: ' . count($days) );
 $vod_list = [];
 
 if ( is_array( $active_event ) ) {
-    // Schema 5.1 canônico: media.vods (único path — confirmado em VisitEventResolver)
-    $_raw_vods = $active_event['media']['vods'] ?? [];
+    // Prefer schema 6.1 canonical: active_event['vods'].
+    // Fall back to legacy schema 5.1: active_event['media']['vods'] for compatibility.
+    $_raw_vods = $active_event['vods'] ?? $active_event['media']['vods'] ?? [];
     $_ek       = (string) ( $active_event['event_key'] ?? $active_day_date ?? '' );
 
     foreach ( (array) $_raw_vods as $_v ) {

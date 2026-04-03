@@ -838,6 +838,14 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
     init();
   }
 
+  // Expose helpers for debugging and programmatic tests
+  // Note: kept intentionally minimal to avoid global namespace pollution.
+  try {
+    window.swapStageYouTube = swapStageYouTube;
+    window.getVodIndex = getVodIndex;
+  } catch (e) {
+    // ignore when not allowed
+  }
 
 }(<?php echo wp_json_encode($js_data); ?>));
 </script>

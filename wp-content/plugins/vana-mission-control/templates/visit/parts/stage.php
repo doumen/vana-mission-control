@@ -13,7 +13,12 @@ defined( 'ABSPATH' ) || exit;
 
 // ── 1. Normaliza para schema 5.1 a partir de $active_event ─
 $_evt       = is_array( $active_event ) ? $active_event : [];
-$_vods      = is_array( $_evt['media']['vods']            ?? null ) ? $_evt['media']['vods']            : [];
+// Prefer schema 6.1 canonical `vods` on the event, fall back to legacy `media.vods`.
+$_vods      = is_array( $_evt['vods'] ?? null )
+         ? $_evt['vods']
+         : ( is_array( $_evt['media']['vods'] ?? null )
+           ? $_evt['media']['vods']
+           : [] );
 $_gallery   = is_array( $_evt['media']['gallery']         ?? null ) ? $_evt['media']['gallery']         : ( $active_day['gallery']          ?? [] );
 $_sangha    = is_array( $_evt['media']['sangha_moments']  ?? null ) ? $_evt['media']['sangha_moments']  : ( $active_day['sangha_moments']   ?? [] );
 $_vod_first = $_vods[0] ?? [];

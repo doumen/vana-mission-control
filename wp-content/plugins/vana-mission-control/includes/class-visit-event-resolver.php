@@ -142,9 +142,9 @@ class VisitEventResolver {
                 return $event;
             }
         }
-        // Primeiro com VOD
+        // Primeiro com VOD — aceita schema 6.1 (`event.vods`) ou legacy (`event.media.vods`).
         foreach ($events as $event) {
-            if (!empty($event['media']['vods'] ?? [])) {
+            if (!empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }
@@ -166,16 +166,16 @@ class VisitEventResolver {
             }
         }
 
-        // 5.2 Primeiro live + VOD
+        // 5.2 Primeiro live + VOD (aceita schema 6.1 ou legacy)
         foreach ($events as $event) {
-            if (($event['status'] ?? '') === 'live' && !empty($event['media']['vods'] ?? [])) {
+            if (($event['status'] ?? '') === 'live' && !empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }
 
-        // 5.3 Primeiro com VOD qualquer status
+        // 5.3 Primeiro com VOD qualquer status (aceita schema 6.1 ou legacy)
         foreach ($events as $event) {
-            if (!empty($event['media']['vods'] ?? [])) {
+            if (!empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }

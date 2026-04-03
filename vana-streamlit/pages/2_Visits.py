@@ -10,11 +10,18 @@ from __future__ import annotations
 import json
 import re as _re
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
 
 import streamlit as st
 
 from api.github_client import GitHubClient
-from vana_trator import run_trator, TratorResult
+# Ensure repository root is on sys.path so we can import the `trator` package
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from trator.vana_trator import run_trator, TratorResult
 
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
@@ -58,15 +65,24 @@ def _load_from_wp(wp_id: int) -> dict:
     return get_visit_timeline(wp_id)   # já existe e funciona ✅
 
 
+# Versões que são compatíveis e podem ser migradas para 6.1
+MIGRATABLE_VERSIONS = {"3.1", "4.0", "5.0", "6.0"}
+
 @st.cache_data(ttl=60)
 def _load(visit_ref: str, wp_id: int | None = None) -> dict:
-    """Tenta GitHub primeiro; fallback para WP se vazio."""
-    gh   = get_gh()
+    gh = get_gh()
     data = gh.get_visit(visit_ref)
 
-    # GitHub vazio ou não encontrado → busca no WP
     if not data and wp_id:
         data = _load_from_wp(wp_id)
+
+    # ── Migração de schema (SOMENTE modifica os dados; sem UI) -------
+    if isinstance(data, dict):
+        current = data.get("schema_version", "")
+        if current != "6.1" and current in MIGRATABLE_VERSIONS:
+            data["schema_version"] = "6.1"
+            # sinaliza que foi migrado — a UI que chamar _load() fará o toast
+            data["__migrated_from__"] = current
 
     return data or {}
 
@@ -318,6 +334,20 @@ if not visit_ref:
 # ══════════════════════════════════════════════════════════════════════
 wp_id = ref_to_meta.get(visit_ref, {}).get("wp_id")
 visit = _load(visit_ref, wp_id=wp_id)
+
+# Feedback de migração de schema (FORA do cache)
+migrated_from = None
+if isinstance(visit, dict):
+    migrated_from = visit.pop("__migrated_from__", None)
+if migrated_from:
+    st.toast(f"⬆️ Schema migrado: {migrated_from} → 6.1", icon="ℹ️")
+
+schema_atual = visit.get("schema_version", "") if isinstance(visit, dict) else ""
+if schema_atual and schema_atual != "6.1" and schema_atual not in MIGRATABLE_VERSIONS:
+    st.warning(
+        f"⚠️ schema_version desconhecido: `{schema_atual}`. "
+        f"Verifique antes de publicar."
+    )
 
 # Novo visit vazio
 if not visit:
