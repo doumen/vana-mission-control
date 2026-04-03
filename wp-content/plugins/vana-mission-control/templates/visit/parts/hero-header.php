@@ -115,9 +115,50 @@ unset($_t, $_thumb, $_m);
             aria-label="<?php echo esc_attr( vana_t( 'hero.tours', $lang ) ); ?>"
             aria-expanded="false"
             aria-controls="vana-tour-drawer"
-        >
-            <span class="vana-header__tours-icon" aria-hidden="true">
-                <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+        ?>
+
+        <!-- Style específico para o botão de agenda (escopo local ao template) -->
+        <style>
+        /* style para o botão de agenda */
+        .btn-agenda {
+            /* Glass effect */
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50px;
+
+            /* Layout */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+
+            /* Tipografia */
+            color: #ffffff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+
+            /* Transição */
+            transition: all 0.25s ease;
+            cursor: pointer;
+        }
+
+        .btn-agenda:hover {
+            background: rgba(255, 255, 255, 0.28);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .btn-agenda:active {
+            transform: translateY(0);
+        }
+        </style>
+
+        <!-- ═══════════════════════════════════════════════════════════════════
                     <rect width="18" height="2" rx="1" fill="currentColor"/>
                     <rect y="6"  width="18" height="2" rx="1" fill="currentColor"/>
                     <rect y="12" width="12" height="2" rx="1" fill="currentColor"/>
@@ -150,17 +191,14 @@ unset($_t, $_thumb, $_m);
         </div>
 
         <!-- Direita: botão Agenda -->
-        <div class="vana-header__actions">
-            <button
-                type="button"
-                class="vana-header__agenda-btn"
-                id="vana-agenda-open-btn"
-                data-vana-agenda-open
-                aria-expanded="false"
-                aria-controls="vana-agenda-drawer"
-                aria-label="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
-                title="<?php echo esc_attr( vana_t( 'agenda.title', $lang ) ?: 'Agenda' ); ?>"
-            >
+        <button
+            type="button"
+            class="vana-header__agenda-btn btn-agenda"
+            data-drawer="vana-agenda-drawer"
+            aria-expanded="false"
+            aria-controls="vana-agenda-drawer"
+            aria-label="<?php echo esc_attr( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?>"
+        >
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <rect x="3"  y="4"  width="18" height="17" rx="2"/>
