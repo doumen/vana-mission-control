@@ -170,7 +170,6 @@ unset($_t, $_thumb, $_m);
             </svg>
             <span class="vana-header__agenda-label"><?php echo esc_html( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?></span>
         </button>
-        </div>
 
     </div>
 </header>
