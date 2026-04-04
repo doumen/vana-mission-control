@@ -852,10 +852,10 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
 
 <!-- Fallback: ensure agenda open buttons work if VanaAgenda failed to initialize -->
 <script>
-(function () {
+ (function () {
   'use strict';
   if (typeof window.VanaAgenda === 'undefined') {
-    document.addEventListener('DOMContentLoaded', function () {
+    function _vanaAgendaFallbackInit() {
       try {
         var opens = document.querySelectorAll('[data-vana-agenda-open]');
         if (!opens || !opens.length) return;
@@ -881,7 +881,6 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
           if (!d) return;
           d.classList.remove('is-open');
           if (o) o.classList.remove('is-open');
-          // Hide after potential transition (0 if none)
           var delay = 0;
           setTimeout(function () {
             d.setAttribute('hidden', '');
@@ -900,7 +899,6 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
         if (overlayEl) overlayEl.addEventListener('click', closeFallback);
         document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeFallback(); });
 
-        // Tabs de dia fallback: alterna painéis dentro da gaveta
         try {
           var drawerEl = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
           if (drawerEl) {
@@ -926,7 +924,6 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
               });
             }
 
-            // attach handlers
             drawerEl.querySelectorAll(tabSelector).forEach(function (tab) {
               tab.addEventListener('click', function (ev) {
                 ev.preventDefault();
@@ -935,7 +932,6 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
               });
             });
 
-            // activate initial tab if present
             var firstActive = drawerEl.querySelector(tabSelector + '.is-active') || drawerEl.querySelector(tabSelector);
             if (firstActive) {
               var initialDay = firstActive.getAttribute('data-vana-agenda-day');
@@ -948,7 +944,13 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
       } catch (err) {
         console.error('Agenda fallback init failed', err);
       }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _vanaAgendaFallbackInit);
+    } else {
+      try { _vanaAgendaFallbackInit(); } catch (e) { console.error('Agenda fallback immediate init failed', e); }
+    }
   }
 })();
 </script>
