@@ -178,7 +178,16 @@ unset($_t, $_thumb, $_m);
      TOUR DRAWER
      ═══════════════════════════════════════════════════════════ -->
 <?php require VANA_MC_PATH . 'templates/visit/parts/tour-drawer.php'; ?>
-
+ 
+<!-- Inclui a gaveta de agenda (se existir) -->
+<?php
+$_agenda_drawer = VANA_MC_PATH . 'templates/visit/parts/agenda-drawer.php';
+if ( file_exists( $_agenda_drawer ) ) {
+    require $_agenda_drawer;
+} else {
+    echo '<!-- [VANA DEBUG] agenda-drawer.php não encontrado em: ' . esc_html( $_agenda_drawer ) . ' -->';
+}
+unset( $_agenda_drawer );
 <!-- ═══════════════════════════════════════════════════════════
      HERO SECTION
      ═══════════════════════════════════════════════════════════ -->

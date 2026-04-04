@@ -391,5 +391,5 @@ function _vana_agd_badge( string $status, string $lang ): string {
         </footer>
 
     </div><!-- /body -->
-</aside>
+</div><!-- /vana-agenda-drawer -->
 
