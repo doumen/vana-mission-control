@@ -13,9 +13,7 @@ class Vana_Assets
     {
         add_action('wp_enqueue_scripts',    [self::class, 'enqueue_frontend']);
         add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin']);
-        // Ensure we add defer attribute to the agenda controller script when printed.
-        // Registered once here to avoid duplicate filter registrations.
-        add_filter('script_loader_tag', [self::class, 'add_defer_to_agenda_controller'], 10, 2);
+        // The agenda controller is enqueued with `in_footer` and `defer` below.
     }
 
     // -------------------------------------------------------------------------
@@ -138,20 +136,9 @@ class Vana_Assets
         return str_starts_with(get_locale(), 'en') ? 'en' : 'pt';
     }
 
-    // Inject `defer` attribute for the agenda controller if not already present.
-    public static function add_defer_to_agenda_controller(string $tag, string $handle): string
-    {
-        if ($handle !== 'vana-agenda-controller') {
-            return $tag;
-        }
-
-        if (strpos($tag, ' defer') !== false) {
-            return $tag; // already has defer
-        }
-
-        // Precise insertion before src attribute to avoid duplications
-        return str_replace(' src=', ' defer src=', $tag);
-    }
+    // NOTE: the agenda controller is enqueued with `in_footer` and marked `defer`
+    // via `wp_script_add_data` in `enqueue_frontend()`; no manual script tag
+    // filtering is required here.
 }
 
 add_action('plugins_loaded', function () {
