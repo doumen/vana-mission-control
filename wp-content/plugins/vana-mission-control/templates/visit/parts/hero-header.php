@@ -188,6 +188,7 @@ if ( file_exists( $_agenda_drawer ) ) {
     echo '<!-- [VANA DEBUG] agenda-drawer.php não encontrado em: ' . esc_html( $_agenda_drawer ) . ' -->';
 }
 unset( $_agenda_drawer );
+?>
 <!-- ═══════════════════════════════════════════════════════════
      HERO SECTION
      ═══════════════════════════════════════════════════════════ -->
