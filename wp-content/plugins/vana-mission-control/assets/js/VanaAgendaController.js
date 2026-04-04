@@ -1,270 +1,154 @@
 /**
- * VanaAgendaController.js — Schema 6.1 / v4
- * Unificado: remove IIFE duplo, conecta todos os listeners,
- * expõe window.VanaAgenda para debug externo.
+ * VanaAgendaController.js — v1.2
+ * Controla o drawer de agenda: open/close, tabs, VOD player.
  */
 (function () {
     'use strict';
 
-    // ── Seletores ────────────────────────────────────────────────
-    var SEL = {
-        drawer:  '[data-vana-agenda-drawer]',
-        overlay: '[data-vana-agenda-overlay]',
-        open:    '[data-vana-agenda-open]',
-        close:   '[data-vana-agenda-close]',
-        dayTab:  '[data-vana-agenda-day]',
-        panel:   '[data-vana-agenda-panel]',
-        playVod: '[data-vana-play-vod]',
-        openHk:  '[data-vana-open-hk]'
-    };
+    function init() {
+        var drawer  = document.querySelector('[data-vana-agenda-drawer]');
+        var overlay = document.querySelector('[data-vana-agenda-overlay]');
+        var openBtn = document.querySelector('[data-vana-agenda-open]');
 
-    // ── Estado ───────────────────────────────────────────────────
-    var _isOpen    = false;
-    var _lastFocus = null;
-    var _activeDay = null;
-
-    // ── DOM helpers ──────────────────────────────────────────────
-    function drawer()  { return document.getElementById('vana-agenda-drawer')  || document.querySelector(SEL.drawer);  }
-    function overlay() { return document.getElementById('vana-agenda-overlay') || document.querySelector(SEL.overlay); }
-
-    function setVisible(el, visible) {
-        if (!el) return;
-        el.hidden = !visible;
-        if (visible) el.removeAttribute('hidden');
-    }
-
-    function dispatch(name, detail) {
-        var ev = new CustomEvent(name, { bubbles: true, cancelable: true, detail: detail || {} });
-        return document.dispatchEvent(ev);
-    }
-
-    function getFocusable(root) {
-        if (!root) return [];
-        return Array.from(root.querySelectorAll(
-            'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])'
-        )).filter(function (el) { return el.offsetParent !== null; });
-    }
-
-    function trapFocus(el) {
-        if (!el) return;
-        el.addEventListener('keydown', function (e) {
-            if (e.key !== 'Tab') return;
-            var f = getFocusable(el);
-            if (!f.length) return;
-            var first = f[0], last = f[f.length - 1];
-            if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault(); last.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault(); first.focus();
-            }
-        });
-    }
-
-    // ── Gaveta: abrir ────────────────────────────────────────────
-    function openDrawer() {
-        var d = drawer(), o = overlay();
-        if (!d) { console.warn('[VanaAgenda] drawer não encontrado no DOM.'); return; }
-
-        _lastFocus = document.activeElement;
-
-        setVisible(d, true);
-        if (o) setVisible(o, true);
-
-        // Garante transição CSS
-        requestAnimationFrame(function () {
-            d.classList.add('is-open');
-            if (o) o.classList.add('is-open');
-        });
-
-        document.body.style.overflow = 'hidden';
-        document.body.classList.add('vana-drawer-open');
-        d.removeAttribute('aria-hidden');
-
-        document.querySelectorAll(SEL.open).forEach(function (btn) {
-            btn.setAttribute('aria-expanded', 'true');
-        });
-
-        _isOpen = true;
-        dispatch('vana:agenda:open', {});
-
-        requestAnimationFrame(function () {
-            var closeBtn = d.querySelector(SEL.close);
-            if (closeBtn) closeBtn.focus();
-            else d.focus();
-        });
-    }
-
-    // ── Gaveta: fechar ───────────────────────────────────────────
-    function closeDrawer() {
-        var d = drawer(), o = overlay();
-        if (!d) return;
-
-        d.classList.remove('is-open');
-        if (o) o.classList.remove('is-open');
-
-        // Aguarda transição antes de esconder
-        var delay = parseFloat(getComputedStyle(d).transitionDuration || '0') * 1000;
-        setTimeout(function () {
-            setVisible(d, false);
-            if (o) setVisible(o, false);
-        }, delay || 0);
-
-        document.body.style.overflow = '';
-        document.body.classList.remove('vana-drawer-open');
-        d.setAttribute('aria-hidden', 'true');
-
-        document.querySelectorAll(SEL.open).forEach(function (btn) {
-            btn.setAttribute('aria-expanded', 'false');
-        });
-
-        _isOpen = false;
-        dispatch('vana:agenda:close', {});
-
-        if (_lastFocus && typeof _lastFocus.focus === 'function') {
-            _lastFocus.focus();
-        }
-    }
-
-    // ── Troca de dia ─────────────────────────────────────────────
-    function switchDay(dayKey, source) {
-        var d = drawer();
-        if (!d || !dayKey) return;
-
-        d.querySelectorAll(SEL.dayTab).forEach(function (tab) {
-            var active = tab.getAttribute('data-vana-agenda-day') === dayKey;
-            tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            tab.classList.toggle('is-active', active);
-        });
-
-        d.querySelectorAll(SEL.panel).forEach(function (panel) {
-            var active = panel.getAttribute('data-vana-agenda-panel') === dayKey;
-            setVisible(panel, active);
-            panel.classList.toggle('is-active', active);
-        });
-
-        _activeDay = dayKey;
-
-        if (source === 'agenda') {
-            dispatch('vana:day:change', { day: dayKey, _source: 'agenda' });
-        }
-    }
-
-    // ── Bind de todos os eventos ─────────────────────────────────
-    function bindAll() {
-        var d = drawer();
-        if (!d) {
-            console.warn('[VanaAgenda] #vana-agenda-drawer não encontrado — abortando init.');
+        if (!drawer) {
+            console.warn('[VanaAgenda] drawer não encontrado no DOM.');
             return;
         }
 
-        d.setAttribute('tabindex', '-1');
-        trapFocus(d);
-
-        // Botões de abrir
-        document.querySelectorAll(SEL.open).forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                openDrawer();
+        // ── Open / Close ────────────────────────────────────────────
+        function openDrawer() {
+            drawer.removeAttribute('hidden');
+            drawer.classList.add('is-open');
+            if (overlay) {
+                overlay.removeAttribute('hidden');
+                overlay.classList.add('is-open');
+            }
+            document.body.classList.add('vana-drawer-open');
+            document.querySelectorAll('[data-vana-agenda-open]').forEach(function(b) {
+                b.setAttribute('aria-expanded', 'true');
             });
+            var closeBtn = drawer.querySelector('[data-vana-agenda-close]');
+            if (closeBtn) closeBtn.focus();
+            else { drawer.setAttribute('tabindex', '-1'); drawer.focus(); }
+        }
+
+        function closeDrawer() {
+            drawer.setAttribute('hidden', '');
+            drawer.classList.remove('is-open');
+            if (overlay) {
+                overlay.setAttribute('hidden', '');
+                overlay.classList.remove('is-open');
+            }
+            document.body.classList.remove('vana-drawer-open');
+            document.querySelectorAll('[data-vana-agenda-open]').forEach(function(b) {
+                b.setAttribute('aria-expanded', 'false');
+            });
+            if (openBtn) openBtn.focus();
+        }
+
+        // ── Botões abrir ────────────────────────────────────────────
+        document.querySelectorAll('[data-vana-agenda-open]').forEach(function (btn) {
+            btn.addEventListener('click', openDrawer);
         });
 
-        // Botões de fechar
-        d.querySelectorAll(SEL.close).forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                closeDrawer();
-            });
+        // ── Overlay fecha ───────────────────────────────────────────
+        if (overlay) overlay.addEventListener('click', closeDrawer);
+
+        // ── Botão fechar dentro do drawer ───────────────────────────
+        drawer.addEventListener('click', function (e) {
+            if (e.target.closest('[data-vana-agenda-close]')) closeDrawer();
         });
 
-        // Overlay
-        var o = overlay();
-        if (o) o.addEventListener('click', closeDrawer);
-
-        // Escape
+        // ── ESC fecha ───────────────────────────────────────────────
         document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && _isOpen) closeDrawer();
+            if (e.key === 'Escape' && !drawer.hasAttribute('hidden')) closeDrawer();
         });
 
-        // Tabs de dia
-        d.addEventListener('click', function (e) {
-            var tab = e.target.closest(SEL.dayTab);
+        // ── Tab switching ────────────────────────────────────────────
+        drawer.addEventListener('click', function (e) {
+            var tab = e.target.closest('[data-vana-agenda-day]');
             if (!tab) return;
-            switchDay(tab.getAttribute('data-vana-agenda-day'), 'agenda');
-        });
 
-        // Clique em evento → reload com ?day=&event_key=
-        d.addEventListener('click', function (e) {
-            var li = e.target.closest('[data-vana-event-key][data-vana-day-key]');
-            if (!li) return;
-            var isVod    = !!e.target.closest(SEL.playVod);
-            var isHk     = !!e.target.closest(SEL.openHk);
-            var isGal    = !!e.target.closest('[data-vana-open-gallery]');
-            var isNotify = !!e.target.closest('[data-vana-notify-event]');
-            if (isVod || isHk || isGal || isNotify) return;
-            var evKey  = li.getAttribute('data-vana-event-key')  || '';
-            var dayKey = li.getAttribute('data-vana-day-key')    || '';
-            if (!evKey || !dayKey) return;
-            e.preventDefault();
-            closeDrawer();
-            var url = new URL(window.location.href);
-            url.searchParams.set('day', dayKey);
-            url.searchParams.set('event_key', evKey);
-            window.location.href = url.toString();
-        });
+            var dayKey = tab.getAttribute('data-vana-agenda-day');
 
-        // VOD Play → emite evento + reload
-        d.addEventListener('click', function (e) {
-            var btn = e.target.closest(SEL.playVod);
-            if (!btn) return;
-            var videoId  = btn.getAttribute('data-vana-video-id')  || '';
-            var provider = btn.getAttribute('data-vana-provider')  || 'youtube';
-            var evKey    = btn.getAttribute('data-vana-event-key') || '';
-            var dayKey   = btn.getAttribute('data-vana-day-key')   || '';
-            if (!videoId) return;
-            e.preventDefault();
-            var proceed = dispatch('vana:event:select', {
-                type: 'video', videoId: videoId, provider: provider,
-                eventKey: evKey, dayKey: dayKey
+            drawer.querySelectorAll('[data-vana-agenda-day]').forEach(function (t) {
+                var active = t === tab;
+                t.classList.toggle('is-active', active);
+                t.setAttribute('aria-selected', active ? 'true' : 'false');
             });
-            if (!proceed) return;
-            closeDrawer();
-            var url = new URL(window.location.href);
-            url.searchParams.set('day', dayKey);
-            if (evKey) url.searchParams.set('event_key', evKey);
-            window.location.href = url.toString();
+
+            drawer.querySelectorAll('[data-vana-agenda-panel]').forEach(function (p) {
+                var active = p.getAttribute('data-vana-agenda-panel') === dayKey;
+                p.classList.toggle('is-active', active);
+                if (active) p.removeAttribute('hidden');
+                else p.setAttribute('hidden', '');
+            });
         });
 
-        // Sincroniza com evento externo do Hero (evita loop com _source)
-        document.addEventListener('vana:day:change', function (e) {
-            if (!e.detail || !e.detail.day) return;
-            if (e.detail._source === 'agenda') return;
-            switchDay(e.detail.day, null);
+        // ── VOD Player ───────────────────────────────────────────────
+        drawer.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-vana-play-vod]');
+            if (!btn) return;
+
+            var videoId  = btn.getAttribute('data-vana-video-id');
+            var provider = btn.getAttribute('data-vana-provider') || 'youtube';
+            var title    = btn.getAttribute('data-vana-event-title') || '';
+
+            if (provider === 'youtube' && videoId) {
+                openVideoModal(videoId, title);
+            }
         });
 
-        // Ativa o dia inicial
-        var firstTab = d.querySelector(SEL.dayTab + '.is-active') || d.querySelector(SEL.dayTab);
-        if (firstTab) {
-            var firstDay = firstTab.getAttribute('data-vana-agenda-day');
-            if (firstDay) switchDay(firstDay, null);
-        }
+        // ── API pública ─────────────────────────────────────────────
+        window.VanaAgenda = { open: openDrawer, close: closeDrawer };
+        console.log('[VanaAgenda] v1.2 inicializado com sucesso.');
     }
 
-    // ── Init ─────────────────────────────────────────────────────
-    function init() {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', bindAll);
-        } else {
-            bindAll(); // DOM já pronto (script carregado com defer ou no footer)
+    // ── Modal de vídeo ─────────────────────────────────────────────
+    function openVideoModal(videoId, title) {
+        var existing = document.getElementById('vana-video-modal');
+        if (existing) existing.remove();
+
+        var modal = document.createElement('div');
+        modal.id = 'vana-video-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-label', title || 'Vídeo');
+        modal.innerHTML =
+            '<div class="vana-video-modal__backdrop"></div>' +
+            '<div class="vana-video-modal__container">' +
+                '<button class="vana-video-modal__close" aria-label="Fechar vídeo">' +
+                    '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">' +
+                        '<path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+                    '</svg>' +
+                '</button>' +
+                '<div class="vana-video-modal__ratio">' +
+                    '<iframe src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&rel=0" ' +
+                        'frameborder="0" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>' +
+                '</div>' +
+            '</div>';
+
+        document.body.appendChild(modal);
+        requestAnimationFrame(function () { modal.classList.add('is-open'); });
+
+        function closeModal() {
+            modal.classList.remove('is-open');
+            setTimeout(function () { modal.remove(); }, 280);
+            document.removeEventListener('keydown', onKey);
         }
+
+        function onKey(e) { if (e.key === 'Escape') closeModal(); }
+
+        modal.querySelector('.vana-video-modal__backdrop').addEventListener('click', closeModal);
+        modal.querySelector('.vana-video-modal__close').addEventListener('click', closeModal);
+        document.addEventListener('keydown', onKey);
     }
 
-    init();
+    // ── Aguarda DOM ─────────────────────────────────────────────────
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
 
-    // ── API pública ──────────────────────────────────────────────
-    window.VanaAgenda = {
-        open:      openDrawer,
-        close:     closeDrawer,
-        switchDay: switchDay
-    };
-
-}());
+})();

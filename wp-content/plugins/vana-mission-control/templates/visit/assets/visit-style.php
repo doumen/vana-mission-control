@@ -2259,4 +2259,178 @@ header.vana-header span.vana-header__site-name {
 
 
 </style>
+<!-- Vana Agenda Drawer styles appended by patch: v1.2 -->
+<style id="vana-visit-agenda-styles">
+
+.vana-drawer--agenda {
+  position:       fixed;
+  top:            0;
+  right:          0;
+  width:          380px;
+  max-width:      100vw;
+  height:         100dvh;
+  background:     #ffffff;
+  color:          #0f172a;
+  z-index:        1200;
+  display:        none;
+  flex-direction: column;
+  transform:      translateX(100%);
+  transition:     transform 0.28s cubic-bezier(0.4,0,0.2,1),
+                  opacity   0.28s ease;
+  box-shadow:     -4px 0 40px rgba(0,0,0,0.18);
+  border-left:    3px solid #FFD906;
+  overflow:       hidden;
+}
+.vana-drawer--agenda.is-open {
+  display:   flex;
+  transform: translateX(0);
+}
+
+.vana-agenda__day-nav {
+  display:          flex;
+  gap:              4px;
+  padding:          12px 16px 0;
+  border-bottom:    1px solid rgba(15,23,42,0.08);
+  overflow-x:       auto;
+  scrollbar-width:  none;
+}
+.vana-agenda__day-nav::-webkit-scrollbar { display: none; }
+
+.vana-agenda__day-tab {
+  flex-shrink:    0;
+  padding:        8px 14px;
+  font-size:      13px;
+  font-weight:    600;
+  border:         none;
+  border-radius:  6px 6px 0 0;
+  background:     transparent;
+  color:          #64748b;
+  cursor:         pointer;
+  transition:     background 0.18s, color 0.18s;
+  border-bottom:  2px solid transparent;
+}
+.vana-agenda__day-tab.is-active {
+  color:          #170DF2;
+  border-bottom:  2px solid #170DF2;
+  background:     rgba(23,13,242,0.05);
+}
+
+.vana-agenda__panel { display: none; padding: 16px; overflow-y: auto; flex: 1; }
+.vana-agenda__panel.is-active { display: block; }
+
+.vana-agenda__event-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.vana-agenda__event {
+  border:        1px solid rgba(15,23,42,0.08);
+  border-radius: 10px;
+  padding:       12px;
+  background:    #f8fafc;
+  transition:    background 0.18s;
+}
+.vana-agenda__event.is-interactive:hover { background: #f1f5f9; }
+
+.vana-agenda__event-header {
+  display:     flex;
+  align-items: center;
+  gap:         10px;
+  flex-wrap:   wrap;
+}
+.vana-agenda__event-time  { font-size: 12px; color: #94a3b8; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+.vana-agenda__event-title { font-size: 14px; font-weight: 600; color: #0f172a; flex: 1; }
+
+.vana-agenda__badge {
+  font-size:     11px;
+  font-weight:   600;
+  padding:       2px 8px;
+  border-radius: 99px;
+  flex-shrink:   0;
+}
+.vana-agenda__badge--past    { background: rgba(34,197,94,0.12); color: #15803d; }
+.vana-agenda__badge--live    { background: rgba(239,68,68,0.12);  color: #dc2626; }
+.vana-agenda__badge--upcoming{ background: rgba(148,163,184,0.15);color: #475569; }
+
+.vana-agenda__media-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+
+.vana-agenda__media-btn {
+  display:       flex;
+  align-items:   center;
+  gap:           8px;
+  width:         100%;
+  padding:       8px 12px;
+  border:        none;
+  border-radius: 8px;
+  background:    #170DF2;
+  color:         #ffffff;
+  font-size:     13px;
+  font-weight:   600;
+  cursor:        pointer;
+  transition:    background 0.18s, transform 0.1s;
+  text-align:    left;
+}
+.vana-agenda__media-btn:hover  { background: #0f09b8; transform: translateY(-1px); }
+.vana-agenda__media-btn:active { transform: translateY(0); }
+.vana-agenda__media-icon       { flex-shrink: 0; font-size: 14px; }
+
+#vana-video-modal {
+  position:   fixed;
+  inset:      0;
+  z-index:    2000;
+  display:    flex;
+  align-items:    center;
+  justify-content: center;
+  opacity:    0;
+  transition: opacity 0.28s ease;
+}
+#vana-video-modal.is-open { opacity: 1; }
+
+.vana-video-modal__backdrop {
+  position:   absolute;
+  inset:      0;
+  background: rgba(0,0,0,0.78);
+  backdrop-filter: blur(4px);
+}
+.vana-video-modal__container {
+  position:     relative;
+  z-index:      1;
+  width:        min(720px, 95vw);
+  border-radius: 12px;
+  overflow:     hidden;
+  box-shadow:   0 24px 80px rgba(0,0,0,0.5);
+}
+.vana-video-modal__close {
+  position:   absolute;
+  top:        -36px;
+  right:      0;
+  background: rgba(255,255,255,0.15);
+  border:     none;
+  border-radius: 50%;
+  width:      32px;
+  height:     32px;
+  display:    flex;
+  align-items: center;
+  justify-content: center;
+  color:      #fff;
+  cursor:     pointer;
+  transition: background 0.18s;
+}
+.vana-video-modal__close:hover { background: rgba(255,255,255,0.3); }
+
+.vana-video-modal__ratio {
+  position:    relative;
+  width:       100%;
+  padding-top: 56.25%;
+  background:  #000;
+}
+.vana-video-modal__ratio iframe {
+  position: absolute;
+  inset:    0;
+  width:    100%;
+  height:   100%;
+}
+
+@media (max-width: 480px) {
+  .vana-drawer--agenda { width: 100vw; }
+}
+
+</style>
 
