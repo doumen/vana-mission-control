@@ -91,7 +91,7 @@ class Vana_Assets
         wp_localize_script(
             'vana-event-controller',
             'vana_rest_root',
-            rest_url( 'vana/v1' )
+            [ 'url' => rest_url( 'vana/v1' ) ]
         );
 
         wp_enqueue_script(
