@@ -123,6 +123,9 @@ require_once VANA_MC_PATH . "api/class-vana-hari-katha-api.php";
 
 // ── Visit REST API — Fase 1 ───────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-rest-api.php";
+
+require_once VANA_MC_PATH  . 'includes/rest/class-vana-rest-katha.php';
+
 Vana_REST_API::init();
 
 // ═══════════════════════════════════════════════════════════
@@ -641,11 +644,31 @@ final class Vana_Mission_Control {
                 ? (string) filemtime($vana_ac_path)
                 : VANA_MC_VERSION;
 
+            // Stage Bridge (loads before agenda controller)
+            $vana_sb_path = VANA_MC_PATH . 'assets/js/VanaStageBridge.js';
+            $vana_sb_ver  = file_exists($vana_sb_path)
+                ? (string) filemtime($vana_sb_path)
+                : VANA_MC_VERSION;
+
+            // Agenda CSS
+            $vana_ag_css_path = VANA_MC_PATH . 'assets/css/vana-agenda.css';
+            $vana_ag_css_ver  = file_exists($vana_ag_css_path)
+                ? (string) filemtime($vana_ag_css_path)
+                : VANA_MC_VERSION;
+
             wp_enqueue_style(
                 "vana-ui-visit-hub",
                 VANA_MC_URL . "assets/css/vana-ui.visit-hub.css",
                 [],
                 VANA_MC_VERSION
+            );
+
+            // Agenda stylesheet (loads after base visit CSS)
+            wp_enqueue_style(
+                'vana-agenda',
+                VANA_MC_URL . 'assets/css/vana-agenda.css',
+                [ 'vana-ui-visit-hub' ],
+                $vana_ag_css_ver
             );
 
             wp_enqueue_script(
@@ -672,10 +695,18 @@ final class Vana_Mission_Control {
                 true
             );
 
+            // Stage bridge: must be loaded before agenda controller
+            wp_enqueue_script(
+                'vana-stage-bridge',
+                VANA_MC_URL . 'assets/js/VanaStageBridge.js',
+                [],
+                $vana_sb_ver,
+                true
+            );
             wp_enqueue_script(
                 "vana-agenda-controller",
                 VANA_MC_URL . "assets/js/VanaAgendaController.js",
-                [],
+                [ 'vana-stage-bridge' ],
                 $vana_ac_ver,
                 true
             );
