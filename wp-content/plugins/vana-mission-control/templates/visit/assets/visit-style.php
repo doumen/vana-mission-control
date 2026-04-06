@@ -1373,69 +1373,130 @@ header.vana-header span.vana-header__site-name {
 }
 
 /* ============================================================
-   19. TOUR DRAWER (inalterado — já correto)
+   19. DRAWERS — Tour Drawer (esquerda) + Agenda Drawer (direita)
+   ATENÇÃO: cada drawer tem classe modificadora própria.
+   .vana-drawer--tour   → abre à ESQUERDA (menu de tours)
+   .vana-drawer--agenda → abre à DIREITA  (agenda de eventos)
    ============================================================ */
+
+/* ── Overlay compartilhado ────────────────────────────────── */
 .vana-drawer__overlay {
-  position: fixed; inset: 0;
-  background: rgba(5,10,20,0.6);
-  z-index: 1099; display: none; opacity: 0;
-  transition: opacity 0.28s ease;
-  backdrop-filter: blur(4px);
+  position:       fixed !important;
+  inset:          0 !important;
+  background:     rgba(5,10,20,0.6) !important;
+  z-index:        999998 !important;
+  display:        block !important;
+  opacity:        0 !important;
+  pointer-events: none !important;
+  transition:     opacity 0.28s ease !important;
+  backdrop-filter: blur(4px) !important;
 }
-.vana-drawer__overlay.is-open { display: block; opacity: 1; }
+.vana-drawer__overlay.is-open {
+  opacity:        1 !important;
+  pointer-events: auto !important;
+}
+/* Neutraliza [hidden] sem sumir */
+.vana-drawer__overlay[hidden] {
+  display: block !important;
+}
 
+/* ── Base comum das duas gavetas ──────────────────────────── */
 .vana-drawer {
-  position:       fixed;
-  top: 0; left: 0;
-  width:          320px;
-  max-width:      90vw;
-  height:         100dvh;
-  background:     #ffffff;
-  color:          #0f172a;
-  z-index:        1100;
-  display:        none;
-  flex-direction: column;
-  transform:      translateX(-100%);
-  transition:     transform 0.28s cubic-bezier(0.4,0,0.2,1);
-  border-right:   4px solid var(--vana-gold);
-  box-shadow:     4px 0 40px rgba(0,0,0,0.5);
-  overflow:       hidden;
+  position:       fixed !important;
+  top:            0 !important;
+  height:         100dvh !important;
+  display:        flex !important;      /* sempre flex, nunca none */
+  flex-direction: column !important;
+  overflow:       hidden !important;
+  transition:     transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+  visibility:     hidden !important;
+  pointer-events: none !important;
+  z-index:        999999 !important;
 }
-.vana-drawer.is-open { display: flex; transform: translateX(0); }
+.vana-drawer.is-open {
+  visibility:     visible !important;
+  pointer-events: auto !important;
+}
+/* Neutraliza [hidden] */
+.vana-drawer[hidden] {
+  display: flex !important;
+}
 
-.vana-drawer__header {
-  display:       flex;
-  align-items:   center;
-  gap:           8px;
-  padding:       15px 16px 13px;
-  background:    linear-gradient(135deg, var(--vana-gold) 0%, var(--vana-orange) 100%);
-  border-bottom: 2px solid var(--vana-orange);
-  flex-shrink:   0;
+/* ══════════════════════════════════════════════════════════
+   TOUR DRAWER — abre pela ESQUERDA
+   ══════════════════════════════════════════════════════════ */
+.vana-drawer--tour {
+  left:      0 !important;
+  right:     auto !important;
+  width:     320px !important;
+  max-width: 90vw !important;
+  background:   #ffffff !important;
+  color:        #0f172a !important;
+  border-right: 4px solid var(--vana-gold) !important;
+  border-left:  none !important;
+  box-shadow:   4px 0 40px rgba(0,0,0,0.5) !important;
+  transform:    translateX(-110%) !important;
 }
-.vana-drawer__header-title {
-  flex: 1; font-size: 13px; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  color: #0f172a; font-family: 'Syne', sans-serif;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.vana-drawer--tour.is-open {
+  transform: translateX(0) !important;
 }
-.vana-drawer__back,
-.vana-drawer__close {
-  background: none; border: none; cursor: pointer; color: #0f172a;
-  padding: 5px; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s; flex-shrink: 0; opacity: 0.7;
-}
-.vana-drawer__back:hover,
-.vana-drawer__close:hover { opacity: 1; background: rgba(255,255,255,0.3); }
 
-.vana-drawer__body {
-  flex: 1; overflow-y: auto; overscroll-behavior: contain;
-  padding: 8px 0; background: #fff;
+/* ── Tour Drawer: Header ──────────────────────────────────── */
+.vana-drawer--tour .vana-drawer__header {
+  display:       flex !important;
+  align-items:   center !important;
+  gap:           8px !important;
+  padding:       15px 16px 13px !important;
+  background:    linear-gradient(135deg, var(--vana-gold) 0%, var(--vana-orange) 100%) !important;
+  border-bottom: 2px solid var(--vana-orange) !important;
+  flex-shrink:   0 !important;
 }
-.vana-drawer__body::-webkit-scrollbar       { width: 4px; }
-.vana-drawer__body::-webkit-scrollbar-track { background: transparent; }
-.vana-drawer__body::-webkit-scrollbar-thumb { background: rgba(243,11,115,0.2); border-radius: 4px; }
+.vana-drawer--tour .vana-drawer__header-title {
+  flex:           1 !important;
+  font-size:      13px !important;
+  font-weight:    700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color:          #0f172a !important;
+  font-family:    'Syne', sans-serif !important;
+  white-space:    nowrap !important;
+  overflow:       hidden !important;
+  text-overflow:  ellipsis !important;
+}
+.vana-drawer--tour .vana-drawer__back,
+.vana-drawer--tour .vana-drawer__close {
+  background:  none !important;
+  border:      none !important;
+  cursor:      pointer !important;
+  color:       #0f172a !important;
+  padding:     5px !important;
+  border-radius: 6px !important;
+  display:     flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition:  background .15s !important;
+  flex-shrink: 0 !important;
+  opacity:     0.7 !important;
+}
+.vana-drawer--tour .vana-drawer__back:hover,
+.vana-drawer--tour .vana-drawer__close:hover {
+  opacity:    1 !important;
+  background: rgba(255,255,255,0.3) !important;
+}
 
+/* ── Tour Drawer: Body ────────────────────────────────────── */
+.vana-drawer--tour .vana-drawer__body {
+  flex:                1 !important;
+  overflow-y:          auto !important;
+  overscroll-behavior: contain !important;
+  padding:             8px 0 !important;
+  background:          #fff !important;
+}
+.vana-drawer--tour .vana-drawer__body::-webkit-scrollbar       { width: 4px; }
+.vana-drawer--tour .vana-drawer__body::-webkit-scrollbar-track { background: transparent; }
+.vana-drawer--tour .vana-drawer__body::-webkit-scrollbar-thumb { background: rgba(243,11,115,0.2); border-radius: 4px; }
+
+/* ── Tour list items ──────────────────────────────────────── */
 .vana-drawer__loading { display: flex; justify-content: center; padding: 40px 0; }
 .vana-drawer__spinner {
   width: 24px; height: 24px;
@@ -1464,13 +1525,17 @@ header.vana-header span.vana-header__site-name {
   width: 3px; background: linear-gradient(180deg, #FFD906, #F35C0B);
   border-radius: 0 2px 2px 0;
 }
-.vana-drawer__tour-item.is-current-tour .vana-drawer__tour-btn { background: rgba(243,11,115,0.06); padding-left: 22px; }
+.vana-drawer__tour-item.is-current-tour .vana-drawer__tour-btn {
+  background: rgba(243,11,115,0.06); padding-left: 22px;
+}
 .vana-drawer__tour-item.is-current-tour .vana-drawer__tour-btn::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0;
   width: 3px; background: linear-gradient(180deg, #F30B73, #170DF2);
   border-radius: 0 2px 2px 0;
 }
-.vana-drawer__tour-name { flex: 1; font-size: 14px; line-height: 1.4; font-weight: 600; color: #0f172a; font-family: 'Questrial', sans-serif; }
+.vana-drawer__tour-name {
+  flex: 1; font-size: 14px; line-height: 1.4; font-weight: 600; color: #0f172a; font-family: 'Questrial', sans-serif;
+}
 .vana-drawer__tour-item.is-current-tour .vana-drawer__tour-name { color: #170DF2; font-weight: 700; }
 .vana-drawer__tour-meta {
   font-size: 11px; color: #170DF2; background: rgba(255,217,6,0.20);
@@ -1484,11 +1549,7 @@ header.vana-header span.vana-header__site-name {
 
 .vana-drawer__visit-list { list-style: none; margin: 0; padding: 0; }
 .vana-drawer__visit-item { border-bottom: 1px solid rgba(255,217,6,0.12); }
-.vana-drawer__visit-link {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; text-decoration: none;
-  color: #334155; font-size: 13px; transition: background .15s, color .15s;
-}
+.vana-drawer__visit-link { display: flex; align-items: center; gap: 10px; padding: 12px 16px; text-decoration: none; color: #334155; font-size: 13px; transition: background .15s, color .15s; }
 .vana-drawer__visit-link:hover { background: rgba(255,217,6,0.08); color: #0f172a; }
 .vana-drawer__visit-item.is-current-visit .vana-drawer__visit-link { color: #170DF2; background: rgba(23,13,242,0.05); font-weight: 700; }
 .vana-drawer__visit-dot { width: 7px; height: 7px; border-radius: 50%; background: #FFD906; flex-shrink: 0; }
@@ -1498,12 +1559,27 @@ header.vana-header span.vana-header__site-name {
 .vana-drawer__error { padding: 24px 16px; font-size: 13px; color: #94a3b8; text-align: center; }
 
 @media (max-width: 480px) {
-  .vana-drawer { width: 100vw; max-width: 100vw; }
+  .vana-drawer--tour  { width: 100vw !important; max-width: 100vw !important; }
+  #vana-agenda-drawer,
+  .vana-drawer--agenda {
+    top:           auto !important;
+    bottom:        0 !important;
+    right:         0 !important;
+    left:          0 !important;
+    width:         100vw !important;
+    height:        90dvh !important;
+    border-radius: 16px 16px 0 0 !important;
+    transform:     translateY(110%) !important;
+  }
+  #vana-agenda-drawer.is-open,
+  .vana-drawer--agenda.is-open {
+    transform: translateY(0) !important;
+  }
 }
 
 /* Live pulse */
 @keyframes vana-pulse {
-  0%, 100% { opacity: 1;   transform: scale(1);    }
+  0%, 100% { opacity: 1;   transform: scale(1);   }
   50%       { opacity: .4; transform: scale(1.4); }
 }
 

@@ -22,23 +22,38 @@ class Vana_Assets
 
     public static function enqueue_frontend(): void
     {
-        // CSS global de visita
-        wp_enqueue_style(
-            'vana-visit',
-            VANA_MC_URL . 'assets/css/vana-visit.css',
-            [],
-            VANA_MC_VERSION
-        );
+        // ── Só carrega os assets de visita na página da visita ────────
+        $is_visit_page = is_singular( 'vana_visit' );
 
-        // CSS do visit hub
-        wp_enqueue_style(
-            'vana-visit-hub',
-            VANA_MC_URL . 'assets/css/vana-ui.visit-hub.css',
-            ['vana-visit'],
-            VANA_MC_VERSION
-        );
+        if ( $is_visit_page ) {
+            // ── Remove CSS do Astra que conflita com os drawers ───────
+            add_action( 'wp_print_styles', function() {
+                // Remove estilos do Astra que sobrescrevem position/transform
+                wp_dequeue_style( 'astra-theme-css' );
+                wp_dequeue_style( 'astra-theme-dynamic-css' );
+                // Remove qualquer versão antiga do vana-drawer
+                wp_dequeue_style( 'vana-drawer' );
+                wp_dequeue_style( 'vana-visit-drawer' );
+            }, 99 );
 
-        // JS: controller de visita (já existia)
+            // CSS global de visita
+            wp_enqueue_style(
+                'vana-visit',
+                VANA_MC_URL . 'assets/css/vana-visit.css',
+                [],
+                VANA_MC_VERSION
+            );
+
+            // CSS do visit hub
+            wp_enqueue_style(
+                'vana-visit-hub',
+                VANA_MC_URL . 'assets/css/vana-ui.visit-hub.css',
+                ['vana-visit'],
+                VANA_MC_VERSION
+            );
+        }
+
+        // ── JS: sempre carregado (pode ser necessário fora da visita) ─
         wp_enqueue_script(
             'vana-visit-controller',
             VANA_MC_URL . 'assets/js/VanaVisitController.js',
@@ -47,7 +62,6 @@ class Vana_Assets
             true
         );
 
-        // JS: agenda (já existia)
         wp_enqueue_script(
             'vana-agenda-controller',
             VANA_MC_URL . 'assets/js/VanaAgendaController.js',
@@ -55,13 +69,10 @@ class Vana_Assets
             VANA_MC_VERSION,
             true
         );
-        // Ensure the agenda controller is loaded with defer to avoid running
-        // before the DOM is ready and to match frontend script strategy.
         if ( function_exists( 'wp_script_add_data' ) ) {
             wp_script_add_data( 'vana-agenda-controller', 'defer', true );
         }
 
-        // JS: chips (já existia)
         wp_enqueue_script(
             'vana-chip-controller',
             VANA_MC_URL . 'assets/js/VanaChipController.js',
@@ -70,7 +81,6 @@ class Vana_Assets
             true
         );
 
-        // JS: event controller (já existia)
         wp_enqueue_script(
             'vana-event-controller',
             VANA_MC_URL . 'assets/js/VanaEventController.js',
@@ -78,15 +88,12 @@ class Vana_Assets
             VANA_MC_VERSION,
             true
         );
-
         wp_localize_script(
             'vana-event-controller',
             'vana_rest_root',
             rest_url( 'vana/v1' )
         );
 
-
-        // JS: day selector ← NOVO (patch que acabamos de criar)
         wp_enqueue_script(
             'vana-day-selector',
             VANA_MC_URL . 'assets/js/vana-day-selector.js',
@@ -95,16 +102,15 @@ class Vana_Assets
             true
         );
 
-        // Variáveis PHP → JS
         wp_localize_script(
             'vana-visit-controller',
             'VanaData',
             [
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'nonce'   => wp_create_nonce('vana_nonce'),
+                'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+                'nonce'   => wp_create_nonce( 'vana_nonce' ),
                 'lang'    => self::get_current_lang(),
                 'siteUrl' => get_site_url(),
-                'debug'   => defined('WP_DEBUG') && WP_DEBUG,
+                'debug'   => defined( 'WP_DEBUG' ) && WP_DEBUG,
             ]
         );
     }
