@@ -24,13 +24,13 @@
     const REST_ROOT = ( function () {
         try {
             if ( typeof window.vana_rest_root === 'object' && window.vana_rest_root?.url ) {
-                return window.vana_rest_root.url.replace(/\/++$/, '');
+                return window.vana_rest_root.url.replace(/\/+$/, '');
             }
             if ( typeof window.vana_rest_root === 'string' && window.vana_rest_root.length ) {
-                return window.vana_rest_root.replace(/\/++$/, '');
+                return window.vana_rest_root.replace(/\/+$/, '');
             }
             if ( window.wpApiSettings && window.wpApiSettings.root ) {
-                return window.wpApiSettings.root.replace(/\/++$/, '');
+                return window.wpApiSettings.root.replace(/\/+$/, '');
             }
         } catch ( e ) {
             // ignore and fallback
