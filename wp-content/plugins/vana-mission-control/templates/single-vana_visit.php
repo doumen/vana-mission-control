@@ -295,6 +295,120 @@ $GLOBALS['_vana_visit'] = [
     body.vana-splash-active #vana-page-root { visibility: hidden; }
   </style>
 
+  <style id="vana-header-hotfix-2026-04-07">
+    .vana-header{
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 1000 !important;
+      background: rgba(15, 23, 42, 0.92) !important;
+      border-bottom: 1px solid rgba(255,255,255,.10) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+    }
+
+    .vana-header__inner{
+      min-height: 64px !important;
+      display: grid !important;
+      grid-template-columns: 56px 1fr auto !important;
+      align-items: center !important;
+      gap: 12px !important;
+      padding: 0 12px !important;
+    }
+
+    .vana-header__tours-btn{
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: #ffffff !important;
+      background: rgba(255,255,255,.08) !important;
+      border: 1px solid rgba(255,255,255,.14) !important;
+      border-radius: 12px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    .vana-header__brand{
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 10px !important;
+      min-width: 0 !important;
+      overflow: hidden !important;
+    }
+
+    .vana-header__logo{
+      width: 28px !important;
+      height: 28px !important;
+      flex: 0 0 28px !important;
+    }
+
+    .vana-header .vana-header__brand .vana-header__site-name,
+    .vana-header__site-name{
+      display: inline-block !important;
+      color: #ffffff !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      font-size: 13px !important;
+      font-weight: 600 !important;
+      line-height: 1 !important;
+      max-width: 100% !important;
+    }
+
+    .vana-header__agenda-btn{
+      min-height: 40px !important;
+      padding: 0 12px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      color: #ffffff !important;
+      background: rgba(255,255,255,.08) !important;
+      border: 1px solid rgba(255,255,255,.14) !important;
+      border-radius: 12px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      white-space: nowrap !important;
+    }
+
+    .vana-header__agenda-label{
+      display: inline !important;
+      color: #ffffff !important;
+      font-size: 12px !important;
+      font-weight: 600 !important;
+    }
+
+    @media (max-width: 768px){
+      .vana-header__inner{
+        grid-template-columns: 44px 1fr 44px !important;
+        gap: 8px !important;
+        padding: 0 10px !important;
+      }
+
+      .vana-header__tours-btn,
+      .vana-header__agenda-btn{
+        width: 40px !important;
+        min-width: 40px !important;
+        height: 40px !important;
+        padding: 0 !important;
+      }
+
+      .vana-header__agenda-label{
+        display: none !important;
+      }
+
+      .vana-header__site-name{
+        font-size: 12px !important;
+        text-align: center !important;
+      }
+    }
+  </style>
+
   <?php wp_head(); ?>
 
 </head>
