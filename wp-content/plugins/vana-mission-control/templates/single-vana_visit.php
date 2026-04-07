@@ -307,7 +307,7 @@ $GLOBALS['_vana_visit'] = [
   <style id="vana-page-visibility-fix">
     /* Emergency: ensure page root and header are visible while debugging splash logic */
     #vana-page-root { visibility: visible !important; }
-    .vana-header { visibility: visible !important; display: block !important; }
+    .vana-header { visibility: visible !important; display: flex !important; }
   </style>
 
 <div id="vana-splash" role="status" aria-live="polite"

@@ -81,7 +81,13 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   position:      relative;
   background:    var(--vana-hero-gradient);
   border-bottom: 3px solid var(--vana-gold);
-  padding:       48px 24px 56px;
+  /* Presença visual mais forte: garante que o hero ocupe a dobra
+     mesmo quando o header está em overlay/absolute */
+  min-height:    clamp(320px, 48vh, 560px);
+  padding:       96px 24px 72px; /* topo aumentado para compensar header overlay */
+  display:       flex;
+  align-items:    flex-end;
+  justify-content: center;
   text-align:    center;
   overflow:      hidden;
 }
@@ -104,7 +110,8 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
 .vana-hero__content {
   position:   relative;
   z-index:    1;
-  max-width:  800px;
+  width:      min(100%, 860px);
+  max-width:  100%;
   margin:     0 auto;
 }
 
@@ -685,18 +692,20 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   color:        #fff;
 }
 
-/* ── Header center: garantir preenchimento consistente ─────── */
+/* ── Header center: keep readable site-name without forcing opaque capsule */
 .vana-header .vana-header__brand,
 .vana-header .vana-header__site-name {
-  background-color: rgba(255,255,255,0.96) !important;
-  color:             var(--vana-text) !important;
-  padding:           6px 12px !important;
-  border-radius:     10px !important;
-  display:           inline-flex !important;
-  align-items:       center !important;
-  gap:               8px !important;
-  z-index:           1001 !important;
-  box-shadow:        0 1px 6px rgba(0,0,0,0.06) !important;
+  background-color: transparent;
+  color:             var(--vana-text);
+  padding:           4px 10px;
+  border-radius:     8px;
+  display:           inline-flex;
+  align-items:       center;
+  gap:               8px;
+  z-index:           1001;
+  box-shadow:        none;
+  /* Avoid forcing heavy backdrops here; keep header overlay/light styles
+     controlled by the main .vana-header rules to preserve hero visual */
 }
 
 /* ── Agenda button (header) ───────────────────────────────── */
@@ -2530,6 +2539,65 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
 
 @media (max-width: 480px) {
   .vana-drawer--agenda { width: 100vw; }
+}
+
+/* ============================================================
+   FIX — Header layout: alinhamento, cor e centralização
+   v3.1 — 2026-04-07
+   ============================================================ */
+
+/* 1. Garante flex horizontal no inner */
+.vana-header__inner {
+  display:         flex !important;
+  flex-direction:  row !important;
+  align-items:     center !important;
+  justify-content: space-between !important;
+  flex-wrap:       nowrap !important;
+}
+
+/* 2. Corrige o brand — remove inline-flex conflitante */
+.vana-header .vana-header__brand,
+.vana-header .vana-header__site-name {
+  display:          flex !important;
+  flex-direction:   row !important;
+  align-items:      center !important;
+  background-color: transparent !important;
+  padding:          0 !important;
+  box-shadow:       none !important;
+}
+
+/* 3. Brand centralizado */
+.vana-header__brand {
+  flex:            1 !important;
+  justify-content: center !important;
+  gap:             8px !important;
+}
+
+/* 4. Site-name legível */
+.vana-header .vana-header__brand .vana-header__site-name {
+  display:        block !important;
+  flex:           unset !important;
+  color:          var(--vana-text) !important;
+  font-size:      0.9rem !important;
+  font-weight:    700 !important;
+  white-space:    nowrap !important;
+  overflow:       hidden !important;
+  text-overflow:  ellipsis !important;
+  max-width:      200px !important;
+}
+
+/* 5. Botão agenda — mantém estilo correto */
+.vana-header__agenda-btn {
+  flex-shrink: 0 !important;
+}
+
+/* 6. Ações — sem quebra de linha */
+.vana-header__actions {
+  display:     flex !important;
+  align-items: center !important;
+  gap:         8px !important;
+  flex-shrink: 0 !important;
+  flex-wrap:   nowrap !important;
 }
 
 </style>
