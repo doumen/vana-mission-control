@@ -304,6 +304,12 @@ $GLOBALS['_vana_visit'] = [
       data-stage-mode="<?php echo esc_attr( $stage_mode ); ?>"
       data-visit-status="<?php echo esc_attr( $visit_status ); ?>">
 
+  <style id="vana-page-visibility-fix">
+    /* Emergency: ensure page root and header are visible while debugging splash logic */
+    #vana-page-root { visibility: visible !important; }
+    .vana-header { visibility: visible !important; display: block !important; }
+  </style>
+
 <div id="vana-splash" role="status" aria-live="polite"
      aria-label="<?php echo esc_attr( $lang === 'en' ? 'Loading…' : 'Carregando…' ); ?>">
   <img
