@@ -83,11 +83,9 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   border-bottom: 3px solid var(--vana-gold);
   /* Presença visual mais forte: garante que o hero ocupe a dobra
      mesmo quando o header está em overlay/absolute */
-  min-height:    clamp(320px, 48vh, 560px);
-  padding:       96px 24px 72px; /* topo aumentado para compensar header overlay */
-  display:       flex;
-  align-items:    flex-end;
-  justify-content: center;
+  /* auto */
+  padding:       48px 24px 40px; /* topo reduzido para altura automática do conteúdo */
+  display:       block;
   text-align:    center;
   overflow:      hidden;
 }
@@ -2598,6 +2596,42 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   gap:         8px !important;
   flex-shrink: 0 !important;
   flex-wrap:   nowrap !important;
+}
+
+/* ============================================================
+   VANA FIX: Agenda btn → icon-only circular
+   ============================================================ */
+.vana-header__agenda-label {
+  display: none !important;
+}
+.vana-header__agenda-btn {
+  width:            36px !important;
+  height:           36px !important;
+  min-width:        36px !important;
+  padding:          0 !important;
+  border-radius:    50% !important;
+  background:       rgba(255,255,255,0.15) !important;
+  backdrop-filter:  blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border:           1.5px solid rgba(255,255,255,0.40) !important;
+  display:          inline-flex !important;
+  align-items:      center !important;
+  justify-content:  center !important;
+  color:            #fff !important;
+  cursor:           pointer !important;
+  transition:       background 0.2s ease, border-color 0.2s ease !important;
+}
+.vana-header__agenda-btn:hover,
+.vana-header__agenda-btn:focus-visible {
+  background:    rgba(255,255,255,0.28) !important;
+  border-color:  rgba(255,255,255,0.65) !important;
+  outline:       2px solid rgba(255,255,255,0.6) !important;
+  outline-offset: 2px !important;
+}
+.vana-header__agenda-btn svg {
+  width:  20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
 }
 
 </style>
