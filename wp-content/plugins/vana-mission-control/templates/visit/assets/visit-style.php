@@ -2385,11 +2385,10 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
 }
 
 
-</style>
 /* ============================================================
-   FIX — Header layout: alinhamento, cor e centralização
-   v3.1 — 2026-04-07
-   ============================================================ */
+  FIX — Header layout: alinhamento, cor e centralização
+  v3.1 — 2026-04-07
+  ============================================================ */
 
 /* 1. Garante flex horizontal no inner */
 .vana-header__inner {
@@ -2477,6 +2476,17 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   height:       20px !important;
   flex-shrink:  0 !important;
   stroke:       currentColor !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   FIX: --vana-text fallback + site-name visible on white header
+   ============================================================ */
+.vana-header {
+  --vana-text: #1e293b;
+}
+.vana-header .vana-header__site-name {
+  color: #1e293b !important;
+  opacity: 1 !important;
 }
 
 </style>
