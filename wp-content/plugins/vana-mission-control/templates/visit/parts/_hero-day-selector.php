@@ -9,21 +9,23 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-// DEBUG TEMPORÁRIO — remover após confirmar
-if ( defined('WP_DEBUG') && WP_DEBUG ) {
-    $__dbg_first = $_hds_days[0] ?? [];
-    error_log( '[HDS-DEBUG] keys do day[0]: ' . implode( ', ', array_keys( $__dbg_first ) ) );
-    error_log( '[HDS-DEBUG] day[0] day_key: "' . ( $__dbg_first['day_key'] ?? 'AUSENTE' ) . '"' );
-    error_log( '[HDS-DEBUG] day[0] date_local: "' . ( $__dbg_first['date_local'] ?? 'AUSENTE' ) . '"' );
-    error_log( '[HDS-DEBUG] day[0] date: "' . ( $__dbg_first['date'] ?? 'AUSENTE' ) . '"' );
-    unset( $__dbg_first );
-}
+
 
 
 // ── Fonte de dados ────────────────────────────────────────────────────────────
 $_hds_days = is_array( $days ?? null )
     ? $days
     : ( is_array( $tour['days'] ?? null ) ? $tour['days'] : [] );
+
+// DEBUG TEMPORÁRIO — remover após confirmar
+if ( defined('WP_DEBUG') && WP_DEBUG ) {
+    $__dbg_first = $_hds_days[0] ?? [];
+    error_log( '[HDS-DEBUG] $_hds_days count: ' . count( $_hds_days ) );
+    error_log( '[HDS-DEBUG] keys do day[0]: "' . implode( ', ', array_keys( $__dbg_first ) ) . '"' );
+    error_log( '[HDS-DEBUG] day[0] day_key: "' . ( $__dbg_first['day_key'] ?? 'AUSENTE' ) . '"' );
+    error_log( '[HDS-DEBUG] day[0] date_local: "' . ( $__dbg_first['date_local'] ?? 'AUSENTE' ) . '"' );
+    unset( $__dbg_first );
+}
 
 // Regra: 1 dia ou nenhum → sem seletor
 if ( count( $_hds_days ) <= 1 ) return;

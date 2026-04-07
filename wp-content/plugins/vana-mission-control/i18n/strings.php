@@ -162,6 +162,8 @@ return [
     'stage.map_load'        => ['pt' => 'Carregar mapa',             'en' => 'Load map'],
     'stage.recording'       => ['pt' => 'Gravação',                  'en' => 'Recording'],
     'stage.seg_jump'        => ['pt' => 'Ir para segmento',          'en' => 'Jump to segment'],
+    'stage.share'           => ['pt' => 'Compartilhar',               'en' => 'Share'],
+    'stage.open_hk'         => ['pt' => 'Abrir Hari-katha',           'en' => 'Open Hari-katha'],
 
     // ── TABS ─────────────────────────────────────────────────────────────────────
     'tabs.day'              => ['pt' => 'Dia',                       'en' => 'Day'],

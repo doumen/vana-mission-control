@@ -252,7 +252,9 @@ if ( ! $active_day && ! empty( $days ) ) {
 // ── 4. Índice do dia ativo ────────────────────────────────────────────────────
 $active_index = 0;
 foreach ( $days as $i => $d ) {
-    if ( ( $d['date_local'] ?? '' ) === $active_day_date ) {
+    // schema atual usa 'day_key'; fallback para campos legados
+    $day_ref = $d['day_key'] ?? $d['date_local'] ?? $d['date'] ?? '';
+    if ( $day_ref === $active_day_date ) {
         $active_index = $i;
         break;
     }
