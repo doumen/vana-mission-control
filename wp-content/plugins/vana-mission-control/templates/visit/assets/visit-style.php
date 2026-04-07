@@ -2610,28 +2610,29 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   min-width:        36px !important;
   padding:          0 !important;
   border-radius:    50% !important;
-  background:       rgba(255,255,255,0.15) !important;
+  background:       rgba(0,0,0,0.07) !important;
   backdrop-filter:  blur(6px) !important;
   -webkit-backdrop-filter: blur(6px) !important;
-  border:           1.5px solid rgba(255,255,255,0.40) !important;
+  border:           1.5px solid rgba(0,0,0,0.15) !important;
   display:          inline-flex !important;
   align-items:      center !important;
   justify-content:  center !important;
-  color:            #fff !important;
+  color:            #3a1a00 !important;
   cursor:           pointer !important;
-  transition:       background 0.2s ease, border-color 0.2s ease !important;
+  transition:       background 0.2s ease !important;
 }
 .vana-header__agenda-btn:hover,
 .vana-header__agenda-btn:focus-visible {
-  background:    rgba(255,255,255,0.28) !important;
-  border-color:  rgba(255,255,255,0.65) !important;
-  outline:       2px solid rgba(255,255,255,0.6) !important;
+  background:    rgba(0,0,0,0.13) !important;
+  border-color:  rgba(0,0,0,0.28) !important;
+  outline:       2px solid rgba(0,0,0,0.2) !important;
   outline-offset: 2px !important;
 }
 .vana-header__agenda-btn svg {
-  width:  20px !important;
-  height: 20px !important;
-  flex-shrink: 0 !important;
+  width:        20px !important;
+  height:       20px !important;
+  flex-shrink:  0 !important;
+  stroke:       currentColor !important;
 }
 
 </style>
