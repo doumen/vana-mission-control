@@ -147,7 +147,7 @@ unset($_t, $_thumb, $_m);
             <?php else : ?>
                 <span class="vana-header__logo-placeholder" aria-hidden="true">✦</span>
             <?php endif; ?>
-            <span class="vana-header__site-name" style="color:#ffffff;opacity:1;visibility:visible;background:transparent;mix-blend-mode:normal;">Vana Madhuryam Daily</span>
+            <span class="vana-header__site-name">Vana Madhuryam Daily</span>
         </div>
 
         <!-- Direita: botão Agenda -->

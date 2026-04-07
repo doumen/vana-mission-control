@@ -684,13 +684,36 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   color:        #fff;
 }
 
-/* ── Fix: site-name visível sobre qualquer tema ─────────────── */
-header.vana-header span.vana-header__site-name {
-    color:       #ffffff !important;
-    opacity:     1       !important;
-    visibility:  visible !important;
-    background:  transparent !important;
+/* ── Header center: garantir preenchimento consistente ─────── */
+.vana-header .vana-header__brand,
+.vana-header .vana-header__site-name {
+  background-color: rgba(255,255,255,0.96) !important;
+  color:             var(--vana-text) !important;
+  padding:           6px 12px !important;
+  border-radius:     10px !important;
+  display:           inline-flex !important;
+  align-items:       center !important;
+  gap:               8px !important;
+  z-index:           1001 !important;
+  box-shadow:        0 1px 6px rgba(0,0,0,0.06) !important;
 }
+
+/* ── Agenda button (header) ───────────────────────────────── */
+.vana-header__agenda-btn {
+  background: linear-gradient(135deg,#FFD906,#F35C0B) !important;
+  color:      #0f172a !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  font-weight: 700 !important;
+  font-family: 'Syne', sans-serif !important;
+  z-index: 1002 !important;
+}
+.vana-header__agenda-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(253,214,128,.18); }
 
 /* ── Hero Day Selector ─────────────────────────────────────────── */
 .vana-day-selector {
