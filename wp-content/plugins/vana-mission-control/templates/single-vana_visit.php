@@ -295,6 +295,74 @@ $GLOBALS['_vana_visit'] = [
     body.vana-splash-active #vana-page-root { visibility: hidden; }
   </style>
 
+  <style id="vana-header-hotfix-2026-04-07">
+    .vana-header{
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 1000 !important;
+      background: rgba(15, 23, 42, 0.92) !important;
+      border-bottom: 1px solid rgba(255,255,255,.10) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+    }
+
+    .vana-header__inner{
+      min-height: 64px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      gap: 12px !important;
+    }
+
+    .vana-header__brand{
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      min-width: 0 !important;
+    }
+
+    .vana-header .vana-header__brand .vana-header__site-name,
+    .vana-header__site-name{
+      display: inline-block !important;
+      color: #ffffff !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      white-space: nowrap !important;
+    }
+
+    .vana-header__agenda-btn,
+    .vana-header__tours-btn{
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      color: #ffffff !important;
+      background: rgba(255,255,255,.08) !important;
+      border: 1px solid rgba(255,255,255,.14) !important;
+      border-radius: 12px !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    .vana-header__agenda-label{
+      display: inline !important;
+      color: #ffffff !important;
+    }
+
+    @media (max-width: 768px){
+      .vana-header__site-name{
+        display: inline-block !important;
+        font-size: 12px !important;
+        max-width: 140px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+      }
+
+      .vana-header__agenda-label{
+        display: none !important;
+      }
+    }
+  </style>
+
   <?php wp_head(); ?>
 
 </head>
