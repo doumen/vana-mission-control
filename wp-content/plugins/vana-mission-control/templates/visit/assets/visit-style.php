@@ -641,8 +641,9 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
     max-width:      180px;
 }
 
-@media (max-width: 380px) {
-    .vana-header__site-name { display: none !important; }
+@media (max-width: 320px) {
+  /* keep site name visible on most small screens; only hide on very narrow devices */
+  .vana-header__site-name { display: none; }
 }
 
 .vana-header__notify-btn {
