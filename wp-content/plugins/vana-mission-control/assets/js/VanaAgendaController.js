@@ -9,12 +9,27 @@
 
   if ( ! drawer ) return;
 
+  // ScrollLock singleton (reference-counted) — create if absent
+  if ( ! window.VanaScrollLock ) {
+    ( function () {
+      let _count = 0;
+      const body = document.body;
+      window.VanaScrollLock = {
+        acquire() { if ( ++_count === 1 ) body.style.overflow = 'hidden'; },
+        release() { if ( --_count <= 0 ) { _count = 0; body.style.overflow = ''; } },
+        getCount() { return _count; }
+      };
+    } )();
+  }
+
   // ── Fix 1: usa classe .is-open em vez de [hidden] ────────────
   function open() {
     drawer.classList.add( 'is-open' );
     overlay?.classList.add( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'false' );
+    // use ScrollLock to prevent body scroll when drawer is open
     document.body.classList.add( 'vana-drawer-open' );
+    window.VanaScrollLock.acquire();
     drawer.querySelector( '.vana-day-tab' )?.focus();
   }
 
@@ -23,6 +38,8 @@
     overlay?.classList.remove( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'true' );
     document.body.classList.remove( 'vana-drawer-open' );
+    // release the scroll lock acquired when opening
+    window.VanaScrollLock.release();
     trigger?.focus();
   }
 
@@ -110,6 +127,10 @@
         ? ( parseInt( btn.dataset.timestamp, 10 ) || 0 )
         : 0;
 
+      // Delegate loading to the stage. The StageBridge will acquire the
+      // shared ScrollLock synchronously at the start of loadVod, so calling
+      // close() immediately is safe — the Stage will hold the lock for the
+      // remainder of the playback session and must release it when closing.
       window.VanaStageBridge?.loadVod(
         btn.dataset.vodKey,
         btn.dataset.videoId,

@@ -1,6 +1,19 @@
 ;( function () {
   'use strict';
 
+  // Ensure shared ScrollLock singleton exists (reference-counted)
+  if ( ! window.VanaScrollLock ) {
+    ( function () {
+      let _count = 0;
+      const body = document.body;
+      window.VanaScrollLock = {
+        acquire() { if ( ++_count === 1 ) body.style.overflow = 'hidden'; },
+        release() { if ( --_count <= 0 ) { _count = 0; body.style.overflow = ''; } },
+        getCount() { return _count; }
+      };
+    } )();
+  }
+
   // ── Fix: busca o iframe de forma lazy ────────────────────────
   // O iframe só existe no DOM quando há VOD ativo.
   // Não mata o bridge se não encontrar na inicialização.
@@ -33,6 +46,10 @@
       console.warn( '[VanaStageBridge] video_id ausente para vod_key:', vodKey );
       return;
     }
+
+    // Acquire the shared scroll lock synchronously so callers (e.g. drawer)
+    // may safely close their UI without allowing body scroll to re-appear.
+    try { window.VanaScrollLock?.acquire(); } catch ( e ) { /* ignore */ }
 
     const src = buildSrc( provider, videoId, ts );
     if ( ! src ) return;
