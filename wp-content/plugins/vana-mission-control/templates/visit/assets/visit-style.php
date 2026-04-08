@@ -2478,15 +2478,233 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   stroke:       currentColor !important;
 }
 
+
 /* ═══════════════════════════════════════════════════════
    FIX: --vana-text fallback + site-name visible on white header
    ============================================================ */
 .vana-header {
   --vana-text: #1e293b;
 }
-.vana-header .vana-header__site-name {
-  color: #1e293b !important;
-  opacity: 1 !important;
+body .vana-header .vana-header__brand .vana-header__site-name,
+body.vana-visit-page .vana-header .vana-header__brand .vana-header__site-name {
+  color:          #1e293b !important;
+  opacity:        1       !important;
+  visibility:     visible !important;
+  font-weight:    700     !important;
+  font-size:      0.95rem !important;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENDA DRAWER — CSS principal (restored after append cleanup)
+   ============================================================ */
+
+/* ── Base do drawer ─────────────────────────────────────────── */
+.vana-drawer--agenda {
+  position:         fixed !important;
+  top:              0     !important;
+  right:            0     !important;
+  width:            380px !important;
+  max-width:        100vw !important;
+  height:           100dvh !important;
+  background:       #ffffff !important;
+  color:            #0f172a !important;
+  z-index:          1200    !important;
+  display:          flex    !important;
+  flex-direction:   column  !important;
+  transform:        translateX(110%) !important;
+  transition:       transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+  box-shadow:       -4px 0 40px rgba(0,0,0,0.18) !important;
+  border-left:      3px solid #FFD906 !important;
+  overflow:         hidden  !important;
+}
+.vana-drawer--agenda.is-open {
+  transform: translateX(0) !important;
+}
+
+/* ── Overlay ────────────────────────────────────────────────── */
+.vana-drawer__overlay {
+  position:   fixed   !important;
+  inset:      0       !important;
+  background: rgba(0,0,0,0.45) !important;
+  z-index:    1199    !important;
+  backdrop-filter: blur(2px) !important;
+}
+
+/* ── Header do drawer ───────────────────────────────────────── */
+.vana-drawer__header {
+  display:         flex       !important;
+  align-items:     center     !important;
+  justify-content: space-between !important;
+  padding:         12px 16px  !important;
+  border-bottom:   1px solid rgba(15,23,42,0.1) !important;
+  background:      #FFD906   !important;
+  flex-shrink:     0         !important;
+  gap:             8px       !important;
+}
+.vana-drawer__title {
+  font-weight: 700    !important;
+  font-size:   15px   !important;
+  color:       #0f172a !important;
+  flex:        1      !important;
+}
+.vana-drawer__close {
+  background:    transparent !important;
+  border:        none        !important;
+  font-size:     18px        !important;
+  cursor:        pointer     !important;
+  color:         #0f172a    !important;
+  padding:       4px 6px    !important;
+  line-height:   1          !important;
+  border-radius: 4px        !important;
+}
+.vana-drawer__close:hover { background: rgba(0,0,0,0.08) !important; }
+
+/* ── Lang toggle ────────────────────────────────────────────── */
+.vana-drawer__lang {
+  display: flex  !important;
+  gap:     4px   !important;
+}
+.vana-lang-btn {
+  padding:       4px 10px  !important;
+  font-size:     12px      !important;
+  font-weight:   600       !important;
+  border:        1px solid rgba(15,23,42,0.2) !important;
+  border-radius: 4px       !important;
+  background:    rgba(255,255,255,0.5) !important;
+  color:         #0f172a  !important;
+  cursor:        pointer   !important;
+}
+.vana-lang-btn.is-active {
+  background: #0f172a     !important;
+  color:      #FFD906     !important;
+  border-color: #0f172a  !important;
+}
+
+/* ── Day tabs ───────────────────────────────────────────────── */
+.vana-agenda-day-tabs {
+  display:        flex    !important;
+  gap:            4px     !important;
+  padding:        10px 16px 0 !important;
+  border-bottom:  1px solid rgba(15,23,42,0.08) !important;
+  overflow-x:     auto    !important;
+  scrollbar-width: none   !important;
+  flex-shrink:    0       !important;
+}
+.vana-agenda-day-tabs::-webkit-scrollbar { display: none; }
+.vana-day-tab {
+  flex-shrink:    0       !important;
+  padding:        8px 14px !important;
+  font-size:      13px    !important;
+  font-weight:    600     !important;
+  border:         none    !important;
+  border-radius:  6px 6px 0 0 !important;
+  background:     transparent !important;
+  color:          #64748b !important;
+  cursor:         pointer  !important;
+  border-bottom:  2px solid transparent !important;
+  transition:     all 0.18s !important;
+}
+.vana-day-tab.is-active {
+  color:         #170DF2  !important;
+  border-bottom: 2px solid #170DF2 !important;
+  background:    rgba(23,13,242,0.05) !important;
+}
+
+/* ── Body / Panels ──────────────────────────────────────────── */
+.vana-drawer__body {
+  flex:       1       !important;
+  overflow-y: auto    !important;
+  display:    flex    !important;
+  flex-direction: column !important;
+}
+.vana-day-panel { display: none; padding: 16px; }
+.vana-day-panel.is-active { display: block; }
+
+/* ── Tithi ──────────────────────────────────────────────────── */
+.vana-tithi {
+  font-size:   12px   !important;
+  color:       #64748b !important;
+  margin-bottom: 10px !important;
+}
+
+/* ── Lista de eventos ───────────────────────────────────────── */
+.vana-event-list {
+  list-style: none !important;
+  margin: 0        !important;
+  padding: 0       !important;
+  display: flex    !important;
+  flex-direction: column !important;
+  gap: 8px         !important;
+}
+.vana-event-item {
+  border:        1px solid rgba(15,23,42,0.08) !important;
+  border-radius: 10px  !important;
+  background:    #f8fafc !important;
+  overflow:      hidden  !important;
+}
+.vana-event-toggle {
+  display:     flex      !important;
+  align-items: center    !important;
+  gap:         8px       !important;
+  width:       100%      !important;
+  padding:     12px      !important;
+  background:  transparent !important;
+  border:      none      !important;
+  cursor:      pointer   !important;
+  text-align:  left      !important;
+  font-size:   14px      !important;
+  color:       #0f172a  !important;
+}
+.vana-event-toggle__time  { font-size: 12px; color: #94a3b8; flex-shrink: 0; }
+.vana-event-toggle__title { flex: 1; font-weight: 600; }
+.vana-event-toggle__icon  { flex-shrink: 0; color: #94a3b8; font-size: 16px; }
+.vana-event-body { padding: 0 12px 12px; display: block; }
+
+/* ── VOD chips ──────────────────────────────────────────────── */
+.vana-event-section__label {
+  font-size:   12px    !important;
+  font-weight: 600     !important;
+  color:       #475569 !important;
+  margin-bottom: 6px  !important;
+}
+.vana-vod-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vana-vod-chip {
+  display:       inline-flex  !important;
+  align-items:   center       !important;
+  gap:           4px          !important;
+  padding:       6px 12px     !important;
+  background:    #170DF2      !important;
+  color:         #ffffff      !important;
+  border:        none         !important;
+  border-radius: 6px          !important;
+  font-size:     13px         !important;
+  font-weight:   600          !important;
+  cursor:        pointer       !important;
+  transition:    background 0.18s !important;
+}
+.vana-vod-chip:hover { background: #0f09b8 !important; }
+.vana-vod-chip__dur { opacity: 0.75; font-size: 11px; }
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.vana-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.vana-badge--live { background: rgba(239,68,68,0.12); color: #dc2626; }
+.vana-badge--soon { background: rgba(148,163,184,0.15); color: #475569; }
+
+/* ── Mobile ─────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .vana-drawer--agenda {
+    top:           auto   !important;
+    bottom:        0      !important;
+    left:          0      !important;
+    width:         100vw  !important;
+    height:        90dvh  !important;
+    border-radius: 16px 16px 0 0 !important;
+    transform:     translateY(110%) !important;
+  }
+  .vana-drawer--agenda.is-open {
+    transform: translateY(0) !important;
+  }
 }
 
 </style>
