@@ -220,6 +220,16 @@ $$( '.vana-katha-passage[data-ts]' );
                     this._stopFollowing();
                 }
             } );
+
+                // Escape key — fecha o stage quando visível
+                document.addEventListener( 'keydown', e => {
+                    if ( e.key === 'Escape' && this._stageEl && this._stageEl.classList.contains( 'is-open' ) ) {
+                        this.closeStage?.();
+                    }
+                } );
+                // Click em botão de fechar dentro do stage (se existir)
+                const closeBtn = document.querySelector( '#vana-stage .vana-stage__close' ) || document.querySelector( '.vana-stage__close' );
+                if ( closeBtn ) closeBtn.addEventListener( 'click', () => this.closeStage?.() );
         },
 
         // ── API pública ──────────────────────────────────────────
@@ -244,7 +254,20 @@ $$( '.vana-katha-passage[data-ts]' );
 
                 /** Retorna katha_ref ativo */
                 get currentKathaRef() { return VanaStageController._currentKathaRef; },
+                /** Fecha o stage e libera o ScrollLock compartilhado */
+                close: () => this._publicClose?.(),
             };
+        },
+
+        // Exposed internal close implementation (used by public API)
+        _publicClose() {
+            // Remove visual state
+            if ( this._stageEl ) this._stageEl.classList.remove( 'is-open' );
+            try { document.body.classList.remove( 'vana-stage-open' ); } catch ( e ) { /* ignore */ }
+            // Release shared scroll lock acquired by VanaStageBridge.loadVod()
+            try { window.VanaScrollLock?.release(); } catch ( e ) { /* ignore */ }
+            // Ask iframe to pause if present
+            try { this._iframe?.contentWindow?.postMessage( JSON.stringify( { event: 'command', func: 'pause' } ), '*' ); } catch ( e ) { /* ignore */ }
         },
     };
 
