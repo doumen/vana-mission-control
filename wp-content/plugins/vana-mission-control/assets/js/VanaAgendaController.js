@@ -17,7 +17,8 @@
       window.VanaScrollLock = {
         acquire() { if ( ++_count === 1 ) body.style.overflow = 'hidden'; },
         release() { if ( --_count <= 0 ) { _count = 0; body.style.overflow = ''; } },
-        getCount() { return _count; }
+        getCount() { return _count; },
+        forceRelease() { _count = 0; body.style.overflow = ''; }
       };
     } )();
   }
@@ -127,17 +128,18 @@
         ? ( parseInt( btn.dataset.timestamp, 10 ) || 0 )
         : 0;
 
-      // Delegate loading to the stage. The StageBridge will acquire the
-      // shared ScrollLock synchronously at the start of loadVod, so calling
-      // close() immediately is safe — the Stage will hold the lock for the
-      // remainder of the playback session and must release it when closing.
-      window.VanaStageBridge?.loadVod(
-        btn.dataset.vodKey,
-        btn.dataset.videoId,
-        btn.dataset.provider,
-        ts
-      );
+      // Fecha agenda ANTES — garante release() antes do acquire() do stage
+      // count: 1→0 (close) depois 0→1 (loadVod) = correto
       close();
+
+      requestAnimationFrame( () => {
+        window.VanaStageBridge?.loadVod(
+          btn.dataset.vodKey,
+          btn.dataset.videoId,
+          btn.dataset.provider,
+          ts
+        );
+      } );
       return;
     }
 

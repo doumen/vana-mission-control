@@ -1,35 +1,33 @@
 ;( function () {
   'use strict';
 
-  // Ensure shared ScrollLock singleton exists (reference-counted)
   if ( ! window.VanaScrollLock ) {
     ( function () {
       let _count = 0;
       const body = document.body;
       window.VanaScrollLock = {
-        acquire() { if ( ++_count === 1 ) body.style.overflow = 'hidden'; },
-        release() { if ( --_count <= 0 ) { _count = 0; body.style.overflow = ''; } },
-        getCount() { return _count; }
+        acquire()      { if ( ++_count === 1 && body ) body.style.overflow = 'hidden'; },
+        release()      { if ( _count <= 0 ) return; if ( --_count === 0 && body ) body.style.overflow = ''; },
+        getCount()     { return _count; },
+        forceRelease() { _count = 0; if ( body ) body.style.overflow = ''; }
       };
     } )();
   }
 
-  // ── Fix: busca o iframe de forma lazy ────────────────────────
-  // O iframe só existe no DOM quando há VOD ativo.
-  // Não mata o bridge se não encontrar na inicialização.
   function getIframe() {
     return document.getElementById( 'vanaStageIframe' );
   }
 
   let _currentVideoId  = null;
   let _currentProvider = null;
+  let _stageIsOpen     = false; // ← controla se lock já foi adquirido pelo stage
 
   function buildSrc( provider, videoId, ts ) {
     const t = parseInt( ts, 10 ) || 0;
     switch ( provider ) {
       case 'youtube':
         return 'https://www.youtube.com/embed/' + videoId
-          + '?autoplay=1&rel=0&modestbranding=1'
+          + '?autoplay=1&rel=0&modestbranding=1&enablejsapi=1'
           + ( t > 0 ? '&start=' + t : '' );
       case 'facebook':
         return 'https://www.facebook.com/plugins/video.php?href='
@@ -47,19 +45,24 @@
       return;
     }
 
-    // Acquire the shared scroll lock synchronously so callers (e.g. drawer)
-    // may safely close their UI without allowing body scroll to re-appear.
-    try { window.VanaScrollLock?.acquire(); } catch ( e ) { /* ignore */ }
+    // ✅ Só adquire lock se stage ainda não está aberto
+    // Evita double-acquire quando usuário troca de vídeo sem fechar
+    if ( ! _stageIsOpen ) {
+      try { window.VanaScrollLock?.acquire(); } catch ( e ) { /* ignore */ }
+      _stageIsOpen = true;
+    }
 
     const src = buildSrc( provider, videoId, ts );
     if ( ! src ) return;
 
-    // ── Fix 3a: injeta iframe se não existir ─────────────────
     let iframe = getIframe();
     if ( ! iframe ) {
       iframe = _createIframe();
       if ( ! iframe ) {
         console.warn( '[VanaStageBridge] Container .vana-stage-video não encontrado.' );
+        // ✅ Rollback do lock se falhou
+        _stageIsOpen = false;
+        try { window.VanaScrollLock?.release(); } catch ( e ) { /* ignore */ }
         return;
       }
     }
@@ -82,16 +85,31 @@
     } );
   }
 
-  // ── Fix 3b: cria e injeta o iframe no container ──────────────
+  // ✅ NOVO: fecha o stage e libera o scroll lock
+  function closeVod() {
+    if ( ! _stageIsOpen ) return; // guard: já fechado, não faz nada
+
+    const iframe = getIframe();
+    if ( iframe ) {
+      iframe.src = ''; // para o vídeo imediatamente
+    }
+
+    _currentVideoId  = null;
+    _currentProvider = null;
+    _stageIsOpen     = false;
+
+    try { window.VanaScrollLock?.release(); } catch ( e ) { /* ignore */ }
+
+    document.dispatchEvent( new CustomEvent( 'vana:stage:closed' ) );
+  }
+
   function _createIframe() {
     const container = document.querySelector( '.vana-stage-video' );
     if ( ! container ) return null;
 
-    // Remove placeholder se existir
     const placeholder = container.querySelector( '.vana-stage-placeholder' );
     placeholder?.remove();
 
-    // Wrapper responsivo
     const wrap = document.createElement( 'div' );
     wrap.style.cssText = 'position:relative;width:100%;padding-top:56.25%;';
 
@@ -135,10 +153,21 @@
         JSON.stringify( { event: 'listening' } ),
         'https://www.youtube.com'
       );
-      setTimeout( () => { window.removeEventListener( 'message', handler ); resolve( 0 ); }, 2000 );
+      setTimeout( () => {
+        window.removeEventListener( 'message', handler );
+        resolve( 0 );
+      }, 2000 );
     } );
   }
 
-  window.VanaStageBridge = { loadVod, seekTo, getCurrentTime };
+  // ✅ Fecha ao pressionar Escape (stage aberto)
+  document.addEventListener( 'keydown', e => {
+    if ( e.key === 'Escape' && _stageIsOpen ) closeVod();
+  } );
+
+  // ✅ Permite fechar de fora via evento customizado
+  document.addEventListener( 'vana:stage:close', closeVod );
+
+  window.VanaStageBridge = { loadVod, closeVod, seekTo, getCurrentTime };
 
 } )();
