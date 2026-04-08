@@ -24,13 +24,17 @@
   }
 
   // ── Fix 1: usa classe .is-open em vez de [hidden] ────────────
+  let _agendaOwnedLock = false;
+
   function open() {
     drawer.classList.add( 'is-open' );
     overlay?.classList.add( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'false' );
     // use ScrollLock to prevent body scroll when drawer is open
     document.body.classList.add( 'vana-drawer-open' );
-    window.VanaScrollLock.acquire();
+    // Only acquire if the Stage is not already holding the lock
+    _agendaOwnedLock = ! window.VanaStageBridge?.isOpen();
+    if ( _agendaOwnedLock ) window.VanaScrollLock.acquire();
     drawer.querySelector( '.vana-day-tab' )?.focus();
   }
 
@@ -39,8 +43,8 @@
     overlay?.classList.remove( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'true' );
     document.body.classList.remove( 'vana-drawer-open' );
-    // release the scroll lock acquired when opening
-    window.VanaScrollLock.release();
+    // release the scroll lock only if this agenda actually acquired it
+    if ( _agendaOwnedLock ) { window.VanaScrollLock.release(); _agendaOwnedLock = false; }
     trigger?.focus();
   }
 

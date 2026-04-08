@@ -168,6 +168,8 @@
   // ✅ Permite fechar de fora via evento customizado
   document.addEventListener( 'vana:stage:close', closeVod );
 
-  window.VanaStageBridge = { loadVod, closeVod, seekTo, getCurrentTime };
+  window.VanaStageBridge = { loadVod, closeVod, seekTo, getCurrentTime,
+    isOpen() { return _stageIsOpen; }
+  };
 
 } )();
