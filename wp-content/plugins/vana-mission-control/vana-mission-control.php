@@ -695,19 +695,36 @@ final class Vana_Mission_Control {
                 true
             );
 
-            // Stage bridge: must be loaded before agenda controller
+            // VanaScrollLock: small head script, must load before other controllers
+            $vana_sl_path = VANA_MC_PATH . 'assets/js/VanaScrollLock.js';
+            $vana_sl_ver  = file_exists($vana_sl_path)
+                ? (string) filemtime($vana_sl_path)
+                : VANA_MC_VERSION;
+
             wp_enqueue_script(
-                'vana-stage-bridge',
-                VANA_MC_URL . 'assets/js/VanaStageBridge.js',
+                'vana-scroll-lock',
+                VANA_MC_URL . 'assets/js/VanaScrollLock.js',
                 [],
-                $vana_sb_ver,
-                true
+                $vana_sl_ver,
+                false // load in head so singleton exists early
             );
+
+            // Agenda controller should load before the StageBridge so it can
+            // create the lock and initialize UI first.
             wp_enqueue_script(
                 "vana-agenda-controller",
                 VANA_MC_URL . "assets/js/VanaAgendaController.js",
-                [ 'vana-stage-bridge' ],
+                [ 'vana-scroll-lock' ],
                 $vana_ac_ver,
+                true
+            );
+
+            // Stage bridge depends on the agenda and the scroll-lock singleton.
+            wp_enqueue_script(
+                'vana-stage-bridge',
+                VANA_MC_URL . 'assets/js/VanaStageBridge.js',
+                [ 'vana-scroll-lock', 'vana-agenda-controller' ],
+                $vana_sb_ver,
                 true
             );
         }
