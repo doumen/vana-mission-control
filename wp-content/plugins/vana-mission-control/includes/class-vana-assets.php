@@ -62,16 +62,10 @@ class Vana_Assets
             true
         );
 
-        wp_enqueue_script(
-            'vana-agenda-controller',
-            VANA_MC_URL . 'assets/js/VanaAgendaController.js',
-            [],
-            VANA_MC_VERSION,
-            true
-        );
-        if ( function_exists( 'wp_script_add_data' ) ) {
-            wp_script_add_data( 'vana-agenda-controller', 'defer', true );
-        }
+        // `vana-agenda-controller` is enqueued centrally in vana-mission-control.php
+        // with correct dependencies and filemtime-based version. Duplicate enqueue
+        // here causes the handle to be registered twice with inconsistent config,
+        // so we intentionally do not register it in this helper.
 
         wp_enqueue_script(
             'vana-chip-controller',
