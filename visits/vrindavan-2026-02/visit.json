@@ -69,14 +69,14 @@
           },
           "vods": [
             {
-              "vod_key": "vod-20260221-002",
+              "vod_key": "vod-20260221-003",
               "provider": "youtube",
-              "video_id": "dQw4w9WgXcQ",
+              "video_id": "fWEJsIxLlSQ",
               "url": null,
-              "thumb_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
-              "duration_s": 13802,
-              "title_pt": "Programa completo — 21 fev",
-              "title_en": "Full Program — Feb 21",
+              "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
+              "duration_s": 0,
+              "title_pt": "Mangala Arati",
+              "title_en": "Mangala Arati",
               "vod_part": 1,
               "segments": [
                 {
@@ -85,7 +85,8 @@
                   "title_pt": "Kirtan de abertura",
                   "title_en": "Opening Kirtan",
                   "timestamp_start": 0,
-                  "timestamp_end": 2732
+                  "timestamp_end": 2732,
+                  "katha_id": null
                 },
                 {
                   "segment_id": "seg-20260221-004",
