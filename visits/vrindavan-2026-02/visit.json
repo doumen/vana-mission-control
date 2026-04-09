@@ -1,6 +1,6 @@
 {
-  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.2.json",
-  "schema_version": "6.2",
+  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
+  "schema_version": "6.1",
   "visit_ref": "vrindavan-2026-02",
   "tour_ref": "india-2026",
   "visit_id": "389",
@@ -211,6 +211,7 @@
         "tithi": "",
         "tithi_name_pt": "",
         "tithi_name_en": null,
+        "primary_event_key": "20260221-1703-programa",
         "primary_event": "20260221-1703-programa",
         "events": [
           "20260221-0530-mangala",
@@ -224,6 +225,7 @@
         "tithi": "",
         "tithi_name_pt": "",
         "tithi_name_en": null,
+        "primary_event_key": "20260222-1800-hk",
         "primary_event": "20260222-1800-hk",
         "events": [
           "20260222-1800-hk"
@@ -236,6 +238,7 @@
         "tithi": "",
         "tithi_name_pt": "",
         "tithi_name_en": null,
+        "primary_event_key": "20260223-1700-programa",
         "primary_event": "20260223-1700-programa",
         "events": [
           "20260223-1700-programa"
@@ -271,7 +274,7 @@
         "status": "past",
         "location": "Gopīnātha Bhavana",
         "vods": [
-          "vod-20260221-001"
+          "vod-20260221-003"
         ],
         "kathas": [],
         "photos": [],
@@ -310,7 +313,7 @@
     },
     "vods": {
       "vod-20260221-003": {
-        "event_key": "20260221-0530-mangala",
+        "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
         "provider": "youtube",
         "video_id": "fWEJsIxLlSQ",
@@ -318,17 +321,6 @@
         "vod_part": 1,
         "duration_s": 0,
         "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
-        "segments": []
-      },
-      "vod-20260221-001": {
-        "event_key": "20260221-1703-programa",
-        "day_key": "2026-02-21",
-        "provider": "youtube",
-        "video_id": "f2pt6YRPiy0",
-        "url": null,
-        "vod_part": 1,
-        "duration_s": 0,
-        "thumb_url": "https://img.youtube.com/vi/f2pt6YRPiy0/maxresdefault.jpg",
         "segments": [
           "seg-20260221-001",
           "seg-20260221-004"
@@ -359,7 +351,7 @@
     },
     "segments": {
       "seg-20260221-001": {
-        "vod_key": "vod-20260221-001",
+        "vod_key": "vod-20260221-003",
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
         "type": "noise",
@@ -370,7 +362,7 @@
         "katha_id": null
       },
       "seg-20260221-004": {
-        "vod_key": "vod-20260221-001",
+        "vod_key": "vod-20260221-003",
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
         "type": "harikatha",
@@ -378,7 +370,7 @@
         "title_en": "Hari-Kathā — SB 10.31",
         "timestamp_start": 118,
         "timestamp_end": 3700,
-        "katha_id": 678
+        "katha_id": 370
       }
     },
     "kathas": {},
@@ -404,7 +396,7 @@
     "total_photos": 1,
     "total_sangha": 0
   },
-  "generated_at": "2026-04-09T05:04:51.214328+00:00",
+  "generated_at": "2026-04-09T16:18:36.045981+00:00",
   "generated_by": "vana-trator",
   "updated_at": "2026-03-31T12:38:37Z"
 }
