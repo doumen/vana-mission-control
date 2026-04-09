@@ -78,14 +78,14 @@
           },
           "vods": [
             {
-              "vod_key": "vod-20260221-001",
+              "vod_key": "vod-20260221-003",
               "provider": "youtube",
-              "video_id": "f2pt6YRPiy0",
+              "video_id": "fWEJsIxLlSQ",
               "url": null,
-              "thumb_url": "https://img.youtube.com/vi/f2pt6YRPiy0/maxresdefault.jpg",
+              "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
               "duration_s": 0,
-              "title_pt": "Programa da Noite",
-              "title_en": "Night Program",
+              "title_pt": "Mangala Arati",
+              "title_en": "Mangala Arati",
               "vod_part": 1,
               "segments": [
                 {
@@ -104,7 +104,7 @@
                   "title_en": "Hari-Kathā — SB 10.31",
                   "timestamp_start": 118,
                   "timestamp_end": 3700,
-                  "katha_id": 678
+                  "katha_id": 370
                 }
               ]
             }
@@ -114,7 +114,8 @@
         }
       ],
       "tithi": "",
-      "tithi_name_pt": ""
+      "tithi_name_pt": "",
+      "primary_event_key": "20260221-1703-programa"
     },
     {
       "day_key": "2026-02-22",
@@ -140,7 +141,8 @@
         }
       ],
       "tithi": "",
-      "tithi_name_pt": ""
+      "tithi_name_pt": "",
+      "primary_event_key": "20260222-1800-hk"
     },
     {
       "day_key": "2026-02-23",
@@ -179,7 +181,8 @@
         }
       ],
       "tithi": "",
-      "tithi_name_pt": ""
+      "tithi_name_pt": "",
+      "primary_event_key": "20260223-1700-programa"
     }
   ],
   "orphans": {
