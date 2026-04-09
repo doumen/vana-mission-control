@@ -168,7 +168,6 @@ $lang_url  = add_query_arg( 'lang', $lang_alt );
                         }
 
                         $photos      = $event['photos'] ?? [];
-                    $photos      = $event['photos'] ?? [];
                     $sangha      = $event['sangha'] ?? [];
 
                     $status_icon = match( $status ) {
