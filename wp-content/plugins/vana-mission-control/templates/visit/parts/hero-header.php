@@ -318,7 +318,10 @@ unset($_t, $_thumb, $_m);
                 } else {
                     const overlay = document.getElementById('vana-agenda-overlay');
                     const openBtn = document.getElementById('vana-agenda-open-btn');
+                    drawer.classList.add('is-open');
+                    overlay?.classList.add('is-open');
                     drawer.removeAttribute('hidden'); overlay?.removeAttribute('hidden');
+                    drawer.setAttribute('aria-hidden', 'false');
                     document.body.classList.add('vana-drawer-open'); openBtn?.setAttribute('aria-expanded','true');
                 }
                 // activate tab/panel
