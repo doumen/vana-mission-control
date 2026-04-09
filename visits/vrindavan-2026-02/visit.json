@@ -194,6 +194,17 @@
         "title_pt": "Teste Orfão",
         "title_en": "Orphan test",
         "segments": []
+      },
+      {
+        "vod_key": "vod-20260200-001",
+        "provider": "youtube",
+        "video_id": "D87HqSmRFS8",
+        "url": null,
+        "thumb_url": "https://img.youtube.com/vi/D87HqSmRFS8/maxresdefault.jpg",
+        "duration_s": null,
+        "title_pt": "Teste Orfão",
+        "title_en": "Orphan test",
+        "segments": []
       }
     ],
     "photos": [],
