@@ -727,6 +727,26 @@ final class Vana_Mission_Control {
                 $vana_sb_ver,
                 true
             );
+
+            // Day strip (hero) — styles + behavior for new day-strip partial
+            $vana_ds_css_path = VANA_MC_PATH . 'assets/css/vana-day-strip.css';
+            $vana_ds_css_ver  = file_exists($vana_ds_css_path) ? (string) filemtime($vana_ds_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-day-strip',
+                VANA_MC_URL . 'assets/css/vana-day-strip.css',
+                [ 'vana-ui-visit-hub' ],
+                $vana_ds_css_ver
+            );
+
+            $vana_ds_js_path = VANA_MC_PATH . 'assets/js/vana-day-strip.js';
+            $vana_ds_js_ver  = file_exists($vana_ds_js_path) ? (string) filemtime($vana_ds_js_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-day-strip',
+                VANA_MC_URL . 'assets/js/vana-day-strip.js',
+                [ 'vana-agenda-controller' ],
+                $vana_ds_js_ver,
+                true
+            );
         }
     }
 

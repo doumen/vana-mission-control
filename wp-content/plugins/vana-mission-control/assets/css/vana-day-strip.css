@@ -1,0 +1,65 @@
+/* ── Hero Day Strip ─────────────────────────────────────── */
+.vana-hero__day-strip {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    gap:            8px;
+    margin:         16px 0 8px;
+}
+
+.vana-hero__day-pills {
+    display:         flex;
+    flex-wrap:       wrap;
+    justify-content: center;
+    gap:             6px;
+}
+
+.vana-day-pill {
+    display:          inline-flex;
+    align-items:      center;
+    gap:              5px;
+    padding:          5px 14px;
+    border-radius:    999px;
+    border:           1.5px solid rgba(255,255,255,0.35);
+    background:       rgba(255,255,255,0.12);
+    color:            #fff;
+    font-size:        0.82rem;
+    font-weight:      500;
+    cursor:           pointer;
+    transition:       background 0.18s, border-color 0.18s;
+    backdrop-filter:  blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.vana-day-pill:hover {
+    background:   rgba(255,255,255,0.22);
+    border-color: rgba(255,255,255,0.6);
+}
+
+.vana-day-pill.is-active {
+    background:   rgba(255,255,255,0.92);
+    color:        #1e1e2e;
+    border-color: #fff;
+    font-weight:  700;
+}
+
+/* Dots de status */
+.vana-day-pill__dot {
+    display:       inline-block;
+    width:         7px;
+    height:        7px;
+    border-radius: 50%;
+    flex-shrink:   0;
+}
+
+.vana-day-pill__dot--live { background: #f44336; }
+.vana-day-pill__dot--hk   { background: #ffb300; }
+
+/* Tithi abaixo das pills */
+.vana-hero__day-tithi {
+    font-size:   0.78rem;
+    color:       rgba(255,255,255,0.75);
+    margin:      0;
+    font-style:  italic;
+    letter-spacing: 0.02em;
+}
