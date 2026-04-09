@@ -69,23 +69,23 @@
           },
           "vods": [
             {
-              "vod_key": "vod-20260221-003",
+              "vod_key": "vod-20260221-001",
               "provider": "youtube",
-              "video_id": "fWEJsIxLlSQ",
+              "video_id": "f2pt6YRPiy0",
               "url": null,
-              "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
+              "thumb_url": "https://img.youtube.com/vi/f2pt6YRPiy0/maxresdefault.jpg",
               "duration_s": 0,
-              "title_pt": "Mangala Arati",
-              "title_en": "Mangala Arati",
+              "title_pt": "Programa da Noite",
+              "title_en": "Night Program",
               "vod_part": 1,
               "segments": [
                 {
-                  "segment_id": "seg-20260221-002",
-                  "type": "kirtan",
+                  "segment_id": "seg-20260221-001",
+                  "type": "noise",
                   "title_pt": "Kirtan de abertura",
                   "title_en": "Opening Kirtan",
                   "timestamp_start": 0,
-                  "timestamp_end": 2732,
+                  "timestamp_end": 117,
                   "katha_id": null
                 },
                 {
@@ -93,8 +93,8 @@
                   "type": "harikatha",
                   "title_pt": "Hari-Kathā — SB 10.31",
                   "title_en": "Hari-Kathā — SB 10.31",
-                  "timestamp_start": 4801,
-                  "timestamp_end": 9000,
+                  "timestamp_start": 118,
+                  "timestamp_end": 3700,
                   "katha_id": 678
                 }
               ]
