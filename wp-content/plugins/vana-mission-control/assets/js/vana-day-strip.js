@@ -18,17 +18,21 @@ console.log('vana-day-strip: init');
             p.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
 
-        // ── 2. Abre a Agenda ─────────────────────────────────────
+        // ── 2. Abre a Agenda via API (se disponível) ──────────────
         const drawer  = document.getElementById('vana-agenda-drawer');
-        const overlay = document.getElementById('vana-agenda-overlay');
-        const openBtn = document.getElementById('vana-agenda-open-btn');
-
         if (!drawer) return;
 
-        drawer.removeAttribute('hidden');
-        overlay?.removeAttribute('hidden');
-        document.body.classList.add('vana-drawer-open');
-        openBtn?.setAttribute('aria-expanded', 'true');
+        if (window.VanaAgenda && typeof window.VanaAgenda.open === 'function') {
+            window.VanaAgenda.open();
+        } else {
+            // fallback for older setups
+            const overlay = document.getElementById('vana-agenda-overlay');
+            const openBtn = document.getElementById('vana-agenda-open-btn');
+            drawer.removeAttribute('hidden');
+            overlay?.removeAttribute('hidden');
+            document.body.classList.add('vana-drawer-open');
+            openBtn?.setAttribute('aria-expanded', 'true');
+        }
 
         // ── 3. Ativa o tab do dia na Agenda ──────────────────────
         const allTabs   = drawer.querySelectorAll('[role="tab"][data-day-key]');
