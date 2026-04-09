@@ -43,11 +43,9 @@ $tour  = Vana_Utils::get_tour_identity( (int) $tour_id, $lang );
 // Reinjeta o nav no novo $tour para o _hero-nav.php
 $tour['nav'] = $tour_nav;
 
-// Ensure the $tour array exposes `days` for the hero day selector partial.
-// Some codepaths rebuild $tour via Vana_Utils::get_tour_identity() and may
-// not include the visit-specific `days`. Use the original extracted tour
-// (`$_t`) or the $days variable from the bootstrap as fallback.
-$tour['days'] = $_t['days'] ?? (isset($days) && is_array($days) ? $days : []);
+// NOTE: do NOT inject `days` into `$tour` here — the Agenda is the source
+// of truth for active-day navigation. The hero may still receive `$days`
+// from the bootstrap; keep the hero presentation lightweight.
 
 // Composição local — template escolhe o formato
 $city         = (string) ($visit['city'] ?? '');
@@ -288,26 +286,12 @@ unset($_t, $_thumb, $_m);
         </button> -->
 
         <?php
-        // Use the accessible Hero Day Selector partial (ensures markup matches
-        // the JS controller `vana-day-selector.js`).
-        // Passa $days explicitamente para o partial, garantindo que não depende só de $tour['days']
-        // ── DEBUG TEMPORÁRIO ─────────────────────────────────────────
-        if ( defined('WP_DEBUG') && WP_DEBUG ) {
-            error_log('[HERO-DEBUG] $tour[days] count: '
-                . ( isset($_t_days) ? 'já unset' : ( is_array($tour['days'] ?? null) ? count($tour['days']) : 'NULL/INVALID' ) )
-            );
-            error_log('[HERO-DEBUG] $days count: '
-                . ( isset($days) && is_array($days) ? count($days) : 'NULL/NOT SET' )
-            );
-            if ( isset($days) && is_array($days) && ! empty($days) ) {
-                error_log('[HERO-DEBUG] $days[0] keys: ' . implode(', ', array_keys($days[0])));
-                error_log('[HERO-DEBUG] $days[0] full: ' . wp_json_encode($days[0]));
-            }
-        }
-        // ── FIM DEBUG ────────────────────────────────────────────────
-        $days = $tour['days'] ?? (isset($days) ? $days : []);
-        echo '<!-- DEBUG HERO-DAY-SELECTOR: $days count = ' . (is_array($days) ? count($days) : 'N/A') . ' -->';
-        require VANA_MC_PATH . 'templates/visit/parts/_hero-day-selector.php';
+        // The Hero only renders the day strip (presentation). Day selection
+        // and navigation are handled by the Agenda. Include the day-strip
+        // partial which is presentation-only and delegates navigation to the
+        // Agenda via `data-action="open-agenda-day"` buttons.
+        // NOTE: do not mutate $tour here.
+        require VANA_MC_PATH . 'templates/visit/parts/_hero-day-strip.php';
         ?>
 
         <!-- Prev / Next — delega ao partial dedicado -->

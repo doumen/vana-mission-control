@@ -67,7 +67,7 @@ def _load_from_wp(wp_id: int) -> dict:
 
 
 # Versões que são compatíveis e podem ser migradas para 6.1
-MIGRATABLE_VERSIONS = {"3.1", "4.0", "5.0", "6.0"}
+MIGRATABLE_VERSIONS = {"3.1", "4.0", "5.0", "6.0", "6.1"}
 
 @st.cache_data(ttl=60)
 def _load(visit_ref: str, wp_id: int | None = None) -> dict:
@@ -84,6 +84,22 @@ def _load(visit_ref: str, wp_id: int | None = None) -> dict:
             data["schema_version"] = "6.1"
             # sinaliza que foi migrado — a UI que chamar _load() fará o toast
             data["__migrated_from__"] = current
+
+        # Migração 6.1 → 6.2: estrutura mudou — kathas foram movidas para index
+        if current == "6.1":
+            data["schema_version"] = "6.2"
+            data["__migrated_from__"] = current
+
+            # Remove kathas[] de cada evento (se existirem do schema 6.1)
+            for day in data.get("days", []):
+                for event in day.get("events", []):
+                    event.pop("kathas", None)
+
+            # Remove kathas[] dos orphans
+            data.get("orphans", {}).pop("kathas", None)
+
+            # Atualiza $schema ref
+            data["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.2.json"
 
     return data or {}
 
@@ -373,7 +389,7 @@ if not visit:
             "timezone": "Asia/Kolkata", "status": "upcoming",
         },
         "days":    [],
-        "orphans": {"vods": [], "photos": [], "sangha": [], "kathas": []},
+        "orphans": {"vods": [], "photos": [], "sangha": []},
         "stats":   {},
         "index":   {},
     }
@@ -719,10 +735,13 @@ with tab_vods:
                             )
                             # katha_id apenas para harikatha
                             if seg.get("type") == "harikatha":
-                                seg["katha_id"] = sc[4].number_input(
+                                katha_id_val = sc[4].number_input(
                                     "", min_value=0, value=seg.get("katha_id") or 0,
                                     key=f"skid_{vi}_{si}", label_visibility="collapsed"
                                 ) or None
+                                seg["katha_id"] = katha_id_val
+                                if katha_id_val:
+                                    sc[4].caption(f"🙏 #{katha_id_val}")
                             else:
                                 seg["katha_id"] = None
                                 sc[4].caption("—")
@@ -756,214 +775,87 @@ with tab_vods:
 # TAB 3 — KATHAS + PASSAGES
 # ══════════════════════════════════════════════════════════════════════
 with tab_kathas:
-    st.markdown("### 🙏 Kathas por Evento")
+    st.markdown("### 🙏 Hari-Kathās desta Visita")
+    st.caption(
+        "As kathas são derivadas dos segments `harikatha` dos VODs. "
+        "Para alterar o `katha_id`, edite o segment na aba 🎬 VODs."
+    )
 
-    days = visit.get("days", [])
-    if not days:
-        st.info("Adicione dias na aba 📋 Visita primeiro.")
-    else:
-        kday_opts = {_day_label(d): i for i, d in enumerate(days)}
-        ksel_day_label = st.selectbox("Dia", list(kday_opts.keys()), key="k_day_sel")
-        ksel_day = days[kday_opts[ksel_day_label]]
-        kevents  = ksel_day.get("events", [])
+    # ── Varredura: coleta todos os segments harikatha da visita ──
+    hk_found: list[dict] = []
 
-        if not kevents:
-            st.info("Sem eventos neste dia.")
-        else:
-            kev_opts = {_event_label(e): i for i, e in enumerate(kevents)}
-            ksel_ev_label = st.selectbox("Evento", list(kev_opts.keys()), key="k_ev_sel")
-            ksel_ev = kevents[kev_opts[ksel_ev_label]]
-            kathas  = ksel_ev.setdefault("kathas", [])
-
-            # ── Adicionar Katha ───────────────────────────────────────
-            with st.expander("➕ Adicionar Katha", expanded=len(kathas) == 0):
-                kc1, kc2 = st.columns(2)
-                with kc1:
-                    nkid  = st.number_input("katha_id (int)", min_value=1, value=700, key="nkid")
-                    nkkey = st.text_input("katha_key (katha-YYYYMMDD-slug)", key="nkkey")
-                    nktp  = st.text_input("title_pt", key="nktp")
-                with kc2:
-                    nkte  = st.text_input("title_en", key="nkte")
-                    nksc  = st.text_input("scripture (ex: SB 10.31)", key="nksc")
-                    nklg  = st.selectbox("language", ["hi", "pt", "en", "sa"], key="nklg")
-
-                if st.button("Adicionar Katha", key="btn_add_katha"):
-                    if nkkey:
-                        kathas.append({
-                            "katha_id":  int(nkid),
-                            "katha_key": nkkey,
-                            "title_pt":  nktp,
-                            "title_en":  nkte,
-                            "scripture": nksc,
-                            "language":  nklg,
-                            "sources":   [],
-                            "passages":  [],
+    for day in visit.get("days", []):
+        for event in day.get("events", []):
+            for vod in event.get("vods", []):
+                for seg in vod.get("segments", []):
+                    if seg.get("type") == "harikatha" and seg.get("katha_id"):
+                        hk_found.append({
+                            "day_key":    day.get("day_key"),
+                            "label_pt":   day.get("label_pt"),
+                            "event_key":  event.get("event_key"),
+                            "event_time": event.get("time"),
+                            "title_pt":   event.get("title_pt"),
+                            "vod_key":    vod.get("vod_key"),
+                            "video_id":   vod.get("video_id"),
+                            "segment_id": seg.get("segment_id"),
+                            "seg_title":  seg.get("title_pt", ""),
+                            "katha_id":   seg.get("katha_id"),
+                            "ts_start":   seg.get("timestamp_start", 0),
+                            "ts_end":     seg.get("timestamp_end", 0),
                         })
-                        ksel_ev["kathas"] = kathas
-                        _save(gh, visit_ref, visit, editor_name or "anon", f"katha {nkkey}: adicionada")
-                        st.rerun()
-                    else:
-                        st.warning("katha_key é obrigatório.")
 
-            # ── Lista Kathas ──────────────────────────────────────────
-            for ki, katha in enumerate(kathas):
-                with st.expander(
-                    f"🙏 [{katha.get('katha_id')}] {katha.get('title_pt', katha.get('katha_key', '?'))}",
-                    expanded=False,
-                ):
-                    # Campos katha
-                    kf1, kf2 = st.columns(2)
-                    with kf1:
-                        katha["katha_id"]  = st.number_input("katha_id", value=katha.get("katha_id") or 0, key=f"kid_{ki}")
-                        katha["katha_key"] = st.text_input("katha_key", value=katha.get("katha_key", ""), key=f"kkey_{ki}")
-                        katha["title_pt"]  = st.text_input("title_pt",  value=katha.get("title_pt", ""),  key=f"ktp_{ki}")
-                    with kf2:
-                        katha["title_en"]  = st.text_input("title_en",  value=katha.get("title_en", ""),  key=f"kte_{ki}")
-                        katha["scripture"] = st.text_input("scripture", value=katha.get("scripture", ""), key=f"ksc_{ki}")
-                        katha["language"]  = st.selectbox(
-                            "language", ["hi", "pt", "en", "sa"],
-                            index=["hi", "pt", "en", "sa"].index(katha.get("language", "hi")),
-                            key=f"klg_{ki}",
-                        )
+    if not hk_found:
+        st.info(
+            "Nenhum segment `harikatha` encontrado nesta visita.\n\n"
+            "Adicione VODs com segments do tipo `harikatha` na aba 🎬 VODs."
+        )
+    else:
+        st.success(f"✅ {len(hk_found)} Hari-Kathā(s) encontrada(s) nesta visita.")
 
-                    # Sources
-                    st.markdown("**Sources (vod → segment):**")
-                    sources = katha.setdefault("sources", [])
-                    for sri, src in enumerate(sources):
-                        sr1, sr2, sr3 = st.columns([3, 3, 1])
-                        src["vod_key"]    = sr1.text_input("vod_key",    value=src.get("vod_key", ""),    key=f"svk_{ki}_{sri}")
-                        src["segment_id"] = sr2.text_input("segment_id", value=src.get("segment_id", ""), key=f"ssid_{ki}_{sri}")
-                        if sr3.button("🗑️", key=f"del_src_{ki}_{sri}"):
-                            sources.pop(sri)
-                            katha["sources"] = sources
-                            _save(gh, visit_ref, visit, editor_name or "anon", "source: removido")
-                            st.rerun()
+        for hi, hk in enumerate(hk_found):
+            ts_label = (
+                f"{hk['ts_start']//3600:02d}:"
+                f"{(hk['ts_start']%3600)//60:02d}:"
+                f"{hk['ts_start']%60:02d}"
+            ) if hk['ts_start'] else "—"
 
-                    if st.button("➕ Source", key=f"add_src_{ki}"):
-                        sources.append({"vod_key": "", "segment_id": "", "timestamp_start": 0, "timestamp_end": 0, "vod_part": 1})
-                        katha["sources"] = sources
-                        st.rerun()
+            with st.expander(
+                f"🙏 [{hk['katha_id']}] "
+                f"{hk['label_pt']} · "
+                f"{hk['event_time']} · "
+                f"{hk['seg_title'] or hk['segment_id']}",
+                expanded=hi == 0,
+            ):
+                c1, c2, c3 = st.columns(3)
+                c1.metric("katha_id",   hk["katha_id"])
+                c2.metric("Início",     ts_label)
+                c3.metric("segment_id", hk["segment_id"])
 
-                    # ── Passages ──────────────────────────────────────
-                    st.divider()
-                    st.markdown("**Passages:**")
-                    passages = katha.setdefault("passages", [])
+                st.markdown(
+                    f"**Evento:** `{hk['event_key']}`  \n"
+                    f"**VOD:** `{hk['vod_key']}`  \n"
+                    f"**Segment:** `{hk['segment_id']}`"
+                )
 
-                    with st.expander("➕ Adicionar Passage", expanded=len(passages) == 0):
-                        pp1, pp2 = st.columns(2)
-                        with pp1:
-                            npid  = st.text_input("passage_id (hkp-YYYYMMDD-NNN)", key=f"npid_{ki}")
-                            nptp  = st.text_input("title_pt", key=f"nptp_{ki}")
-                            npte  = st.text_input("title_en", key=f"npte_{ki}")
-                        with pp2:
-                            npkq  = st.text_input("key_quote (Sanskrit)", key=f"npkq_{ki}")
-                            npvk  = st.text_input("source_ref.vod_key", key=f"npvk_{ki}")
-                            npsi  = st.text_input("source_ref.segment_id", key=f"npsi_{ki}")
+                if hk.get("video_id") and hk.get("ts_start"):
+                    yt_url = f"https://youtu.be/{hk['video_id']}?t={hk['ts_start']}"
+                    st.link_button("▶ Verificar no YouTube", yt_url)
 
-                        pp3, pp4, pp5 = st.columns(3)
-                        npst = pp3.number_input("timestamp_start", min_value=0, value=0, key=f"npst_{ki}")
-                        npet = pp4.number_input("timestamp_end",   min_value=0, value=0, key=f"npet_{ki}")
-                        pp5.write("")
+                st.divider()
 
-                        nptchpt = st.text_area("teaching_pt", key=f"nptchpt_{ki}", height=80)
-                        nptchpe = st.text_area("teaching_en", key=f"nptchpe_{ki}", height=80)
+                st.markdown("**Passages** — editadas no WordPress CPT")
+                st.info(
+                    f"📖 Para editar as passages desta katha, acesse:\n\n"
+                    f"`/wp-admin/post.php?action=edit&post={hk['katha_id']}`"
+                )
 
-                        if st.button("Adicionar Passage", key=f"btn_ap_{ki}"):
-                            if npid:
-                                passages.append({
-                                    "passage_id":  npid,
-                                    "passage_key": npid,
-                                    "title_pt":    nptp,
-                                    "title_en":    npte,
-                                    "teaching_pt": nptchpt,
-                                    "teaching_en": nptchpe,
-                                    "key_quote":   npkq,
-                                    "source_ref": {
-                                        "vod_key":         npvk,
-                                        "segment_id":      npsi,
-                                        "timestamp_start": int(npst),
-                                        "timestamp_end":   int(npet),
-                                    },
-                                })
-                                katha["passages"] = passages
-                                _save(gh, visit_ref, visit, editor_name or "anon", f"passage {npid}: adicionada")
-                                st.rerun()
-                            else:
-                                st.warning("passage_id é obrigatório.")
-
-                    # Lista passages
-                    for pi, passage in enumerate(passages):
-                        with st.container(border=True):
-                            pid_label = passage.get("passage_id", f"passage[{pi}]")
-                            pcc1, pcc2 = st.columns([5, 1])
-                            pcc1.markdown(
-                                f"**`{pid_label}`** · "
-                                f"_{passage.get('title_pt', '')}_"
-                            )
-                            if pcc2.button("🗑️", key=f"del_p_{ki}_{pi}"):
-                                passages.pop(pi)
-                                katha["passages"] = passages
-                                _save(gh, visit_ref, visit, editor_name or "anon", f"passage: removida")
-                                st.rerun()
-
-                            pf1, pf2 = st.columns(2)
-                            with pf1:
-                                passage["passage_id"] = st.text_input(
-                                    "passage_id", value=passage.get("passage_id", ""), key=f"pid_{ki}_{pi}"
-                                )
-                                passage["title_pt"] = st.text_input(
-                                    "title_pt", value=passage.get("title_pt", ""), key=f"ptp_{ki}_{pi}"
-                                )
-                                passage["title_en"] = st.text_input(
-                                    "title_en", value=passage.get("title_en", ""), key=f"pte_{ki}_{pi}"
-                                )
-                                passage["key_quote"] = st.text_input(
-                                    "key_quote", value=passage.get("key_quote", ""), key=f"pkq_{ki}_{pi}"
-                                )
-                            with pf2:
-                                ref = passage.setdefault("source_ref", {})
-                                ref["vod_key"]    = st.text_input(
-                                    "vod_key", value=ref.get("vod_key", ""), key=f"pvk_{ki}_{pi}"
-                                )
-                                ref["segment_id"] = st.text_input(
-                                    "segment_id", value=ref.get("segment_id", ""), key=f"psid_{ki}_{pi}"
-                                )
-                                ts_col, te_col = st.columns(2)
-                                ref["timestamp_start"] = ts_col.number_input(
-                                    "start(s)", min_value=0, value=ref.get("timestamp_start") or 0, key=f"pst_{ki}_{pi}"
-                                )
-                                ref["timestamp_end"] = te_col.number_input(
-                                    "end(s)", min_value=0, value=ref.get("timestamp_end") or 0, key=f"pet_{ki}_{pi}"
-                                )
-                                # Link seek rápido
-                                if ref.get("vod_key") and ref.get("timestamp_start") is not None:
-                                    vod_idx = visit.get("index", {}).get("vods", {}).get(ref["vod_key"], {})
-                                    vid_id  = vod_idx.get("video_id")
-                                    if vid_id:
-                                        ts_seek = ref["timestamp_start"]
-                                        yt_url  = f"https://youtu.be/{vid_id}?t={ts_seek}"
-                                        st.link_button("▶ Verificar no YouTube", yt_url)
-
-                            passage["teaching_pt"] = st.text_area(
-                                "teaching_pt", value=passage.get("teaching_pt", ""),
-                                height=80, key=f"ptchpt_{ki}_{pi}"
-                            )
-                            passage["teaching_en"] = st.text_area(
-                                "teaching_en", value=passage.get("teaching_en", ""),
-                                height=80, key=f"ptchpe_{ki}_{pi}"
-                            )
-
-                    st.write("")
-                    col_sk, col_dk = st.columns([4, 1])
-                    with col_sk:
-                        if st.button(f"💾 Salvar Katha `{katha.get('katha_key', ki)}`", key=f"save_k_{ki}"):
-                            _save(gh, visit_ref, visit, editor_name or "anon", f"katha {katha.get('katha_key')}: atualizada")
-                    with col_dk:
-                        if st.button("🗑️ Remover", key=f"del_k_{ki}", type="secondary"):
-                            kathas.pop(ki)
-                            ksel_ev["kathas"] = kathas
-                            _save(gh, visit_ref, visit, editor_name or "anon", "katha: removida")
-                            st.rerun()
+                wp_base = st.secrets.get("wordpress", {}).get("api_base", "")
+                if wp_base:
+                    wp_edit_url = (
+                        wp_base.replace("/wp-json", "")
+                        + f"/wp-admin/post.php?action=edit&post={hk['katha_id']}"
+                    )
+                    st.link_button(f"✏️ Editar Katha #{hk['katha_id']} no WP", wp_edit_url)
 
 
 # ══════════════════════════════════════════════════════════════════════

@@ -148,9 +148,26 @@ $lang_url  = add_query_arg( 'lang', $lang_alt );
                     $event_title = $is_en
                         ? ( $event['title_en'] ?? $event['title_pt'] ?? '' )
                         : ( $event['title_pt'] ?? '' );
-                    $status      = $event['status'] ?? 'past';
-                    $vods        = $event['vods']   ?? [];
-                    $kathas      = $event['kathas'] ?? [];
+                        $status = $event['status'] ?? 'past';
+                        $vods        = $event['vods']   ?? [];
+
+                        // Schema 6.2: Hari-Kathā is referenced via vod->segments
+                        $hk_segment  = null;
+                        $hk_katha_id = null;
+                        foreach ( $vods as $vod ) {
+                            foreach ( $vod['segments'] ?? [] as $seg ) {
+                                if ( ( $seg['type'] ?? '' ) === 'harikatha' && ! empty( $seg['katha_id'] ) ) {
+                                    $hk_segment  = $seg;
+                                    $hk_katha_id = (int) $seg['katha_id'];
+                                    $hk_segment['_vod_key']  = $vod['vod_key']  ?? '';
+                                    $hk_segment['_video_id'] = $vod['video_id'] ?? '';
+                                    $hk_segment['_provider'] = $vod['provider'] ?? 'youtube';
+                                    break 2;
+                                }
+                            }
+                        }
+
+                        $photos      = $event['photos'] ?? [];
                     $photos      = $event['photos'] ?? [];
                     $sangha      = $event['sangha'] ?? [];
 
@@ -227,103 +244,110 @@ $lang_url  = add_query_arg( 'lang', $lang_alt );
                         </div>
                         <?php endif; ?>
 
-                        <!-- KATHAS -->
-                        <?php foreach ( $kathas as $katha ) :
-                            $katha_id    = (int) ( $katha['katha_id'] ?? 0 );
-                            $katha_title = $is_en
-                                ? ( $katha['title_en'] ?? $katha['title_pt'] ?? '' )
-                                : ( $katha['title_pt'] ?? '' );
-                            $scripture   = $katha['scripture'] ?? '';
-                            $passages    = $katha['passages']  ?? [];
+                        <!-- KATHAS — Schema 6.2: derived from vod->segments.harikatha -->
+                        <?php if ( $hk_segment && $hk_katha_id ) :
+
+                            $hk_title    = $is_en
+                                ? ( $hk_segment['title_en'] ?? $hk_segment['title_pt'] ?? '' )
+                                : ( $hk_segment['title_pt'] ?? '' );
+
+                            $katha_index = $index['kathas'][ $hk_katha_id ] ?? [];
+                            $scripture   = $katha_index['scripture'] ?? '';
+                            $passages    = $katha_index['passages'] ?? [];
                         ?>
+
                         <div class="vana-event-section vana-event-section--hk"
-                             data-katha-id="<?php echo esc_attr( $katha_id ); ?>">
+                             data-katha-id="<?php echo esc_attr( $hk_katha_id ); ?>"
+                             data-katha-loaded="<?php echo empty( $passages ) ? 'false' : 'true'; ?>">
 
                             <div class="vana-event-section__label">
-                                📖 <?php echo esc_html( $katha_title ); ?>
+                                📖 <?php echo esc_html( $hk_title ?: ( $is_en ? 'Hari-Kathā' : 'Hari-Kathā' ) ); ?>
                                 <?php if ( $scripture ) : ?>
-                                <span class="vana-hk-scripture">· <?php echo esc_html( $scripture ); ?></span>
+                                    <span class="vana-hk-scripture">· <?php echo esc_html( $scripture ); ?></span>
                                 <?php endif; ?>
                             </div>
 
                             <?php if ( ! empty( $passages ) ) : ?>
-                            <ol class="vana-passage-list" role="list">
-                                <?php foreach ( $passages as $pi => $passage ) :
-                                    $pid        = $passage['passage_id']  ?? $passage['passage_key'] ?? '';
-                                    $p_title    = $is_en
-                                        ? ( $passage['title_en']    ?? $passage['title_pt']    ?? $pid )
-                                        : ( $passage['title_pt']    ?? $pid );
-                                    $hook       = $passage['hook']        ?? '';
-                                    $teaching   = $is_en
-                                        ? ( $passage['teaching_en'] ?? $passage['teaching_pt'] ?? '' )
-                                        : ( $passage['teaching_pt'] ?? '' );
-                                    $key_quote  = $passage['key_quote']   ?? '';
-                                    $source_ref = $passage['source_ref']  ?? [];
-                                    $vod_key_p  = $source_ref['vod_key']  ?? '';
-                                    $ts_start   = (int) ( $source_ref['timestamp_start'] ?? 0 );
-                                    $ts_label   = $ts_start ? vana_fmt_ts( $ts_start ) : '';
-                                    $video_id_p = $index['vods'][ $vod_key_p ]['video_id'] ?? '';
-                                    $provider_p = $index['vods'][ $vod_key_p ]['provider'] ?? 'youtube';
-                                    $p_item_id  = 'vana-p-' . sanitize_html_class( $pid );
-                                ?>
-                                <li class="vana-passage-item"
-                                    data-passage-id="<?php echo esc_attr( $pid ); ?>">
+                                <ol class="vana-passage-list" role="list">
+                                    <?php foreach ( $passages as $pi => $passage ) :
+                                        $pid       = $passage['passage_id'] ?? $passage['passage_key'] ?? '';
+                                        $p_title   = $is_en
+                                            ? ( $passage['title_en'] ?? $passage['title_pt'] ?? $pid )
+                                            : ( $passage['title_pt'] ?? $pid );
+                                        $hook      = $passage['hook'] ?? '';
+                                        $teaching  = $is_en
+                                            ? ( $passage['teaching_en'] ?? $passage['teaching_pt'] ?? '' )
+                                            : ( $passage['teaching_pt'] ?? '' );
+                                        $key_quote = $passage['key_quote'] ?? '';
 
-                                    <button class="vana-passage-toggle"
-                                            aria-expanded="false"
-                                            aria-controls="<?php echo esc_attr( $p_item_id ); ?>">
-                                        <span class="vana-passage-toggle__num"><?php echo $pi + 1; ?></span>
-                                        <span class="vana-passage-toggle__title">
-                                            <?php if ( $hook ) : ?>
-                                            <em class="vana-passage-hook"><?php echo esc_html( $hook ); ?></em>
-                                            <?php endif; ?>
-                                            <?php echo esc_html( $p_title ); ?>
-                                        </span>
-                                        <span class="vana-passage-toggle__icon" aria-hidden="true">+</span>
-                                    </button>
+                                        $p_vod_key  = $passage['source_ref']['vod_key'] ?? $hk_segment['_vod_key'] ?? '';
+                                        $p_ts_start = (int)( $passage['source_ref']['timestamp_start'] ?? $hk_segment['timestamp_start'] ?? 0 );
+                                        $p_video_id = $index['vods'][$p_vod_key]['video_id'] ?? $hk_segment['_video_id'] ?? '';
+                                        $p_provider = $index['vods'][$p_vod_key]['provider'] ?? $hk_segment['_provider'] ?? 'youtube';
+                                        $p_ts_label = $p_ts_start ? vana_fmt_ts( $p_ts_start ) : '';
+                                        $p_item_id  = 'vana-p-' . sanitize_html_class( $pid );
+                                    ?>
+                                    <li class="vana-passage-item" data-passage-id="<?php echo esc_attr( $pid ); ?>">
 
-                                    <div id="<?php echo esc_attr( $p_item_id ); ?>"
-                                         class="vana-passage-body"
-                                         hidden>
-
-                                        <?php if ( $key_quote ) : ?>
-                                        <blockquote class="vana-passage-quote">
-                                            <?php echo esc_html( $key_quote ); ?>
-                                        </blockquote>
-                                        <?php endif; ?>
-
-                                        <?php if ( $teaching ) : ?>
-                                        <p class="vana-passage-teaching">
-                                            <?php echo esc_html( $teaching ); ?>
-                                        </p>
-                                        <?php endif; ?>
-
-                                        <?php if ( $vod_key_p && $ts_label ) : ?>
-                                        <button class="vana-passage-seek"
-                                                data-action="seek-passage"
-                                                data-vod-key="<?php echo esc_attr( $vod_key_p ); ?>"
-                                                data-video-id="<?php echo esc_attr( $video_id_p ); ?>"
-                                                data-provider="<?php echo esc_attr( $provider_p ); ?>"
-                                                data-timestamp="<?php echo esc_attr( $ts_start ); ?>"
-                                                aria-label="<?php echo esc_attr(
-                                                    ( $is_en ? 'Watch from ' : 'Assistir a partir de ' ) . $ts_label
-                                                ); ?>">
-                                            ▶ <?php echo esc_html( $ts_label ); ?>
+                                        <button class="vana-passage-toggle" aria-expanded="false" aria-controls="<?php echo esc_attr( $p_item_id ); ?>">
+                                            <span class="vana-passage-toggle__num"><?php echo $pi + 1; ?></span>
+                                            <span class="vana-passage-toggle__title">
+                                                <?php if ( $hook ) : ?>
+                                                    <em class="vana-passage-hook"><?php echo esc_html( $hook ); ?></em>
+                                                <?php endif; ?>
+                                                <?php echo esc_html( $p_title ); ?>
+                                            </span>
+                                            <span class="vana-passage-toggle__icon" aria-hidden="true">+</span>
                                         </button>
-                                        <?php endif; ?>
 
-                                    </div>
-                                </li>
-                                <?php endforeach; ?>
-                            </ol>
+                                        <div id="<?php echo esc_attr( $p_item_id ); ?>" class="vana-passage-body" hidden>
+                                            <?php if ( $key_quote ) : ?>
+                                                <blockquote class="vana-passage-quote"><?php echo esc_html( $key_quote ); ?></blockquote>
+                                            <?php endif; ?>
+                                            <?php if ( $teaching ) : ?>
+                                                <p class="vana-passage-teaching"><?php echo esc_html( $teaching ); ?></p>
+                                            <?php endif; ?>
+                                            <?php if ( $p_vod_key && $p_ts_label ) : ?>
+                                                <button class="vana-passage-seek"
+                                                        data-action="seek-passage"
+                                                        data-vod-key="<?php echo esc_attr( $p_vod_key ); ?>"
+                                                        data-video-id="<?php echo esc_attr( $p_video_id ); ?>"
+                                                        data-provider="<?php echo esc_attr( $p_provider ); ?>"
+                                                        data-timestamp="<?php echo esc_attr( $p_ts_start ); ?>"
+                                                        aria-label="<?php echo esc_attr(
+                                                            ( $is_en ? 'Watch from ' : 'Assistir a partir de ' ) . $p_ts_label
+                                                        ); ?>">
+                                                    ▶ <?php echo esc_html( $p_ts_label ); ?>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </li>
+                                    <?php endforeach; ?>
+                                </ol>
                             <?php else : ?>
-                            <p class="vana-hk-empty">
-                                <?php echo $is_en ? 'Passages being prepared.' : 'Trechos em preparação.'; ?>
-                            </p>
+                                <div class="vana-hk-lazy" data-katha-id="<?php echo esc_attr( $hk_katha_id ); ?>" data-lang="<?php echo esc_attr( $is_en ? 'en' : 'pt' ); ?>">
+                                    <p class="vana-hk-empty"><?php echo $is_en ? 'Loading passages...' : 'Carregando trechos...'; ?></p>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php
+                            $hk_ts_start = (int)( $hk_segment['timestamp_start'] ?? 0 );
+                            $hk_ts_label = $hk_ts_start ? vana_fmt_ts( $hk_ts_start ) : '';
+                            if ( $hk_segment['_vod_key'] && $hk_ts_label ) :
+                            ?>
+                            <button class="vana-hk-seek-main"
+                                    data-action="seek-passage"
+                                    data-vod-key="<?php echo esc_attr( $hk_segment['_vod_key'] ); ?>"
+                                    data-video-id="<?php echo esc_attr( $hk_segment['_video_id'] ); ?>"
+                                    data-provider="<?php echo esc_attr( $hk_segment['_provider'] ); ?>"
+                                    data-timestamp="<?php echo esc_attr( $hk_ts_start ); ?>">
+                                ▶ <?php echo $is_en ? 'Go to Hari-Kathā' : 'Ir para a Hari-Kathā'; ?>
+                                <span class="vana-hk-seek-main__ts"><?php echo esc_html( $hk_ts_label ); ?></span>
+                            </button>
                             <?php endif; ?>
 
                         </div>
-                        <?php endforeach; ?>
+                        <?php endif; ?>
 
                         <!-- FOTOS -->
                         <?php if ( ! empty( $photos ) ) : ?>
@@ -349,7 +373,7 @@ $lang_url  = add_query_arg( 'lang', $lang_alt );
                         </div>
                         <?php endif; ?>
 
-                        <?php if ( empty( $vods ) && empty( $kathas ) && empty( $photos ) && empty( $sangha ) ) : ?>
+                        <?php if ( empty( $vods ) && ! $hk_segment && empty( $photos ) && empty( $sangha ) ) : ?>
                         <p class="vana-event-empty">
                             <?php echo $is_en ? 'Content being prepared.' : 'Conteúdo em preparação.'; ?>
                         </p>
