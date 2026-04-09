@@ -253,7 +253,9 @@
           "vod-20260221-003"
         ],
         "kathas": [],
-        "photos": [],
+        "photos": [
+          "ph-20260221-001"
+        ],
         "sangha": []
       },
       "20260221-1703-programa": {
@@ -266,11 +268,9 @@
         "status": "past",
         "location": "Gopīnātha Bhavana",
         "vods": [
-          "vod-20260221-002"
+          "vod-20260221-001"
         ],
-        "kathas": [
-          678
-        ],
+        "kathas": [],
         "photos": [],
         "sangha": []
       },
@@ -317,17 +317,17 @@
         "thumb_url": "https://img.youtube.com/vi/fWEJsIxLlSQ/maxresdefault.jpg",
         "segments": []
       },
-      "vod-20260221-002": {
+      "vod-20260221-001": {
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
         "provider": "youtube",
-        "video_id": "dQw4w9WgXcQ",
+        "video_id": "f2pt6YRPiy0",
         "url": null,
         "vod_part": 1,
-        "duration_s": 13802,
-        "thumb_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+        "duration_s": 0,
+        "thumb_url": "https://img.youtube.com/vi/f2pt6YRPiy0/maxresdefault.jpg",
         "segments": [
-          "seg-20260221-002",
+          "seg-20260221-001",
           "seg-20260221-004"
         ]
       },
@@ -341,79 +341,67 @@
         "duration_s": 0,
         "thumb_url": "https://img.youtube.com/vi/BXvBKbPMiaI/maxresdefault.jpg",
         "segments": []
+      },
+      "vod-20260200-001": {
+        "event_key": null,
+        "day_key": null,
+        "provider": "youtube",
+        "video_id": "D87HqSmRFS8",
+        "url": null,
+        "vod_part": null,
+        "duration_s": null,
+        "thumb_url": "https://img.youtube.com/vi/D87HqSmRFS8/maxresdefault.jpg",
+        "segments": []
       }
     },
     "segments": {
-      "seg-20260221-002": {
-        "vod_key": "vod-20260221-002",
+      "seg-20260221-001": {
+        "vod_key": "vod-20260221-001",
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
-        "type": "kirtan",
+        "type": "noise",
         "title_pt": "Kirtan de abertura",
         "title_en": "Opening Kirtan",
         "timestamp_start": 0,
-        "timestamp_end": 2732,
+        "timestamp_end": 117,
         "katha_id": null
       },
       "seg-20260221-004": {
-        "vod_key": "vod-20260221-002",
+        "vod_key": "vod-20260221-001",
         "event_key": "20260221-1703-programa",
         "day_key": "2026-02-21",
         "type": "harikatha",
         "title_pt": "Hari-Kathā — SB 10.31",
         "title_en": "Hari-Kathā — SB 10.31",
-        "timestamp_start": 4801,
-        "timestamp_end": 9000,
+        "timestamp_start": 118,
+        "timestamp_end": 3700,
         "katha_id": 678
       }
     },
-    "kathas": {
-      "678": {
-        "katha_key": "katha-20260221-sb1031",
-        "event_key": "20260221-1703-programa",
+    "kathas": {},
+    "passages": {},
+    "photos": {
+      "ph-20260221-001": {
+        "event_key": "20260221-0530-mangala",
         "day_key": "2026-02-21",
-        "title_pt": "SB 10.31 — Gopī-gīta",
-        "title_en": "SB 10.31 — Gopī-gīta",
-        "scripture": "SB 10.31",
-        "language": "hi",
-        "sources": [
-          {
-            "vod_key": "vod-20260221-002",
-            "segment_id": "seg-20260221-004"
-          }
-        ],
-        "passages": [
-          "hkp-20260221-001"
-        ],
-        "passage_count": 1
+        "thumb_url": "https://scontent.fcgh17-1.fna.fbcdn.net/v/t39.30808-6/661290917_1269569115378111_1834891282684531299_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=dd6889&_nc_eui2=AeEv9n1A6fdyjU0iLn5AzD44XHL6ij52yCFccvqKPnbIIaNfiphXRych1N-sen0S5IqcFDYTDo_nR2bdm_ji3Q2w&_nc_ohc=ZdRmGUByJqYQ7kNvwGAKsz1&_nc_oc=Adp8VcydxUJprRjrS8wrPqjbazE5Xuqo3s9umy2j30pqHQFhpqUOyl21ykmeYvyCTFk&_nc_zt=23&_nc_ht=scontent.fcgh17-1.fna&_nc_gid=nwoapSxoDk5vB0ExO_NB8w&_nc_ss=7a3a8&oh=00_Af2SQmfpPziA_6e1Kjy5w9ahIWohb2mOTsiz0Mz8S13vzQ&oe=69DD13F4",
+        "full_url": "https://scontent.fcgh17-1.fna.fbcdn.net/v/t39.30808-6/661290917_1269569115378111_1834891282684531299_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=dd6889&_nc_eui2=AeEv9n1A6fdyjU0iLn5AzD44XHL6ij52yCFccvqKPnbIIaNfiphXRych1N-sen0S5IqcFDYTDo_nR2bdm_ji3Q2w&_nc_ohc=ZdRmGUByJqYQ7kNvwGAKsz1&_nc_oc=Adp8VcydxUJprRjrS8wrPqjbazE5Xuqo3s9umy2j30pqHQFhpqUOyl21ykmeYvyCTFk&_nc_zt=23&_nc_ht=scontent.fcgh17-1.fna&_nc_gid=nwoapSxoDk5vB0ExO_NB8w&_nc_ss=7a3a8&oh=00_Af2SQmfpPziA_6e1Kjy5w9ahIWohb2mOTsiz0Mz8S13vzQ&oe=69DD13F4",
+        "author": "Krsna Das"
       }
     },
-    "passages": {
-      "hkp-20260221-001": {
-        "katha_id": 678,
-        "event_key": "20260221-1703-programa",
-        "day_key": "2026-02-21",
-        "order": 1,
-        "vod_key": "vod-20260221-002",
-        "segment_id": "seg-20260221-004",
-        "timestamp_start": 4801,
-        "timestamp_end": 5280
-      }
-    },
-    "photos": {},
     "sangha": {}
   },
   "stats": {
     "total_days": 3,
     "total_events": 4,
-    "total_vods": 3,
+    "total_vods": 4,
     "total_segments": 2,
-    "total_kathas": 1,
-    "total_passages": 1,
-    "total_photos": 0,
+    "total_kathas": 0,
+    "total_passages": 0,
+    "total_photos": 1,
     "total_sangha": 0
   },
-  "generated_at": "2026-04-03T19:48:59.460376+00:00",
+  "generated_at": "2026-04-09T05:04:51.214328+00:00",
   "generated_by": "vana-trator",
   "updated_at": "2026-03-31T12:38:37Z"
 }
