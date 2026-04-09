@@ -52,7 +52,16 @@
               "segments": []
             }
           ],
-          "photos": [],
+          "photos": [
+            {
+              "photo_key": "ph-20260221-001",
+              "thumb_url": "",
+              "full_url": "",
+              "caption_pt": "",
+              "caption_en": "",
+              "author": ""
+            }
+          ],
           "sangha": []
         },
         {
