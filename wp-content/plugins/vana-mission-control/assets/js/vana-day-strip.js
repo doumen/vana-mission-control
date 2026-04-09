@@ -1,3 +1,4 @@
+console.log('vana-day-strip: init');
 (function () {
     'use strict';
 
