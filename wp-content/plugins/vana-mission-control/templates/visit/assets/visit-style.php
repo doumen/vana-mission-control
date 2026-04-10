@@ -398,6 +398,45 @@ body.vana-visit-page .ast-separate-container .ast-article-single {
   color: rgba(15, 23, 42, 0.65);
 }
 
+/* ============================================================
+   X. HARI-KATHĀ — Zona mutável (lista | passages | foco)
+   ============================================================ */
+.vana-hk-zone {
+  border-top: 1px solid var(--vana-line-solid);
+  padding: 18px 0 36px;
+  display: block;
+  background: var(--vana-bg-soft);
+}
+.vana-hk-panel {
+  max-width: 980px;
+  margin: 0 auto 18px;
+  padding: 12px 16px;
+  background: var(--vana-bg-card);
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(16,24,40,0.03);
+  transition: opacity .18s ease, transform .18s ease;
+}
+.vana-hk-panel[hidden] { display: none; }
+.vana-hk__intro { margin: 0 0 12px; color: var(--vana-muted); }
+.vana-hk__list { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+.vana-hk-card { display:block; text-align:left; width:100%; padding:12px; border-radius:8px; background:linear-gradient(180deg, rgba(0,0,0,0.02), transparent); border:1px solid var(--vana-line); cursor:pointer; }
+.vana-hk-card__title { display:block; font-weight:700; margin-top:6px; }
+.vana-hk-card__excerpt { display:block; margin-top:8px; color:var(--vana-muted); font-size:0.95rem; }
+.vana-hk-passage-list { display:flex; flex-direction:column; gap:10px; }
+.vana-hk-passage-card { display:block; width:100%; text-align:left; padding:10px 12px; border-radius:8px; border:1px solid var(--vana-line); background:var(--vana-bg-elevated); cursor:pointer; }
+.vana-hk-passage-card__header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.vana-hk-passage-card__hook { color:var(--vana-text-soft); margin-top:8px; }
+.vana-hk-focus__header { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.vana-hk-focus-position { font-weight:700; color:var(--vana-text-soft); }
+.vana-hk-focus-content { line-height:1.6; color:var(--vana-text); }
+.vana-hk-focus__footer { margin-top:14px; display:flex; gap:8px; align-items:center; }
+.vana-hk-focus-nav { display:flex; gap:8px; margin-top:10px; }
+.vana-hk-focus-nav button { padding:8px 12px; border-radius:8px; border:1px solid var(--vana-line); background:var(--vana-bg-card); cursor:pointer; }
+.vana-hk-badge { display:inline-block; margin-left:8px; font-size:0.95rem; }
+.vana-hk-pagination { text-align:center; margin-top:10px; }
+.vana-hk-load-more { padding:10px 16px; border-radius:8px; border:1px solid var(--vana-line); background:var(--vana-bg-card); cursor:pointer; }
+
+
 .vana-hero__nav-title {
   font-size:              0.9rem;
   font-weight:            600;
