@@ -1,147 +1,191 @@
 <?php
 /**
- * Sections Panel — Unificação de Hari-Katha, Galeria, Sangha, Revista
- * Template Part: templates/visit/parts/sections.php
+ * Sections / Zona Mutável
+ * Monta o container único que alterna entre os estados:
+ *  - visita  (seções: hari-katha, gallery, sangha)
+ *  - passage (conteúdo do passage carregado via REST)
+ *  - lente   (lista temática de passages)
  *
- * Seção 12 do spec v1:
- * - 4 painéis principais: HK | Galeria | Sangha | Revista
- * - Cada seção com ID único
- * - Estado .is-active controlado por chip-bar (anchor-chips.php)
- *
- * Variáveis consumidas:
- *   $data       array  — timeline JSON
- *   $lang       string — 'pt' | 'en'
- *   $visit_id   int    — ID da visita
- *   $active_day array  — dia ativo (para HK, gallery, sangha)
- *
- * Seletores críticos (alinhados com anchor-chips.php):
- *   #vana-sections          → wrapper principal
- *   .vana-section-panel     → cada painel (role=tabpanel)
- *   .vana-section-panel.is-active → painel visível
- *   data-section-id         → identificador único
+ * Este partial inclui as partials existentes para cada seção
+ * e fornece os painéis que o JS controla via classes .is-active
  */
 defined('ABSPATH') || exit;
-
-// Resolver dados das seções a partir do $active_day
-$hk_items      = $active_day['hari_katha'] ?? [];
-$gallery_items = $active_day['gallery'] ?? [];
-$sangha_items  = $active_day['sangha_moments'] ?? [];
-// revista é por visit_id, não por day — ficará vazia até JS carregar
 ?>
 
-<!-- ════════════════════════════════════════════════════════
-     SECTIONS PANEL — Tabs de conteúdo
-     ════════════════════════════════════════════════════════ -->
-<div id="vana-sections" class="vana-sections" role="tablist" aria-label="Seções de conteúdo">
+<div id="vana-mutable-zone" class="vana-mutable-zone" data-state="visita" data-visit-id="<?php echo (int) ($visit_id ?? 0); ?>">
 
-    <!-- Section 1: Hari-Katha -->
-    <section
-        id="vana-section-hk"
-        class="vana-section-panel"
-        data-vana-section="vana-section-hk"
-        data-section-id="section-hk"
-        role="tabpanel"
-        aria-labelledby="vana-chip-hk"
-        data-visit-id="<?php echo (int) $visit_id; ?>"
-        data-day="<?php echo esc_attr($active_day_date); ?>"
-        data-lang="<?php echo esc_attr($lang); ?>"
-    >
-        <div class="vana-section-header">
-            <h3 class="vana-section-title">🙏 <?php echo esc_html( vana_t( 'sections.hari_katha', $lang ) ?: 'Hari-Katha' ); ?></h3>
-        </div>
-        <div class="vana-section-body">
-            <div class="vana-hk__intro"><?php echo esc_html( vana_t( 'hk.loading', $lang ) ?: 'Carregando hari-katha...' ); ?></div>
-            <div data-role="katha-list" class="vana-hk__list" hidden></div>
-            <div data-role="passage-list" class="vana-hk__passages" hidden></div>
-        </div>
-    </section>
+    <!-- Painel: VISITA (seções tradicionais) -->
+    <div id="mz-panel-visita" class="vana-mz__panel is-active" data-mz-state="visita" data-panel="visita" role="tabpanel" aria-hidden="false">
+        <?php
+            // Hari-katha
+            if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/hari-katha.php' ) ) {
+                    include VANA_MC_PATH . 'templates/visit/parts/hari-katha.php';
+            }
 
-    <!-- Section 2: Galeria -->
-    <section
-        id="vana-section-gallery"
-        class="vana-section-panel"
-        data-vana-section="vana-section-gallery"
-        data-section-id="section-gallery"
-        role="tabpanel"
-        aria-labelledby="vana-chip-gallery"
-    >
-        <div class="vana-section-header">
-            <h3 class="vana-section-title">📷 <?php echo esc_html( vana_t( 'sections.gallery', $lang ) ?: 'Galeria' ); ?></h3>
-        </div>
-        <div class="vana-section-body">
-            <?php if (!empty($gallery_items)): ?>
-                <div class="vana-gallery-grid">
-                    <?php foreach ($gallery_items as $photo): ?>
-                        <?php if (!is_array($photo)) continue; ?>
-                        <figure class="vana-gallery-item">
-                            <img
-                                src="<?php echo esc_url( $photo['thumb_url'] ?? $photo['url'] ?? '' ); ?>"
-                                alt="<?php echo esc_attr( $photo['caption'] ?? '' ); ?>"
-                                loading="lazy"
-                                class="vana-gallery-img"
-                            />
-                            <?php if (!empty($photo['caption'])): ?>
-                                <figcaption class="vana-gallery-caption">
-                                    <?php echo esc_html( $photo['caption'] ); ?>
-                                </figcaption>
-                            <?php endif; ?>
-                        </figure>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <p class="vana-section-empty"><?php echo esc_html( vana_t( 'sections.empty', $lang ) ?: 'Sem fotos para este dia' ); ?></p>
-            <?php endif; ?>
-        </div>
-    </section>
+            // Gallery
+            if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/gallery.php' ) ) {
+                    include VANA_MC_PATH . 'templates/visit/parts/gallery.php';
+            }
 
-    <!-- Section 3: Sangha Moments -->
-    <section
-        id="vana-section-sangha"
-        class="vana-section-panel"
-        data-vana-section="vana-section-sangha"
-        data-section-id="section-sangha"
-        role="tabpanel"
-        aria-labelledby="vana-chip-sangha"
-    >
-        <div class="vana-section-header">
-            <h3 class="vana-section-title">💬 <?php echo esc_html( vana_t( 'sections.sangha', $lang ) ?: 'Sangha' ); ?></h3>
-        </div>
-        <div class="vana-section-body">
-            <?php if (!empty($sangha_items)): ?>
-                <ul class="vana-section-list">
-                    <?php foreach ($sangha_items as $moment): ?>
-                        <?php if (!is_array($moment)) continue; ?>
-                        <li class="vana-section-item vana-sangha-moment">
-                            <blockquote class="vana-sangha-quote">
-                                <?php echo nl2br( esc_html( $moment['text'] ?? '' ) ); ?>
-                            </blockquote>
-                            <cite class="vana-sangha-author">
-                                — <?php echo esc_html( $moment['author'] ?? '' ); ?>
-                            </cite>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php else: ?>
-                <p class="vana-section-empty"><?php echo esc_html( vana_t( 'sections.empty', $lang ) ?: 'Sem relatos para este dia' ); ?></p>
-            <?php endif; ?>
-        </div>
-    </section>
+            // Sangha moments
+            if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/sangha-moments.php' ) ) {
+                    include VANA_MC_PATH . 'templates/visit/parts/sangha-moments.php';
+            }
+        ?>
+    </div>
 
-    <!-- Section 4: Revista -->
-    <section
-        id="vana-section-revista"
-        class="vana-section-panel"
-        data-vana-section="vana-section-revista"
-        data-section-id="section-revista"
-        role="tabpanel"
-        aria-labelledby="vana-chip-revista"
-    >
-        <div class="vana-section-header">
-            <h3 class="vana-section-title">📰 <?php echo esc_html( vana_t( 'sections.revista', $lang ) ?: 'Revista' ); ?></h3>
+    <!-- Painel: PASSAGE (conteúdo carregado dinamicamente) -->
+    <div id="mz-panel-passage" class="vana-mz__panel" data-mz-state="passage" data-panel="passage" role="tabpanel" aria-hidden="true" hidden>
+        <div id="mz-passage" class="vana-passage-container">
+            <div class="vana-mz__loading" style="padding:36px;text-align:center;color:var(--vana-muted);">
+                <?php echo esc_html( vana_t('passage.loading', $lang ?? 'pt') ); ?>
+            </div>
         </div>
-        <div class="vana-section-body" id="vana-revista-content">
-            <p class="vana-section-empty"><?php echo esc_html( vana_t( 'sections.revista_loading', $lang ) ?: 'Carregando revista...' ); ?></p>
+    </div>
+
+    <!-- Painel: LENTE (lista temática, carregada via REST) -->
+    <div id="mz-panel-lente" class="vana-mz__panel" data-mz-state="lente" data-panel="lente" role="tabpanel" aria-hidden="true" hidden>
+        <div id="mz-lens" class="vana-lens-container">
+            <div class="vana-mz__loading" style="padding:36px;text-align:center;color:var(--vana-muted);">
+                <?php echo esc_html( vana_t('lens.loading', $lang ?? 'pt') ); ?>
+            </div>
         </div>
-    </section>
+    </div>
 
 </div>
+
+<script>
+(function () {
+    'use strict';
+
+    var root = document.getElementById('vana-mutable-zone');
+    if (!root) return;
+
+    function setActive(state) {
+        root.setAttribute('data-state', state);
+        root.querySelectorAll('.vana-mz__panel').forEach(function (p) {
+            var ps = p.getAttribute('data-mz-state') || p.getAttribute('data-panel');
+            var active = ps === state;
+            p.classList.toggle('is-active', active);
+            if (active) {
+                p.removeAttribute('hidden');
+                p.setAttribute('aria-hidden', 'false');
+            } else {
+                p.setAttribute('hidden', '');
+                p.setAttribute('aria-hidden', 'true');
+            }
+        });
+    }
+
+    // Clique em chips âncora que apontam para seções (ex: data-vana-chip)
+    document.addEventListener('click', function (e) {
+        var chip = e.target.closest('[data-vana-chip]');
+        if (chip) {
+            var target = chip.getAttribute('data-vana-chip');
+            if (!target) return;
+            // Mapeia ids conhecidos para estados
+            if (target.indexOf('vana-section-hk') !== -1 || target.indexOf('hk') !== -1) {
+                setActive('visita');
+            } else if (target.indexOf('vana-section-gallery') !== -1) {
+                setActive('visita');
+            } else if (target.indexOf('vana-section-sangha') !== -1) {
+                setActive('visita');
+            }
+        }
+
+        var openPass = e.target.closest('[data-vana-open-passage]');
+        if (openPass) {
+            e.preventDefault();
+            var pid = openPass.getAttribute('data-passage-id');
+            var kref = openPass.getAttribute('data-katha-ref') || '';
+            if (!pid) return;
+            if (window.VanaRouter && typeof window.VanaRouter.toPassage === 'function') {
+                window.VanaRouter.toPassage(pid, kref);
+            } else {
+                openPassage(pid);
+            }
+        }
+    });
+
+    // Abre passage in-place via REST
+    function openPassage(passageId) {
+        // Legacy fallback loader: used only if VanaRouter/PassageController absent
+        setActive('passage');
+        var container = document.getElementById('mz-passage');
+        if (!container) return;
+        container.innerHTML = '<div class="vana-mz__loading">' + (window.__vanaLang === 'en' ? 'Loading…' : 'Carregando…') + '</div>';
+
+        var restRoot = (window.CFG && window.CFG.restRoot) ? window.CFG.restRoot : '/wp-json/vana/v1/';
+        var nonce = (window.CFG && window.CFG.restNonce) ? window.CFG.restNonce : '';
+
+        fetch(restRoot + 'passage/' + encodeURIComponent(passageId), {
+            headers: { 'X-WP-Nonce': nonce },
+            credentials: 'same-origin'
+        }).then(function (r) { return r.json(); })
+            .then(function (json) {
+                if (!json || !json.success) {
+                    container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' + (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
+                    return;
+                }
+                var html = json.data && json.data.html ? json.data.html : ('<article class="vana-passage">' + (json.data.title ? ('<h3>' + json.data.title + '</h3>') : '') + (json.data.content ? ('<div>' + json.data.content + '</div>') : '') + '</article>');
+                container.innerHTML = html;
+                try { history.pushState({ mz: 'passage', id: passageId }, '', window.location.pathname + '#passage-' + passageId); } catch (e) {}
+            }).catch(function () {
+                container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' + (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
+            });
+    }
+
+    // Listen to router events and switch panels accordingly
+    document.addEventListener('vana:state:changed', function (ev) {
+        var s = ev && ev.detail && ev.detail.state ? ev.detail.state : null;
+        if (s) setActive(s);
+    });
+
+    // Initial panel state from container attribute
+    setActive(root.getAttribute('data-state') || 'visita');
+
+    window.addEventListener('popstate', function (ev) {
+        var s = (root && root.getAttribute('data-state')) || 'visita';
+        // Simples: volta para visita por padrão
+        setActive('visita');
+    });
+
+})();
+</script>
+
+<!-- Vana Panel Switcher — escuta vana:state:changed -->
+<script>
+(function() {
+    'use strict';
+
+    var STATES = ['visita', 'passage', 'lente'];
+    var PREFIX = 'mz-panel-';
+    var ACTIVE = 'is-active';
+
+    function switchPanel(targetState) {
+        STATES.forEach(function(state) {
+            var el = document.getElementById(PREFIX + state);
+            if (!el) return;
+            el.classList.toggle(ACTIVE, state === targetState);
+            if (state === targetState) {
+                el.removeAttribute('hidden');
+                el.setAttribute('aria-hidden', 'false');
+            } else {
+                el.setAttribute('hidden', '');
+                el.setAttribute('aria-hidden', 'true');
+            }
+        });
+    }
+
+    document.addEventListener('vana:state:changed', function(e) {
+        if (e.detail && e.detail.state) {
+            switchPanel(e.detail.state);
+        }
+    });
+
+    // Sync com estado inicial do Router
+    if (window.VanaRouter && window.VanaRouter.state) {
+        switchPanel(window.VanaRouter.state);
+    }
+})();
+</script>

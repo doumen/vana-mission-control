@@ -8,6 +8,38 @@ WP_BASE_URL = "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2"
 WP_AUTH = ("vana-streamlit", "KZzqSMQFYAlY7Xwj6nLko9Eu")
 
 
+def normalize_status(s: str | None, target: str = "event") -> str:
+    """
+    Normaliza valores de status vindos do WP/timeline para um conjunto canônico.
+
+    target = "event" -> retorna um de: 'past', 'live', 'upcoming'
+    target = "visit" -> retorna um de: 'completed', 'active', 'draft'
+    """
+    if not s:
+        return "?"
+    v = str(s).lower()
+    # event-level normalization
+    if target == "event":
+        if v in ("past", "done", "completed"):
+            return "past"
+        if v in ("live", "active", "running"):
+            return "live"
+        if v in ("upcoming", "future", "scheduled"):
+            return "upcoming"
+        return v
+
+    # visit-level normalization
+    if target == "visit":
+        if v in ("completed", "done"):
+            return "completed"
+        if v in ("active", "publish", "published"):
+            return "active"
+        if v in ("draft", "pending"):
+            return "draft"
+        return v
+
+
+
 def get_visit_timeline(visit_id: int) -> dict:
     """
     Retorna o timeline completo da visita (dict com days[], schema_version, etc.)
@@ -22,7 +54,23 @@ def get_visit_timeline(visit_id: int) -> dict:
     if not raw:
         return {}
 
-    return json.loads(raw) if isinstance(raw, str) else raw
+    data = json.loads(raw) if isinstance(raw, str) else raw
+
+    # Normalize timeline values if we got a dict
+    if isinstance(data, dict):
+        meta_md = data.get("metadata", {})
+        if isinstance(meta_md, dict) and "status" in meta_md:
+            meta_md["status"] = normalize_status(meta_md.get("status"), target="visit")
+
+        for day in data.get("days", []) or []:
+            for sched in (day.get("schedule") or []):
+                if "status" in sched:
+                    sched["status"] = normalize_status(sched.get("status"), target="event")
+            for ev in (day.get("events") or []):
+                if "status" in ev:
+                    ev["status"] = normalize_status(ev.get("status"), target="event")
+
+    return data
 
 
 def get_visit_days(visit_id: int) -> list[dict]:
@@ -162,11 +210,24 @@ def list_visits_rest(per_page: int = 100) -> list[dict]:
             tl = json.loads(tl_raw) if isinstance(tl_raw, str) else tl_raw
         except Exception:
             tl = {}
+        # Normalize timeline values if present
+        if isinstance(tl, dict):
+            md = tl.get("metadata", {})
+            if isinstance(md, dict) and "status" in md:
+                md["status"] = normalize_status(md.get("status"), target="visit")
+            for day in tl.get("days", []) or []:
+                for sched in (day.get("schedule") or []):
+                    if "status" in sched:
+                        sched["status"] = normalize_status(sched.get("status"), target="event")
+                for ev in (day.get("events") or []):
+                    if "status" in ev:
+                        ev["status"] = normalize_status(ev.get("status"), target="event")
 
         items.append({
             "id":         v.get("id"),
             "title":      v.get("title", {}).get("rendered", f"ID {v.get('id')}"),
-            "status":     v.get("status", "—"),
+            # prefer timeline metadata status if available
+            "status":     tl.get("metadata", {}).get("status", v.get("status", "—")),
             "slug":       v.get("slug", "—"),
             "origin_key": meta.get("_vana_origin_key", "—"),
             "tour_key":   meta.get("_vana_parent_tour_origin_key", "—"),  # ← fonte correta
@@ -274,17 +335,56 @@ def list_visits_wp(per_page: int = 100) -> list[dict]:
     user   = st.secrets["vana"]["wp_user"]
     passwd = st.secrets["vana"]["wp_app_password"]
 
-    r = requests.get(
-        f"{base}/wp/v2/vana_visit",
-        params={
-            "per_page": per_page,
-            "status":   "any",
-            "_fields":  "id,slug,status,link,modified,meta",
-        },
-        auth=(user, passwd),
-        timeout=20,
-    )
-    r.raise_for_status()
+    url = f"{base}/wp/v2/vana_visit"
+    params = {
+        "per_page": per_page,
+        "status":   "any",
+        "_fields":  "id,slug,status,link,modified,meta",
+    }
+
+    def normalize_status(s: str | None, target: str = "event") -> str:
+        """
+        Normaliza valores de status vindos do WP/timeline para um conjunto canônico.
+
+        target = "event" -> retorna um de: 'past', 'live', 'upcoming'
+        target = "visit" -> retorna um de: 'completed', 'active', 'draft'
+        """
+        if not s:
+            return "?"
+        v = str(s).lower()
+        # event-level normalization
+        if target == "event":
+            if v in ("past", "done", "completed"):
+                return "past"
+            if v in ("live", "active", "running"):
+                return "live"
+            if v in ("upcoming", "future", "scheduled"):
+                return "upcoming"
+            return v
+
+        # visit-level normalization
+        if target == "visit":
+            if v in ("completed", "done"):
+                return "completed"
+            if v in ("active", "publish", "published"):
+                return "active"
+            if v in ("draft", "pending"):
+                return "draft"
+            return v
+
+    try:
+        r = requests.get(url, params=params, auth=(user, passwd), timeout=20)
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        # Some app-password users are not permitted to query `status=any`.
+        # If WP returns 400 with `rest_forbidden_status`, retry without the status param.
+        resp = getattr(e, 'response', None) or (locals().get('r') if 'r' in locals() else None)
+        if resp is not None and resp.status_code == 400 and resp.text and 'rest_forbidden_status' in resp.text:
+            params.pop('status', None)
+            r = requests.get(url, params=params, auth=(user, passwd), timeout=20)
+            r.raise_for_status()
+        else:
+            raise
 
     results = []
     for item in r.json():
@@ -303,6 +403,22 @@ def list_visits_wp(per_page: int = 100) -> list[dict]:
                 vana_data = {}
         else:
             vana_data = raw or {}
+        # Normalize timeline event/status values for downstream consumers
+        if isinstance(vana_data, dict):
+            meta_md = vana_data.get("metadata", {})
+            # normalize visit-level metadata.status
+            if isinstance(meta_md, dict) and "status" in meta_md:
+                meta_md["status"] = normalize_status(meta_md.get("status"), target="visit")
+
+            for day in vana_data.get("days", []) or []:
+                # normalize schedule items
+                for sched in (day.get("schedule") or []):
+                    if "status" in sched:
+                        sched["status"] = normalize_status(sched.get("status"), target="event")
+                # normalize event-level statuses
+                for ev in (day.get("events") or []):
+                    if "status" in ev:
+                        ev["status"] = normalize_status(ev.get("status"), target="event")
         # ──────────────────────────────────────────────────────────
 
         results.append({

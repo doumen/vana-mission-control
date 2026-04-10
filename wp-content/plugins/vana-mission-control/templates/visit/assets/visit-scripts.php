@@ -850,6 +850,22 @@ window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
 }(<?php echo wp_json_encode($js_data); ?>));
 </script>
 
+<?php
+// Include optional external JS assets if present (state-router, passage-nav)
+$state_router = VANA_MC_PATH . 'templates/visit/assets/state-router.js';
+$passage_nav  = VANA_MC_PATH . 'templates/visit/assets/passage-nav.js';
+if ( file_exists( $state_router ) ) {
+  echo "\n<script>\n";
+  include $state_router;
+  echo "\n</script>\n";
+}
+if ( file_exists( $passage_nav ) ) {
+  echo "\n<script>\n";
+  include $passage_nav;
+  echo "\n</script>\n";
+}
+
+
 <!-- Fallback: ensure agenda open buttons work if VanaAgenda failed to initialize -->
 <script>
  (function () {

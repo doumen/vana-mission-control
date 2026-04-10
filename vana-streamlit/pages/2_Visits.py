@@ -85,21 +85,8 @@ def _load(visit_ref: str, wp_id: int | None = None) -> dict:
             # sinaliza que foi migrado — a UI que chamar _load() fará o toast
             data["__migrated_from__"] = current
 
-        # Migração 6.1 → 6.2: estrutura mudou — kathas foram movidas para index
-        if current == "6.1":
-            data["schema_version"] = "6.2"
-            data["__migrated_from__"] = current
-
-            # Remove kathas[] de cada evento (se existirem do schema 6.1)
-            for day in data.get("days", []):
-                for event in day.get("events", []):
-                    event.pop("kathas", None)
-
-            # Remove kathas[] dos orphans
-            data.get("orphans", {}).pop("kathas", None)
-
-            # Atualiza $schema ref
-            data["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.2.json"
+        # Preserve schema_version '6.1' for root unless an explicit migration is requested.
+        # (R-ROOT-02) Do not upgrade automatically to 6.2 here.
 
     return data or {}
 
@@ -126,6 +113,66 @@ def _normalize_vod_key(raw: str) -> str:
         return raw
     s = raw.strip()
     return _re.sub(r'^vod-(\d{4})-(\d{2})-(\d{2})-(\d+)$', r'vod-\1\2\3-\4', s)
+
+
+# ── Ingest helpers (used by the 📥 Ingestão tab) ─────────────────────
+def _extract_video_id(url_or_id: str) -> tuple[str, str]:
+    s = (url_or_id or "").strip()
+
+    # YouTube: full URLs or raw 11-char ID
+    yt = _re.search(r'(?:youtu\.be/|youtube\.com/(?:watch\?v=|shorts/|live/))([A-Za-z0-9_-]{11})', s)
+    if yt:
+        return "youtube", yt.group(1)
+    if _re.match(r'^[A-Za-z0-9_-]{11}$', s):
+        return "youtube", s
+
+    # Facebook numeric video id
+    fb = _re.search(r'facebook\.com/.+/(?:videos?/|watch/?)\??v=?(\d+)', s)
+    if fb:
+        return "facebook", fb.group(1)
+
+    # Google Drive
+    gd = _re.search(r'drive\.google\.com/file/d/([A-Za-z0-9_-]+)', s)
+    if gd:
+        return "drive", gd.group(1)
+
+    return "unknown", s
+
+
+def _suggest_vod_key(day_key: str, existing_vods: list[str]) -> str:
+    date_part = (day_key or "0000-00-00").replace("-", "")
+    n = len(existing_vods) + 1
+    return f"vod-{date_part}-{n:03d}"
+
+
+def _suggest_seg_id(day_key: str, existing_segs: list[str]) -> str:
+    date_part = (day_key or "0000-00-00").replace("-", "")
+    n = len(existing_segs) + 1
+    return f"seg-{date_part}-{n:03d}"
+
+
+def _count_all_vods(visit: dict) -> list[str]:
+    keys: list[str] = []
+    for day in visit.get("days", []):
+        for ev in day.get("events", []):
+            for vod in ev.get("vods", []):
+                if vod.get("vod_key"):
+                    keys.append(vod["vod_key"])
+    for vod in visit.get("orphans", {}).get("vods", []):
+        if vod.get("vod_key"):
+            keys.append(vod["vod_key"])
+    return keys
+
+
+def _count_all_segments(visit: dict) -> list[str]:
+    ids: list[str] = []
+    for day in visit.get("days", []):
+        for ev in day.get("events", []):
+            for vod in ev.get("vods", []):
+                for seg in vod.get("segments", []):
+                    if seg.get("segment_id"):
+                        ids.append(seg.get("segment_id"))
+    return ids
 
 # ── helper de resultado do Trator ────────────────────────────────────
 def _render_trator_result(result: "TratorResult", dry: bool = False):
@@ -404,8 +451,9 @@ st.caption(
 # ══════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════
-tab_meta, tab_vods, tab_kathas, tab_galeria, tab_orfaos, tab_publicar = st.tabs([
+tab_meta, tab_ingest, tab_vods, tab_kathas, tab_galeria, tab_orfaos, tab_publicar = st.tabs([
     "📋 Visita",
+    "📥 Ingestão",
     "🎬 VODs",
     "🙏 Kathas",
     "🖼️ Galeria",
@@ -415,6 +463,351 @@ tab_meta, tab_vods, tab_kathas, tab_galeria, tab_orfaos, tab_publicar = st.tabs(
 
 
 # ══════════════════════════════════════════════════════════════════════
+# TAB INGESTÃO — recebe mídia bruta e estrutura
+# ══════════════════════════════════════════════════════════════════════
+with tab_ingest:
+    st.markdown("### 📥 Ingestão de Mídia")
+    st.caption(
+        "Cole uma URL ou ID de vídeo. O editor sugere a associação "
+        "ao dia/evento e cria o VOD com segments."
+    )
+
+    days = visit.get("days", [])
+    if not days:
+        st.warning("⚠️ Adicione ao menos um dia na aba 📋 Visita antes de ingerir mídia.")
+        st.stop()
+
+    # ── Passo 1 — URL / ID ────────────────────────────────────────────
+    st.markdown("#### 1️⃣ Mídia")
+
+    raw_input = st.text_area(
+        "Cole URLs ou IDs (uma por linha)",
+        height=100,
+        placeholder="dQw4w9WgXcQ\nhttps://youtu.be/ABC123\nhttps://www.facebook.com/watch/?v=777",
+        key="ingest_raw",
+    )
+
+    parsed_medias: list[dict] = []
+    if raw_input.strip():
+        for line in raw_input.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            provider, video_id = _extract_video_id(line)
+            thumb = (
+                f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+                if provider == "youtube" else None
+            )
+            parsed_medias.append({
+                "raw":      line,
+                "provider": provider,
+                "video_id": video_id,
+                "thumb":    thumb,
+            })
+
+        # Preview das mídias detectadas
+        if parsed_medias:
+            st.success(f"✅ {len(parsed_medias)} mídia(s) detectada(s)")
+            prev_cols = st.columns(min(len(parsed_medias), 4))
+            for i, m in enumerate(parsed_medias):
+                with prev_cols[i % 4]:
+                    if m["thumb"]:
+                        st.image(m["thumb"], use_container_width=True)
+                    st.caption(f"`{m['provider']}` · `{m['video_id']}`")
+
+    # ── Passo 2 — Associação Dia / Evento ─────────────────────────────
+    if parsed_medias:
+        st.divider()
+        st.markdown("#### 2️⃣ Associação")
+
+        # Destino: dia + evento OU órfão
+        dest_mode = st.radio(
+            "Destino",
+            ["Associar a um evento", "Adicionar como órfão"],
+            horizontal=True,
+            key="ingest_dest_mode",
+        )
+
+        sel_day_key   = None
+        sel_event_key = None
+        sel_day       = None
+        sel_event     = None
+
+        if dest_mode == "Associar a um evento":
+            day_options = {_day_label(d): d for d in days}
+            sel_day_label = st.selectbox(
+                "Dia", list(day_options.keys()), key="ingest_day"
+            )
+            sel_day     = day_options[sel_day_label]
+            sel_day_key = sel_day.get("day_key", "")
+
+            events      = sel_day.get("events", [])
+            if not events:
+                st.warning("Este dia não tem eventos. Adicione um evento na aba 📋 Visita.")
+            else:
+                ev_opts = {_event_label(e): e for e in events}
+
+                # Opção de criar novo evento inline
+                ev_opts["➕ Criar novo evento..."] = None
+
+                sel_ev_label = st.selectbox(
+                    "Evento", list(ev_opts.keys()), key="ingest_event"
+                )
+
+                if ev_opts[sel_ev_label] is None:
+                    # Criação inline de evento
+                    with st.container(border=True):
+                        st.markdown("**Novo evento:**")
+                        ni1, ni2, ni3 = st.columns(3)
+                        new_ek  = ni1.text_input(
+                            "event_key (YYYYMMDD-HHMM-slug)",
+                            # suggest a key with '-null-' time part to be compatible with v6.2
+                            value=f"{sel_day_key.replace('-','')}-null-new-event",
+                            key="ingest_new_ek",
+                        )
+                        new_et  = ni2.selectbox(
+                            "type",
+                            ["programa", "mangala", "arati", "darshan", "other"],
+                            key="ingest_new_etype",
+                        )
+                        new_etm = ni3.text_input("time (HH:MM)", key="ingest_new_etime")
+                        new_etp = ni1.text_input("title_pt", key="ingest_new_etp")
+                        new_ete = ni2.text_input("title_en", key="ingest_new_ete")
+                        new_loc = ni3.text_input("local (nome)", key="ingest_new_eloc")
+
+                        if st.button("✅ Criar evento e continuar", key="ingest_create_ev"):
+                            if new_ek:
+                                new_event = {
+                                    "event_key": new_ek,
+                                    "type":      new_et,
+                                    "title_pt":  new_etp,
+                                    "title_en":  new_ete,
+                                    "time":      new_etm,
+                                    "status":    "past",
+                                    "location":  {"name": new_loc} if new_loc else {},
+                                    "vods":      [],
+                                    "photos":    [],
+                                    "sangha":    [],
+                                }
+                                sel_day.setdefault("events", []).append(new_event)
+                                _save(gh, visit_ref, visit, editor_name or "anon",
+                                      f"event {new_ek}: criado via ingestão")
+                                st.rerun()
+                else:
+                    sel_event     = ev_opts[sel_ev_label]
+                    sel_event_key = sel_event.get("event_key", "")
+
+        # ── Passo 3 — Configuração dos VODs ───────────────────────────
+        st.divider()
+        st.markdown("#### 3️⃣ Configuração dos VODs")
+
+        all_vod_keys  = _count_all_vods(visit)
+        all_seg_ids   = _count_all_segments(visit)
+        vod_configs   = []
+
+        for mi, media in enumerate(parsed_medias):
+            with st.container(border=True):
+                mc1, mc2 = st.columns([1, 3])
+
+                with mc1:
+                    if media["thumb"]:
+                        st.image(media["thumb"], use_container_width=True)
+                    st.caption(f"`{media['provider']}`")
+
+                with mc2:
+                    suggested_key = _suggest_vod_key(
+                        sel_day_key or "00000000", all_vod_keys
+                    )
+                    vod_key = st.text_input(
+                        "vod_key",
+                        value=suggested_key,
+                        key=f"ing_vk_{mi}",
+                    )
+                    vod_part = st.number_input(
+                        "Parte", min_value=1, value=mi + 1, key=f"ing_vp_{mi}"
+                    )
+                    vod_title_pt = st.text_input(
+                        "Título PT",
+                        value=(
+                            f"{sel_event.get('title_pt', '')} — Pt.{mi+1}"
+                            if sel_event else f"Vídeo {mi+1}"
+                        ),
+                        key=f"ing_vtp_{mi}",
+                    )
+                    vod_title_en = st.text_input(
+                        "Título EN", key=f"ing_vte_{mi}"
+                    )
+                    duration = st.number_input(
+                        "Duração (s)", min_value=0, value=0, key=f"ing_dur_{mi}"
+                    )
+                    all_vod_keys.append(vod_key)   # reserva para próximos
+
+                vod_configs.append({
+                    "vod_key":    vod_key,
+                    "provider":   media["provider"],
+                    "video_id":   media["video_id"],
+                    "title_pt":   vod_title_pt,
+                    "title_en":   vod_title_en,
+                    "vod_part":   vod_part,
+                    "duration_s": duration or None,
+                    "thumb_url": (
+                        f"https://img.youtube.com/vi/{media['video_id']}/maxresdefault.jpg"
+                        if media["provider"] == "youtube" else None
+                    ),
+                })
+
+        # ── Passo 4 — Segments ────────────────────────────────────────
+        st.divider()
+        st.markdown("#### 4️⃣ Segments")
+        st.caption(
+            "Defina os segmentos de cada vídeo. "
+            "Para o Hari-Kathā, informe o katha_id (WP post ID)."
+        )
+
+        SEGMENT_TYPES = [
+            "kirtan", "harikatha", "pushpanjali", "arati",
+            "dance", "drama", "darshan", "interval", "noise", "announcement",
+        ]
+
+        seg_configs: dict[str, list] = {}   # vod_key → list of segs
+
+        for vc in vod_configs:
+            vk = vc["vod_key"]
+            seg_configs[vk] = []
+
+            with st.expander(f"🎬 `{vk}` — segments", expanded=True):
+
+                # Adicionar segment
+                sa1, sa2, sa3, sa4 = st.columns([2, 2, 1, 1])
+                seg_id   = sa1.text_input(
+                    "segment_id",
+                    value=_suggest_seg_id(sel_day_key or "00000000", all_seg_ids),
+                    key=f"ing_sid_{vk}",
+                )
+                seg_type = sa2.selectbox(
+                    "type", SEGMENT_TYPES, key=f"ing_stype_{vk}"
+                )
+                seg_ts   = sa3.number_input(
+                    "start (s)", min_value=0, value=0, key=f"ing_sst_{vk}"
+                )
+                seg_te   = sa4.number_input(
+                    "end (s)", min_value=0, value=vc.get("duration_s") or 0,
+                    key=f"ing_set_{vk}",
+                )
+
+                seg_tp   = st.text_input("title_pt", key=f"ing_stp_{vk}")
+                seg_te_t = st.text_input("title_en", key=f"ing_ste_{vk}")
+
+                katha_id = None
+                if seg_type == "harikatha":
+                    katha_id = st.number_input(
+                        "katha_id (WP post ID)",
+                        min_value=0,
+                        value=0,
+                        key=f"ing_skid_{vk}",
+                    ) or None
+
+                if st.button(f"➕ Adicionar segment a `{vk}`", key=f"ing_addseg_{vk}"):
+                    if seg_id:
+                        seg_configs[vk].append({
+                            "segment_id":      seg_id,
+                            "type":            seg_type,
+                            "title_pt":        seg_tp,
+                            "title_en":        seg_te_t,
+                            "timestamp_start": int(seg_ts),
+                            "timestamp_end":   int(seg_te),
+                            "katha_id":        katha_id,
+                        })
+                        all_seg_ids.append(seg_id)
+                        st.success(f"✅ Segment `{seg_id}` adicionado.")
+
+                # Preview segments configurados
+                if seg_configs[vk]:
+                    st.dataframe(
+                        [
+                            {
+                                "segment_id": s["segment_id"],
+                                "type":       s["type"],
+                                "start":      s["timestamp_start"],
+                                "end":        s["timestamp_end"],
+                                "katha_id":   s.get("katha_id") or "—",
+                            }
+                            for s in seg_configs[vk]
+                        ],
+                        use_container_width=True,
+                    )
+
+        # ── Passo 5 — Confirmar e salvar ──────────────────────────────
+        st.divider()
+        st.markdown("#### 5️⃣ Confirmar")
+
+        # Resumo
+        total_segs = sum(len(v) for v in seg_configs.values())
+        hk_count   = sum(
+            1 for segs in seg_configs.values()
+            for s in segs if s["type"] == "harikatha"
+        )
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("VODs",     len(vod_configs))
+        c2.metric("Segments", total_segs)
+        c3.metric("Hari-Kathā", hk_count)
+
+        if dest_mode == "Associar a um evento" and sel_event:
+            st.info(
+                f"📌 Destino: **{sel_event.get('title_pt', sel_event_key)}** "
+                f"· `{sel_event_key}`"
+            )
+        else:
+            st.info("📌 Destino: **Órfãos** (sem evento)")
+
+        btn_confirm = st.button(
+            "💾 Confirmar Ingestão",
+            type="primary",
+            disabled=not editor_name or not vod_configs,
+            key="ingest_confirm",
+        )
+
+        if not editor_name:
+            st.caption("⚠️ Digite seu nome na sidebar.")
+
+        if btn_confirm:
+            # Monta VODs com segments e insere no destino
+            new_vods = []
+            for vc in vod_configs:
+                vk = vc["vod_key"]
+                new_vods.append({
+                    **vc,
+                    "url":      None,
+                    "segments": seg_configs.get(vk, []),
+                })
+
+            if dest_mode == "Associar a um evento" and sel_event:
+                sel_event.setdefault("vods", []).extend(new_vods)
+                action_msg = (
+                    f"ingestão: {len(new_vods)} vod(s) → evento {sel_event_key}"
+                )
+            else:
+                orphan_type = st.session_state.get("ingest_orphan_type", "documental")
+                for v in new_vods:
+                    v["orphan_type"] = orphan_type
+                    v["day_key"]     = sel_day_key
+                visit.setdefault("orphans", {}).setdefault("vods", []).extend(new_vods)
+                action_msg = f"ingestão: {len(new_vods)} vod(s) → órfãos"
+
+            ok = _save(gh, visit_ref, visit, editor_name, action_msg)
+            if ok:
+                st.success(
+                    f"✅ {len(new_vods)} VOD(s) e {total_segs} segment(s) salvos!"
+                )
+                if hk_count:
+                    st.info(
+                        f"🙏 {hk_count} Hari-Kathā(s) vinculadas. "
+                        f"Verifique a aba 🙏 Kathas para confirmar."
+                    )
+                st.cache_data.clear()
+                st.rerun()
+
 # TAB 1 — METADATA + DAYS
 # ══════════════════════════════════════════════════════════════════════
 with tab_meta:
@@ -425,6 +818,36 @@ with tab_meta:
         visit["title_pt"] = st.text_input(
             "Título PT", value=visit.get("title_pt", ""), key="v_title_pt"
         )
+    # ── Migração de schema (botão explícito) ─────────────────────
+    if visit.get("schema_version") == "6.1":
+        with st.expander("🔁 Migrar 6.1 → 6.2 (opcional)", expanded=False):
+            st.write(
+                "A migração move kathas para o índice e remove `kathas[]` dos eventos. "
+                "Use apenas quando quiser atualizar o payload para 6.2 e salvar no repositório."
+            )
+
+            def _migrate_6_1_to_6_2(v: dict) -> dict:
+                v = copy.deepcopy(v)
+                v["schema_version"] = "6.2"
+                v["__migrated_from__"] = "6.1"
+                v["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.2.json"
+                for day in v.get("days", []):
+                    for ev in day.get("events", []):
+                        ev.pop("kathas", None)
+                # orphans
+                if isinstance(v.get("orphans"), dict):
+                    v["orphans"].pop("kathas", None)
+                return v
+
+            if st.button("🔧 Migrar e salvar como 6.2", key="btn_migrate_6_2"):
+                migrated = _migrate_6_1_to_6_2(visit)
+                ok = _save(gh, visit_ref, migrated, editor_name or "anon", "migrate: 6.1 -> 6.2")
+                if ok:
+                    st.success("✅ Migrado para 6.2 e salvo no GitHub.")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("❌ Falha ao salvar a migração.")
         visit["visit_ref"] = st.text_input(
             "visit_ref", value=visit.get("visit_ref", visit_ref), key="v_ref"
         )
@@ -477,7 +900,7 @@ with tab_meta:
                     "day_key":       ndk,
                     "label_pt":      nlp,
                     "label_en":      nle,
-                    "primary_event": "",
+                            "primary_event_key": "",
                     "events":        [],
                 })
                 visit["days"] = days
@@ -494,8 +917,12 @@ with tab_meta:
                 day["day_key"]  = st.text_input("day_key", value=day.get("day_key", ""), key=f"dk_{di}")
                 day["label_pt"] = st.text_input("label_pt", value=day.get("label_pt", ""), key=f"dlp_{di}")
             with dc2:
-                day["label_en"]      = st.text_input("label_en", value=day.get("label_en", ""), key=f"dle_{di}")
-                day["primary_event"] = st.text_input("primary_event", value=day.get("primary_event", ""), key=f"dpe_{di}")
+                day["label_en"]          = st.text_input("label_en", value=day.get("label_en", ""), key=f"dle_{di}")
+                # primary_event_key is the canonical field in v6.2; keep primary_event for compatibility
+                pv = day.get("primary_event_key", day.get("primary_event", ""))
+                pv_new = st.text_input("primary_event_key", value=pv, key=f"dpe_{di}")
+                day["primary_event_key"] = pv_new
+                day["primary_event"]     = pv_new
             with dc3:
                 day["tithi"]         = st.text_input("tithi", value=day.get("tithi", ""), key=f"dt_{di}")
                 day["tithi_name_pt"] = st.text_input("tithi_name_pt", value=day.get("tithi_name_pt", ""), key=f"dtnp_{di}")
@@ -545,11 +972,11 @@ with tab_meta:
                         ev["type"]   = st.text_input("type",   value=ev.get("type", ""),   key=f"evt_{di}_{ei}")
                         ev["time"]   = st.text_input("time",   value=ev.get("time", ""),   key=f"evtm_{di}_{ei}")
                         ev["status"] = st.selectbox(
-                            "status",
-                            ["past", "active", "future", "live"],
-                            index=["past", "active", "future", "live"].index(ev.get("status", "past")),
-                            key=f"evst_{di}_{ei}",
-                        )
+                                    "status",
+                                    ["past", "active", "future", "live", "soon"],
+                                    index=["past", "active", "future", "live", "soon"].index(ev.get("status", "past")),
+                                    key=f"evst_{di}_{ei}",
+                                )
                     with ec3:
                         # Localização rápida
                         loc = ev.setdefault("location", {})
@@ -598,9 +1025,16 @@ with tab_vods:
         if not events:
             st.info("Este dia não tem eventos ainda.")
         else:
-            ev_opts = {_event_label(e): i for i, e in enumerate(events)}
-            sel_ev_label = st.selectbox("Evento", list(ev_opts.keys()), key="vod_ev_sel")
-            sel_ev = events[ev_opts[sel_ev_label]]
+            # Use an index-based selectbox so labels may be non-unique
+            ev_labels = [_event_label(e) for e in events]
+            day_index = day_opts[sel_day_label]
+            sel_ev_idx = st.selectbox(
+                "Evento",
+                list(range(len(events))),
+                format_func=lambda i, _labels=ev_labels: _labels[i],
+                key=f"vod_ev_sel_{day_index}",
+            )
+            sel_ev = events[sel_ev_idx]
             vods   = sel_ev.setdefault("vods", [])
 
             st.markdown(
@@ -1106,9 +1540,23 @@ with tab_publicar:
     if btn_validar or btn_publicar:
         is_dry = bool(dry_run) or bool(btn_validar)
 
+        # Prepare a copy for publishing. The WordPress endpoint accepts only
+        # schema_version 3.1 or 6.1, so when doing a real publish (not dry run)
+        # ensure we send schema_version '6.1'. Do not alter the in-memory visit
+        # object used in the editor unless the publish succeeds and Trator
+        # returns processed content to save back.
         with st.spinner("⚙️ Processando..."):
+            publish_visit = copy.deepcopy(visit)
+            if btn_publicar and not dry_run:
+                # Force 6.1 for publish, but warn the user so they understand
+                # we are downgrading the root schema for compatibility.
+                if publish_visit.get("schema_version") != "6.1":
+                    publish_visit["schema_version"] = "6.1"
+                    publish_visit["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.1.json"
+                    st.warning("⚠️ Schema forçado para 6.1 ao publicar (WP aceita 3.1 ou 6.1).")
+
             result = run_trator(
-                visit     = visit,
+                visit     = publish_visit,
                 wp_url    = wp_url    if (btn_publicar and not dry_run) else None,
                 wp_secret = wp_secret if (btn_publicar and not dry_run) else None,
                 tour_key  = tour_k,

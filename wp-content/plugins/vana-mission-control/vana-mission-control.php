@@ -728,6 +728,73 @@ final class Vana_Mission_Control {
                 true
             );
 
+            // ─────────────────────────────────────────────────────
+            // Vana State Router (zona mutável) — carrega após stage-bridge
+            $vana_sr_path = VANA_MC_PATH . 'assets/js/VanaStateRouter.js';
+            $vana_sr_ver  = file_exists($vana_sr_path)
+                ? (string) filemtime($vana_sr_path)
+                : VANA_MC_VERSION;
+
+            wp_enqueue_script(
+                'vana-state-router',
+                VANA_MC_URL . 'assets/js/VanaStateRouter.js',
+                [ 'vana-stage-bridge' ],
+                $vana_sr_ver,
+                true
+            );
+            // Router patch: ensure events emitted for consumers
+            $vana_rp_path = VANA_MC_PATH . 'assets/js/VanaRouterPatch.js';
+            $vana_rp_ver  = file_exists($vana_rp_path) ? (string) filemtime($vana_rp_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-router-patch',
+                VANA_MC_URL . 'assets/js/VanaRouterPatch.js',
+                [ 'vana-state-router' ],
+                $vana_rp_ver,
+                true
+            );
+            // ─────────────────────────────────────────────────────
+
+            // VanaStageController (loads passages, exposes `window.VanaStage`)
+            $vana_stc_path = VANA_MC_PATH . 'assets/js/VanaStageController.js';
+            $vana_stc_ver  = file_exists($vana_stc_path)
+                ? (string) filemtime($vana_stc_path)
+                : VANA_MC_VERSION;
+
+            wp_enqueue_script(
+                'vana-stage-controller',
+                VANA_MC_URL . 'assets/js/VanaStageController.js',
+                [ 'vana-state-router' ],
+                $vana_stc_ver,
+                true
+            );
+
+            // Passa configuração para o controller do Stage
+            wp_localize_script(
+                'vana-stage-controller',
+                'vanaStageConfig',
+                [
+                    'restBase' => rest_url( 'vana/v1' ),
+                    'lang'     => Vana_Assets::get_current_lang(),
+                ]
+            );
+
+            // PassageController — carrega passage via REST quando o Router muda para 'passage'
+            $vana_pc_path = VANA_MC_PATH . 'assets/js/PassageController.js';
+            $vana_pc_ver  = file_exists($vana_pc_path) ? (string) filemtime($vana_pc_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-passage-controller',
+                VANA_MC_URL . 'assets/js/PassageController.js',
+                [ 'vana-state-router', 'vana-stage-controller' ],
+                $vana_pc_ver,
+                true
+            );
+
+            wp_localize_script(
+                'vana-passage-controller',
+                'vanaPassageConfig',
+                [ 'restBase' => rest_url( 'vana/v1' ) ]
+            );
+
             // Day strip (hero) — styles + behavior for new day-strip partial
             $vana_ds_css_path = VANA_MC_PATH . 'assets/css/vana-day-strip.css';
             $vana_ds_css_ver  = file_exists($vana_ds_css_path) ? (string) filemtime($vana_ds_css_path) : VANA_MC_VERSION;
@@ -736,6 +803,16 @@ final class Vana_Mission_Control {
                 VANA_MC_URL . 'assets/css/vana-day-strip.css',
                 [ 'vana-ui-visit-hub' ],
                 $vana_ds_css_ver
+            );
+
+            // Zona mutável CSS
+            $vana_mz_css_path = VANA_MC_PATH . 'assets/css/vana-mutable-zone.css';
+            $vana_mz_css_ver  = file_exists($vana_mz_css_path) ? (string) filemtime($vana_mz_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-mutable-zone',
+                VANA_MC_URL . 'assets/css/vana-mutable-zone.css',
+                [ 'vana-day-strip' ],
+                $vana_mz_css_ver
             );
 
             $vana_ds_js_path = VANA_MC_PATH . 'assets/js/vana-day-strip.js';

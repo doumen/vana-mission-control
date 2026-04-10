@@ -37,6 +37,9 @@ import re
 
 SCHEMA_VERSION = "6.1"
 
+# Allow validating either 6.1 (current canonical) or 6.2 (incoming newer root)
+ACCEPTED_SCHEMA_VERSIONS = {SCHEMA_VERSION, "6.2"}
+
 VALID_SEGMENT_TYPES = {
     "kirtan",
     "harikatha",
@@ -50,7 +53,17 @@ VALID_SEGMENT_TYPES = {
     "announcement",
 }
 
-VALID_EVENT_STATUSES = {"past", "active", "future", "live"}
+VALID_EVENT_STATUSES = {"past", "active", "future", "live", "soon"}
+
+# Orphan types supported in Schema 6.2
+VALID_ORPHAN_TYPES = {"documental", "event"}
+
+# Thumb provider helpers (centralized mapping)
+PROVIDER_THUMB = {
+    "youtube":  lambda vid: f"https://img.youtube.com/vi/{vid}/maxresdefault.jpg",
+    "facebook": lambda vid: None,
+    "drive":    lambda vid: None,
+}
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -137,8 +150,9 @@ class TratorValidator:
             self._err("R-ROOT-01", "visit_ref ausente", "visit_ref")
 
         version = v.get("schema_version")
-        if not version or version != SCHEMA_VERSION:
-            self._err("R-ROOT-02", f"schema_version deve ser '{SCHEMA_VERSION}'", "schema_version")
+        if not version or version not in ACCEPTED_SCHEMA_VERSIONS:
+            allowed = "', '".join(sorted(ACCEPTED_SCHEMA_VERSIONS))
+            self._err("R-ROOT-02", f"schema_version deve ser uma das: '{allowed}'", "schema_version")
 
         if "days" not in v:
             self._err("R-ROOT-03", "days ausente", "days")
@@ -174,7 +188,8 @@ class TratorValidator:
             self._err("R-EVT-01", "event_key ausente", f"{path}.event_key")
 
         # event_key format: YYYYMMDD-HHMM-slug
-        if event_key and not re.match(r'^\d{8}-\d{4}-[a-z0-9-]+$', event_key):
+        # Accept either a 4-digit time or the literal 'null' for the time part
+        if event_key and not re.match(r'^\d{8}-(\d{4}|null)-[a-z0-9-]+$', event_key):
             self._err("R-KEY-01", f"{path}.event_key", f"event_key formato inválido: {event_key!r}")
 
         if not event.get("location"):
@@ -356,6 +371,58 @@ class TratorValidator:
         self.warnings.append(ValidationWarning(code=code, message=message, path=path))
 
 
+# ═════════════════════════════════════════════════════════════════════=
+# Trator Validator v6.2 — wraps existing validator and adds 6.2-specific
+# checks (no kathas[] in events, orphan_type validation, stricter keys)
+# ═════════════════════════════════════════════════════════════════════=
+
+class TratorValidatorV62:
+    def __init__(self, visit: dict):
+        # reuse existing validator for base checks
+        self._base = TratorValidator(visit)
+        self.errors = self._base.errors
+        self.warnings = self._base.warnings
+        self.visit = visit
+
+    def validate(self) -> bool:
+        # Run base validation first
+        base_ok = self._base.validate()
+
+        # 6.2-specific: events MUST NOT contain kathas[] (migrated to index)
+        for di, day in enumerate(self.visit.get("days", [])):
+            for ei, ev in enumerate(day.get("events", [])):
+                if "kathas" in ev:
+                    self._err(
+                        "R-HK-04",
+                        "kathas[] não deve existir no evento — use segment.katha_id",
+                        f"days[{di}].events[{ei}].kathas",
+                    )
+
+        # orphan_type validation
+        orphans = self.visit.get("orphans", {}) or {}
+        for i, vod in enumerate(orphans.get("vods", [])):
+            if not isinstance(vod, dict):
+                continue
+            ot = vod.get("orphan_type", "documental")
+            if ot not in VALID_ORPHAN_TYPES:
+                self._err(
+                    "R-ORF-01",
+                    f"orphan_type inválido: {ot!r}. Use {sorted(list(VALID_ORPHAN_TYPES))}.",
+                    f"orphans.vods[{i}].orphan_type",
+                )
+
+        # duplicates are already checked by base validator; return final status
+        return len(self.errors) == 0
+
+    # Proxy helpers
+    def _err(self, code: str, message: str, path: str):
+        self.errors.append(ValidationError(code=code, message=message, path=path))
+
+    def _warn(self, code: str, message: str, path: str):
+        self.warnings.append(ValidationWarning(code=code, message=message, path=path))
+
+
+
 # ══════════════════════════════════════════════════════════════════════
 # BUILDER DE ÍNDICE
 # ══════════════════════════════════════════════════════════════════════
@@ -406,15 +473,18 @@ class TratorIndexBuilder:
         day_key = day.get("day_key", "")
         events  = day.get("events", [])
 
+        primary_event_val = day.get("primary_event_key", day.get("primary_event", ""))
+        # keep legacy 'primary_event' key for backward compatibility
         self.index["days"][day_key] = {
-            "position":      position,
-            "label_pt":      day.get("label_pt", ""),
-            "label_en":      day.get("label_en", ""),
-            "tithi":         day.get("tithi"),
-            "tithi_name_pt": day.get("tithi_name_pt"),
-            "tithi_name_en": day.get("tithi_name_en"),
-            "primary_event": day.get("primary_event"),
-            "events":        [e.get("event_key") for e in events if e.get("event_key")],
+            "position":          position,
+            "label_pt":          day.get("label_pt", ""),
+            "label_en":          day.get("label_en", ""),
+            "tithi":             day.get("tithi"),
+            "tithi_name_pt":     day.get("tithi_name_pt"),
+            "tithi_name_en":     day.get("tithi_name_en"),
+            "primary_event_key": primary_event_val,
+            "primary_event":     primary_event_val,
+            "events":            [e.get("event_key") for e in events if e.get("event_key")],
         }
 
         self.stats["total_days"] += 1
@@ -626,6 +696,88 @@ class TratorIndexBuilder:
             self._index_katha(katha, event_key=None, day_key=None)
 
 
+# ═════════════════════════════════════════════════════════════════════=
+# TratorIndexBuilder v6.2 — post-processes the base index to add
+# derived fields required by Schema 6.2 (primary_vod_key, has_katha, has_live,
+# thumb derivation, and kathas aggregation from segments).
+# ═════════════════════════════════════════════════════════════════════=
+
+class TratorIndexBuilderV62:
+    def __init__(self, visit: dict):
+        # reuse base builder to construct initial index
+        self._base = TratorIndexBuilder(visit)
+        self.visit = visit
+
+    def build(self) -> dict:
+        built = self._base.build()
+        index = built.get("index", {})
+        stats = built.get("stats", {})
+
+        # Derive has_live and has_katha on days
+        for day_key, day in index.get("days", {}).items():
+            events = day.get("events", [])
+            ev_objs = [index.get("events", {}).get(ek, {}) for ek in events]
+            day["has_live"] = any(e.get("status") == "live" for e in ev_objs)
+            day["has_katha"] = any(e.get("has_katha") for e in ev_objs)
+
+        # Derive primary_vod_key and enrich event.location and vod thumb/title
+        for ek, ev in index.get("events", {}).items():
+            vod_keys = ev.get("vods", [])
+            vod_objs = [index.get("vods", {}).get(vk, {}) for vk in vod_keys]
+
+            # find vod that contains a katha first
+            primary = next((v for v in vod_objs if v.get("has_katha")), None)
+            if not primary:
+                primary = next((v for v in vod_objs if v.get("vod_part") == 1), None)
+            if not primary and vod_objs:
+                primary = vod_objs[0]
+            ev["primary_vod_key"] = primary.get("vod_key") if primary else None
+
+            # ensure location stored as full object is already handled by base builder
+
+        # Ensure vod thumbs and titles
+        for vk, vod in index.get("vods", {}).items():
+            if not vod.get("thumb_url"):
+                prov = vod.get("provider")
+                vid = vod.get("video_id")
+                func = PROVIDER_THUMB.get(prov)
+                if func and vid:
+                    thumb = func(vid)
+                    if thumb:
+                        vod["thumb_url"] = thumb
+
+        # Derive kathas map from segments (second pass)
+        kathas_map: dict = {}
+        for sid, seg in index.get("segments", {}).items():
+            if seg.get("type") != "harikatha":
+                continue
+            kid = seg.get("katha_id")
+            if not kid:
+                continue
+            kid_s = str(kid)
+            kathas_map.setdefault(kid_s, {
+                "katha_id": kid,
+                "event_key": seg.get("event_key"),
+                "day_key": seg.get("day_key"),
+                "sources": [],
+            })
+            kathas_map[kid_s]["sources"].append({
+                "vod_key": seg.get("vod_key"),
+                "segment_id": sid,
+                "timestamp_start": seg.get("timestamp_start"),
+                "timestamp_end": seg.get("timestamp_end"),
+            })
+
+        # Merge into index.kathas
+        for kid_s, data in kathas_map.items():
+            existing = index.get("kathas", {}).get(kid_s, {})
+            index.setdefault("kathas", {})[kid_s] = {**existing, **data}
+            stats["total_kathas"] = stats.get("total_kathas", 0) + 1
+
+        return {"index": index, "stats": stats}
+
+
+
 # ══════════════════════════════════════════════════════════════════════
 # PUBLICADOR WP
 # ══════════════════════════════════════════════════════════════════════
@@ -664,7 +816,8 @@ class TratorPublisher:
             "slug_suggestion":   visit_ref,
             "data": {
                 **visit,
-                "schema_version": SCHEMA_VERSION,
+                # preserve the visit's schema_version (supports 6.2)
+                "schema_version": visit.get("schema_version", SCHEMA_VERSION),
                 "updated_at":     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             },
         }
@@ -742,12 +895,19 @@ def run_trator(
     """
 
     # ── 1. Validação ──────────────────────────────────────────────────
-    validator = TratorValidator(visit)
-    valid     = validator.validate()
+    version = visit.get("schema_version", SCHEMA_VERSION)
+    if version == "6.2":
+        validator = TratorValidatorV62(visit)
+    else:
+        validator = TratorValidator(visit)
+    valid = validator.validate()
 
     # ── 2. Build index + stats ────────────────────────────────────────
-    builder        = TratorIndexBuilder(visit)
-    built          = builder.build()
+    if version == "6.2":
+        builder = TratorIndexBuilderV62(visit)
+    else:
+        builder = TratorIndexBuilder(visit)
+    built = builder.build()
     index          = built.get("index", {})
     stats          = built.get("stats", {})
 

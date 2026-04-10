@@ -34,9 +34,9 @@ final class Vana_Ingest_Visit
 
         // Schema guardrails — aceitar 3.1 (legado) e 6.1 (novo timeline v6)
         $schema_version = sanitize_text_field((string) ($data['schema_version'] ?? ''));
-        $allowed_schemas = [ '3.1', '6.1' ];
+        $allowed_schemas = [ '3.1', '6.1', '6.2' ];
         if ( ! in_array( $schema_version, $allowed_schemas, true ) ) {
-            return Vana_Utils::api_response(false, 'Schema não suportado: schema_version deve ser 3.1 ou 6.1', 422);
+            return Vana_Utils::api_response(false, 'Schema não suportado: schema_version deve ser 3.1, 6.1 ou 6.2', 422);
         }
 
         $days = $data['days'] ?? null;
@@ -135,6 +135,89 @@ final class Vana_Ingest_Visit
                 && is_array( $data )
             ) {
                 try {
+                    // Compatibility: if incoming payload is schema 6.2, the
+                    // authoritative kathas are stored in index.kathas (derived by
+                    // Trator). To keep the existing processing path (which
+                    // expects event.kathas[] in Schema 6.1), synthesize
+                    // event-level kathas from index.kathas when needed.
+                    if ( $schema_version === '6.2' && ! empty( $data['index']['kathas'] ) && is_array( $data['index']['kathas'] ) ) {
+                        $kathas_idx = $data['index']['kathas'];
+                        // initialize events lookup
+                        $events_map = [];
+                        foreach ( $data['days'] as $didx => $day ) {
+                            if ( empty( $day['events'] ) || ! is_array( $day['events'] ) ) {
+                                continue;
+                            }
+                            foreach ( $day['events'] as $eidx => $ev ) {
+                                $ek = $ev['event_key'] ?? '';
+                                if ( $ek !== '' ) {
+                                    $events_map[ $ek ] = & $data['days'][ $didx ]['events'][ $eidx ];
+                                }
+                            }
+                        }
+
+                        // For each katha in index, attach to its event if available
+                        foreach ( $kathas_idx as $kid => $k ) {
+                            $evk = $k['event_key'] ?? '';
+                            if ( $evk !== '' && isset( $events_map[ $evk ] ) ) {
+                                // Ensure events_map[evk]['kathas'] exists as array
+                                if ( ! isset( $events_map[ $evk ]['kathas'] ) || ! is_array( $events_map[ $evk ]['kathas'] ) ) {
+                                    $events_map[ $evk ]['kathas'] = [];
+                                }
+                                // Recreate a minimal katha object compatible with 6.1
+                                $kobj = [
+                                    'katha_id'  => isset( $k['katha_id'] ) ? $k['katha_id'] : (int) $kid,
+                                    'katha_key' => $k['katha_key'] ?? '',
+                                    'title_pt'  => $k['title_pt'] ?? '',
+                                    'title_en'  => $k['title_en'] ?? '',
+                                    'scripture' => $k['scripture'] ?? '',
+                                    'language'  => $k['language'] ?? '',
+                                    'sources'   => $k['sources'] ?? [],
+                                    'passages'  => [],
+                                ];
+                                // populate passages from index.passages when present
+                                if ( isset( $data['index']['passages'] ) && is_array( $data['index']['passages'] ) ) {
+                                    foreach ( $k['passages'] ?? [] as $pid ) {
+                                        $p = $data['index']['passages'][ $pid ] ?? null;
+                                        if ( $p ) {
+                                            $pass = [
+                                                'passage_id' => $pid,
+                                                'title_pt'   => $p['title_pt'] ?? '',
+                                                'title_en'   => $p['title_en'] ?? '',
+                                                'source_ref' => [
+                                                    'vod_key'       => $p['vod_key'] ?? '',
+                                                    'segment_id'    => $p['segment_id'] ?? '',
+                                                    'timestamp_start' => $p['timestamp_start'] ?? 0,
+                                                    'timestamp_end'   => $p['timestamp_end'] ?? 0,
+                                                ],
+                                            ];
+                                            $kobj['passages'][] = $pass;
+                                        }
+                                    }
+                                }
+                                $events_map[ $evk ]['kathas'][] = $kobj;
+                            } else {
+                                // If event_key missing, add to orphans.kathas
+                                if ( ! isset( $data['orphans'] ) || ! is_array( $data['orphans'] ) ) {
+                                    $data['orphans'] = [ 'kathas' => [] ];
+                                }
+                                if ( ! isset( $data['orphans']['kathas'] ) || ! is_array( $data['orphans']['kathas'] ) ) {
+                                    $data['orphans']['kathas'] = [];
+                                }
+                                $data['orphans']['kathas'][] = [
+                                    'katha_id'  => isset( $k['katha_id'] ) ? $k['katha_id'] : (int) $kid,
+                                    'katha_key' => $k['katha_key'] ?? '',
+                                    'title_pt'  => $k['title_pt'] ?? '',
+                                    'title_en'  => $k['title_en'] ?? '',
+                                    'scripture' => $k['scripture'] ?? '',
+                                    'language'  => $k['language'] ?? '',
+                                    'sources'   => $k['sources'] ?? [],
+                                    'passages'  => [],
+                                ];
+                            }
+                        }
+                    }
+
                     $katha_result = Vana_Ingest_Katha_API::process_visit_timeline(
                         $data,
                         $visit_id

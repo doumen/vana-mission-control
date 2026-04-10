@@ -27,6 +27,10 @@
   let _agendaOwnedLock = false;
 
   function open() {
+    console.log('VanaAgenda.open() called — drawer:', !!drawer, 'overlay:', !!overlay, 'stageOpen?', window.VanaStageBridge?.isOpen());
+    // Ensure elements hidden by the `hidden` attribute become visible
+    drawer.removeAttribute( 'hidden' );
+    overlay?.removeAttribute( 'hidden' );
     drawer.classList.add( 'is-open' );
     overlay?.classList.add( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'false' );
@@ -39,9 +43,13 @@
   }
 
   function close() {
+    console.log('VanaAgenda.close() called');
     drawer.classList.remove( 'is-open' );
     overlay?.classList.remove( 'is-open' );
     drawer.setAttribute( 'aria-hidden', 'true' );
+    // Re-hide to match initial markup/state
+    drawer.setAttribute( 'hidden', '' );
+    overlay?.setAttribute( 'hidden', '' );
     document.body.classList.remove( 'vana-drawer-open' );
     // release the scroll lock only if this agenda actually acquired it
     if ( _agendaOwnedLock ) { window.VanaScrollLock.release(); _agendaOwnedLock = false; }
