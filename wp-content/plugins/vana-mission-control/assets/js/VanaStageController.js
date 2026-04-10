@@ -258,9 +258,13 @@
             this._stageEl   = _$( '#vana-stage' );
             this._videoWrap = _$( '#vana-stage-video-wrap' ) || _$( '.vana-stage-video' );
             this._kathaZone = _$( '#vana-stage-katha' );
-            if ( ! this._stageEl || ! this._kathaZone ) {
-                console.warn( '[VanaStage] Missing #vana-stage or #vana-stage-katha -- aborting init.' );
+            if ( ! this._stageEl ) {
+                console.warn( '[VanaStage] Missing #vana-stage -- aborting init.' );
                 return;
+            }
+            if ( ! this._kathaZone ) {
+                console.warn( '[VanaStage] #vana-stage-katha not found — continuing without katha zone.' );
+                this._kathaZone = document.createElement( 'div' );
             }
             this._currentEventKey = this._stageEl.dataset.eventKey || '';
             this._currentKathaRef = this._stageEl.dataset.kathaId  || '';

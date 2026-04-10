@@ -104,26 +104,61 @@ if ( ! $has_live ) {
 $is_neutral_mode  = empty( $current_event['event_key'] ) || empty( $stage['type'] );
 $is_transitioning = false;
 
-// ── 7. Katha ID ───────────────────────────────────────────────────────────
-$_kathas         = is_array( $_evt['kathas'] ?? null ) ? $_evt['kathas'] : [];
-$_katha_first    = $_kathas[0] ?? [];
+// ── 7. Katha — 🔧 FASE-0: Schema 6.2: katha_id vem do segment, não do evento ─
+$stage_katha_id  = '';
+$stage_katha_ref = '';
+$_katha_sources  = [];
+$_hk_segment_count = 0;
 
-$stage_katha_ref = (string) ( $_katha_first['katha_key'] ?? '' );
-$stage_katha_id  = (string) ( $_katha_first['katha_id']  ?? '' );
-$stage_katha_dom_ref = $stage_katha_ref ?: $stage_katha_id;
+// 7a. Primeiro: segments do vod com type: harikatha (Schema 6.2 — R-HK-1, R-HK-5)
+foreach ( $stage_segments as $_seg ) {
+  if ( ! is_array( $_seg ) ) continue;
+  if ( ( $_seg['type'] ?? '' ) !== 'harikatha' ) continue;
 
-// ── 7a. Múltiplas kathas ──────────────────────────────────────────────────
-$stage_has_multiple_kathas = count( $_kathas ) > 1;
+  $_hk_segment_count++;
 
-// ── 7b. Sources do primeiro vod da katha ─────────────────────────────────
-$_katha_sources     = is_array( $_katha_first['sources'] ?? null ) ? $_katha_first['sources'] : [];
-$_katha_sources_json = wp_json_encode( array_map( fn( $s ) => [
-  'vod_key'         => $s['vod_key']    ?? '',
-  'segment_id'      => $s['segment_id'] ?? '',
-  'vod_part'        => $s['vod_part']   ?? 1,
-  'timestamp_start' => $s['timestamp_start'] ?? 0,
-  'timestamp_end'   => $s['timestamp_end']   ?? 0,
-], $_katha_sources ) );
+  if ( $stage_katha_id === '' ) {
+    $stage_katha_id = (string) ( $_seg['katha_id'] ?? '' );
+  }
+
+  $_katha_sources[] = [
+    'vod_key'         => (string) ( $_vod_first['vod_key'] ?? '' ),
+    'segment_id'      => $_seg['segment_id'] ?? '',
+    'vod_part'        => $_vod_first['vod_part'] ?? 1,
+    'timestamp_start' => $_seg['timestamp_start'] ?? 0,
+    'timestamp_end'   => $_seg['timestamp_end']   ?? 0,
+  ];
+}
+
+// 7b. Segundo: index.events (gerado pelo Trator com has_katha + katha_id)
+if ( $stage_katha_id === '' && ! empty( $timeline['index']['events'] ) ) {
+  $_evt_key = $_evt['event_key'] ?? '';
+  $_evt_idx = $timeline['index']['events'][ $_evt_key ] ?? [];
+  if ( ! empty( $_evt_idx['has_katha'] ) && ! empty( $_evt_idx['katha_id'] ) ) {
+    $stage_katha_id = (string) $_evt_idx['katha_id'];
+  }
+}
+
+// 7c. Terceiro: fallback legacy — kathas[] do evento (Schema 6.1)
+if ( $stage_katha_id === '' ) {
+  $_kathas_legacy  = is_array( $_evt['kathas'] ?? null ) ? $_evt['kathas'] : [];
+  $_katha_first    = $_kathas_legacy[0] ?? [];
+  $stage_katha_id  = (string) ( $_katha_first['katha_id']  ?? '' );
+  $stage_katha_ref = (string) ( $_katha_first['katha_key'] ?? '' );
+  $_katha_sources  = is_array( $_katha_first['sources'] ?? null )
+    ? array_map( fn( $s ) => [
+      'vod_key'         => $s['vod_key']    ?? '',
+      'segment_id'      => $s['segment_id'] ?? '',
+      'vod_part'        => $s['vod_part']   ?? 1,
+      'timestamp_start' => $s['timestamp_start'] ?? 0,
+      'timestamp_end'   => $s['timestamp_end']   ?? 0,
+    ], $_katha_first['sources'] )
+    : [];
+}
+
+$stage_katha_dom_ref         = $stage_katha_ref ?: $stage_katha_id;
+$stage_has_multiple_kathas   = $_hk_segment_count > 1;
+$_katha_sources_json         = wp_json_encode( $_katha_sources );
 
 // ── 8. Stage mode ─────────────────────────────────────────────────────────
 $stage_mode = isset( $stage_mode ) ? (string) $stage_mode : 'default';

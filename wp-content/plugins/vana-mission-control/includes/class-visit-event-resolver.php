@@ -29,6 +29,14 @@ class VisitEventResolver {
         return [];
     }
 
+        /**
+         * Retorna a data canônica do dia (day_key ou date_local).
+         * Schema 6.2 usa day_key; legacy usa date_local.
+         */
+        private static function dayDate(array $day): string {
+            return (string) ($day['day_key'] ?? $day['date_local'] ?? '');
+        }
+
     /**
      * Resolve eventos e hero do dia ativo
      *
@@ -69,7 +77,7 @@ class VisitEventResolver {
         // 2.2 Prioridade 2: ?v_day= explícito
         if (empty($active_day) && $requested_day) {
             foreach ($timeline['days'] ?? [] as $day) {
-                if (($day['date_local'] ?? '') === $requested_day) {
+                if (self::dayDate(is_array($day) ? $day : []) === $requested_day) {
                     $active_day = $day;
                     break;
                 }
@@ -82,7 +90,7 @@ class VisitEventResolver {
                 $tz = new DateTimeZone($visit_timezone);
                 $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
                 foreach ($timeline['days'] ?? [] as $day) {
-                    if (($day['date_local'] ?? '') === $today) {
+                    if (self::dayDate(is_array($day) ? $day : []) === $today) {
                         $active_day = $day;
                         break;
                     }
@@ -125,7 +133,7 @@ class VisitEventResolver {
         return [
             'visit_ref'       => $visit_ref,
             'active_day'      => $active_day,
-            'active_day_date' => $active_day['date_local'] ?? '',
+            'active_day_date' => self::dayDate(is_array($active_day) ? $active_day : []),
             'active_events'   => $active_events,
             'active_event'    => $active_event, // nullable quando não há eventos
             'hero_event'      => $hero_event,
