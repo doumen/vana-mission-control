@@ -69,8 +69,13 @@ function vana_visit_stage_bootstrap( int $visit_id, array $opts = [] ): array {
         $visit_tz = 'UTC';
     }
 
-    // 4. Visit status — prefer timeline; fallback post meta
-    $visit_status = (string) ( $timeline['visit_status'] ?? get_post_meta( $visit_id, '_vana_visit_status', true ) ?: '' );
+    // 4. Visit status — prefer timeline; fallback to metadata.status then post meta
+    $visit_status = (string) (
+        $timeline['visit_status']
+        ?? ( $timeline['metadata']['status'] ?? null )
+        ?? get_post_meta( $visit_id, '_vana_visit_status', true )
+        ?: ''
+    );
 
     // 5. City ref
     $visit_city_ref = (string) ( $timeline['visit_city_ref'] ?? ( $timeline['location_meta']['city_ref'] ?? '' ) ?: '' );
