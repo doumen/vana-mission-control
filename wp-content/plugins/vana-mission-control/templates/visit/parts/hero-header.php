@@ -159,14 +159,13 @@ unset($_t, $_thumb, $_m);
             aria-controls="vana-agenda-drawer"
             aria-label="<?php echo esc_attr( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?>"
         >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" aria-hidden="true"
-                     style="display:block;stroke:#1e293b;flex-shrink:0;">
-                    <rect x="3"  y="4"  width="18" height="17" rx="2" stroke="#1e293b"/>
-                    <line x1="8"  y1="2"  x2="8"  y2="6"  stroke="#1e293b"/>
-                    <line x1="16" y1="2"  x2="16" y2="6"  stroke="#1e293b"/>
-                    <line x1="3"  y1="9"  x2="21" y2="9"  stroke="#1e293b"/>
-                </svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <rect x="3"  y="4"  width="18" height="17" rx="2" />
+                            <line x1="8"  y1="2"  x2="8"  y2="6" />
+                            <line x1="16" y1="2"  x2="16" y2="6" />
+                            <line x1="3"  y1="9"  x2="21" y2="9" />
+                        </svg>
             <span class="vana-header__agenda-label"><?php echo esc_html( $lang === 'en' ? 'Schedule' : 'Agenda' ); ?></span>
         </button>
 
