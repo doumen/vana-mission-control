@@ -194,9 +194,8 @@ if ( ( $resolved_media['provider'] ?? '' ) === 'youtube' && ! empty( $resolved_m
 $seg_provider = $resolved_media['provider'] ?? '';
 
 // ── 10. Zona Mutável — estado SSR inicial ─────────────────────────────────
-// O VanaStateRouter.js assume o controle client-side.
-// Estado SSR: se há katha, começa com hint "katha"; senão "neutral".
-$mutable_zone_state = $stage_katha_dom_ref ? 'katha' : 'neutral';
+// O VanaStateRouter.js assume o controle client-side. Estado SSR agora
+// é inferido no template pai quando a zona mutável é extraída.
 ?>
 <section
     class="vana-stage <?php echo $is_neutral_mode ? 'vana-stage--neutral' : ''; ?>"
@@ -424,55 +423,7 @@ $mutable_zone_state = $stage_katha_dom_ref ? 'katha' : 'neutral';
   </div><!-- /info -->
 
 
-  <!-- KATHA ZONE ════════════════════════════════════════════ -->
-  <div
-      class="vana-stage-katha"
-      id="vana-stage-katha"
-      aria-label="<?php echo esc_attr( vana_t( 'stage.katha_passages', $lang ) ?: 'Passagens Hari-Katha' ); ?>"
-      aria-live="polite"
-      hidden
-  ></div>
-
-
-  <!-- ╔═══════════════════════════════════════════════════════╗
-       ║  🆕 ZONA MUTÁVEL — v6.0.0                            ║
-       ║  Container controlado pelo VanaStateRouter.js.        ║
-       ║  SSR renderiza o estado inicial; JS assume depois.    ║
-       ╚═══════════════════════════════════════════════════════╝ -->
-  <div
-      class="vana-mutable-zone"
-      id="vana-mutable-zone"
-      data-state="<?php echo esc_attr( $mutable_zone_state ); ?>"
-      data-event-key="<?php echo esc_attr( $current_event['event_key'] ); ?>"
-      aria-live="polite"
-      aria-label="<?php echo esc_attr( vana_t( 'stage.mutable_zone', $lang ) ?: 'Conteúdo contextual' ); ?>"
-  >
-    <?php
-    /**
-     * Slot interno — o VanaStateRouter.js injeta conteúdo aqui.
-     *
-     * Estados possíveis (data-state):
-     *   "neutral"  → vazio ou hero placeholder
-     *   "katha"    → passages + transcript (via REST)
-     *   "gallery"  → grid de fotos do evento
-     *   "sangha"   → momentos sangha
-     *   "map"      → mapa expandido (futuro)
-     *
-     * SSR hint: renderiza um skeleton/placeholder conforme o estado
-     * para evitar CLS (Cumulative Layout Shift).
-     */
-    ?>
-    <?php if ( $mutable_zone_state === 'katha' && $stage_katha_dom_ref ) : ?>
-      <!-- SSR hint: skeleton katha -->
-      <div class="vana-mz__skeleton vana-mz__skeleton--katha" aria-hidden="true">
-        <div class="vana-mz__skeleton-line" style="width:60%"></div>
-        <div class="vana-mz__skeleton-line" style="width:90%"></div>
-        <div class="vana-mz__skeleton-line" style="width:75%"></div>
-      </div>
-    <?php elseif ( $mutable_zone_state === 'neutral' ) : ?>
-      <!-- SSR hint: zona vazia — JS pode popular depois -->
-    <?php endif; ?>
-  </div><!-- /vana-mutable-zone -->
+  <!-- zona mutável removida daqui; agora é renderizada como irmã em visit-template.php -->
 
 
   <!-- SEGMENTOS / CAPÍTULOS ═════════════════════════════════ -->

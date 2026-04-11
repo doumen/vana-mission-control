@@ -1,4 +1,5 @@
 <?php
+error_log("VANA-SMOKE-TEST file=" . __FILE__ . " line=" . __LINE__);
 /**
  * Bootstrap SSR — single-vana_visit
  *
@@ -260,6 +261,7 @@ foreach ( $days as $i => $d ) {
     }
 }
 
+error_log("[VANA-CP] reached section 5 Tour");
 // ── 5. Tour ───────────────────────────────────────────────────────────────────
 $tour_id = (int) wp_get_post_parent_id( $visit_id );
 if ( ! $tour_id ) {
@@ -293,6 +295,7 @@ $tour_title = $tour_id
     ? Vana_Utils::tour_header_label( $tour_id, $lang )
     : '';
 
+error_log("[VANA-CP] reached orphan section");
 // ── 9g. Orphan Detection (schema ≥ 6.1 — pré-calculado pelo Trator) ──
 //
 // O Trator exporta $data['orphans'] com VODs/photos/sangha que existem

@@ -24,12 +24,10 @@ defined('ABSPATH') || exit;
     <!-- Painel: VISITA (seções tradicionais) -->
     <div id="mz-panel-visita" class="vana-mz__panel is-active" data-mz-state="visita" data-panel="visita" role="tabpanel" aria-hidden="false">
         <?php
-                // Hari-katha — DESATIVADO (FASE-0)
-                // Schema 6.2: Hari-kathā é acessado via botão no Stage (bottom-sheet na FASE 3).
-                // if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/hari-katha.php' ) ) {
-                //     include VANA_MC_PATH . 'templates/visit/parts/hari-katha.php';
-                // }
-
+                // Hari-katha — ATIVADO
+                if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/hari-katha.php' ) ) {
+                    include VANA_MC_PATH . 'templates/visit/parts/hari-katha.php';
+                }
                 // Orphan extras (precomputed by Trator / schema >= 6.1)
                 if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/orphan-extras.php' ) ) {
                     include VANA_MC_PATH . 'templates/visit/parts/orphan-extras.php';

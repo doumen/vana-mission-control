@@ -71,7 +71,7 @@ $hk_i18n = $hk_strings[$lang] ?? $hk_strings['pt'];
 
 <section
   class="vana-section vana-section--hari-katha"
-  id="vana-hari-katha-root"
+  id="vana-section-hari-katha"
   data-visit-id="<?php echo (int) $visit_id; ?>"
   data-day="<?php echo esc_attr($active_day_date); ?>"
   data-lang="<?php echo esc_attr($lang); ?>"

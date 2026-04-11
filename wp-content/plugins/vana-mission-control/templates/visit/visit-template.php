@@ -127,12 +127,68 @@ error_log( '[visit-template after guard] $days count: ' . count($days ?? []));
         }
         ?>
       </aside><!-- /vana-stage-grid__sidebar -->
-    </div><!-- /vana-stage-grid -->
+        </div><!-- /vana-stage-grid -->
 
-    <!-- ─────────────────────────────────────────────────────────────────────────
-         UNIFIED SECTIONS PANEL
-         (Hari-Katha | Galeria | Sangha | Revista)
-         ───────────────────────────────────────────────────────────────────────── -->
+        <!-- ═══════════════════════════════════════════════════════════════
+                 ZONA MUTÁVEL — v6.1 (PR-1: extraída do stage.php)
+
+                 Documento de Decisões v4 §15.1:
+                 "A zona mutável é o ÚNICO lugar que troca.
+                    Header, hero, chips, stage são MOLDURA."
+
+                 Contém sub-zona #vana-stage-katha para compatibilidade
+                 com VanaStageController.js (será absorvida em PR futuro).
+
+                 Container controlado pelo VanaStateRouter.js.
+                 SSR renderiza estado inicial; JS assume depois.
+                 ═══════════════════════════════════════════════════════════════ -->
+        <?php
+        // Estado SSR: inferido do evento ativo.
+        // $stage_katha_id é definido em stage.php e sobrevive via include().
+        $_mz_katha_id = isset( $stage_katha_id ) ? (string) $stage_katha_id : '';
+        $_mz_state    = $_mz_katha_id !== '' ? 'katha' : 'neutral';
+        ?>
+        <div
+                class="vana-mutable-zone"
+                id="vana-mutable-zone"
+                data-state="<?php echo esc_attr( $_mz_state ); ?>"
+                data-event-key="<?php echo esc_attr( $active_event['event_key'] ?? '' ); ?>"
+                data-katha-id="<?php echo esc_attr( $_mz_katha_id ); ?>"
+                aria-live="polite"
+                aria-label="<?php echo esc_attr(
+                        function_exists( 'vana_t' )
+                                ? vana_t( 'stage.mutable_zone', $lang )
+                                : 'Conteúdo contextual'
+                ); ?>"
+        >
+            <!-- Sub-zona katha: VanaStageController.js injeta passages aqui -->
+            <div
+                    class="vana-stage-katha"
+                    id="vana-stage-katha"
+                    aria-label="<?php echo esc_attr(
+                            function_exists( 'vana_t' )
+                                    ? vana_t( 'stage.katha_passages', $lang )
+                                    : 'Passagens Hari-Katha'
+                    ); ?>"
+                    aria-live="polite"
+                    hidden
+            ></div>
+
+            <?php if ( $_mz_state === 'katha' && $_mz_katha_id !== '' ) : ?>
+                <!-- SSR hint: skeleton katha (evita CLS) -->
+                <div class="vana-mz__skeleton vana-mz__skeleton--katha" aria-hidden="true">
+                    <div class="vana-mz__skeleton-line" style="width:60%"></div>
+                    <div class="vana-mz__skeleton-line" style="width:90%"></div>
+                    <div class="vana-mz__skeleton-line" style="width:75%"></div>
+                </div>
+            <?php endif; ?>
+        </div><!-- /vana-mutable-zone -->
+        <?php unset( $_mz_katha_id, $_mz_state ); ?>
+
+        <!-- ─────────────────────────────────────────────────────────────────────────
+                 UNIFIED SECTIONS PANEL
+                 (Hari-Katha | Galeria | Sangha | Revista)
+                 ───────────────────────────────────────────────────────────────────────── -->
     <?php
     if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/sections.php' ) ) {
         include VANA_MC_PATH . 'templates/visit/parts/sections.php';

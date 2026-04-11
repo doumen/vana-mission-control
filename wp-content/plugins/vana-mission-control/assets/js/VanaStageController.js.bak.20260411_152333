@@ -342,24 +342,6 @@
                             } );
                         }
                     } );
-                    // ── Alias mapping: API field → renderItem field ──
-                    flat.timestamp_start = flat.ts_start  || flat.timestamp_start || 0;
-                    flat.passage_id      = flat.id        || flat.passage_id      || '';
-                    flat.order           = flat.index      || flat.order           || '';
-                    // source_ref é objeto aninhado dentro de temporal
-                    var srcRef = flat.source_ref || {};
-                    if ( typeof srcRef === 'object' ) {
-                        flat.vod_key = flat.vod_key || srcRef.vod_key || '';
-                        if ( ! flat.timestamp_start && srcRef.ts_start ) {
-                            flat.timestamp_start = srcRef.ts_start;
-                        }
-                    }
-                    // content (resumo) → text_pt / text_en
-                    if ( ! flat.text_pt && flat.content && typeof flat.content === 'string' ) {
-                        flat.text_pt = flat.content;
-                        flat.text_en = flat.content;
-                    }
-
                     return flat;
                 } );
 

@@ -1,4 +1,8 @@
 <?php
+// Fallback — garante que $is_en esteja definida
+if ( ! isset( $is_en ) ) {
+    $is_en = ( substr( get_locale(), 0, 2 ) === 'en' );
+}
 /**
  * Hero Day Strip — spec v3.2 §4
  * Apresentação dos dias da visita, agrupados por mês.

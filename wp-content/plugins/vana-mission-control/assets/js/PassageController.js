@@ -71,18 +71,45 @@
     });
   }
 
+  // Fallback: fetch katha endpoint which is known to exist on the server
+  function fetchKathaByRef(ref) {
+    var rest = getRestBase();
+    var url = rest.replace(/\/$/, '') + '/katha/' + encodeURIComponent(ref);
+    return fetch(url, { credentials: 'same-origin' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text().then(function (text) {
+        try {
+          var j = JSON.parse(text);
+          if (j && j.html) return j.html;
+        } catch (e) {}
+        return text;
+      });
+    });
+  }
+
   function loadPassage(passageId, kathaRef) {
     var panel = selectPanel();
     if (!panel) return;
+
+    // Prefer delegating to VanaStage (it knows the correct endpoints and rendering).
+    var ref = kathaRef || passageId || '';
+    if (ref && window.VanaStage && typeof window.VanaStage.loadKatha === 'function') {
+      try {
+        window.VanaStage.loadKatha(ref);
+        emit('vana:passage:delegated', { passage_id: passageId, katha_ref: kathaRef });
+        return;
+      } catch (e) {
+        console.warn('[PassageController] delegation to VanaStage failed', e);
+      }
+    }
 
     showLoading(panel);
     emit('vana:passage:loading', { passage_id: passageId, katha_ref: kathaRef });
 
     var p = null;
-    if (passageId) {
-      p = fetchPassageById(passageId);
-    } else if (kathaRef) {
-      p = fetchPassageByKathaRef(kathaRef);
+    if (ref) {
+      // Try the /katha/{ref} endpoint which is present on the server.
+      p = fetchKathaByRef(ref);
     } else {
       showError(panel, 'Passage não especificado.');
       emit('vana:passage:error', { message: 'no-id' });

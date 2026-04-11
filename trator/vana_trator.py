@@ -501,6 +501,17 @@ class TratorIndexBuilder:
         photos    = event.get("photos", [])
         sangha    = event.get("sangha", [])
 
+        # Derive katha_ids from segments (Schema 6.2: kathas live in segments)
+        _seg_katha_ids = list(dict.fromkeys(
+            seg.get("katha_id")
+            for vod in vods
+            for seg in vod.get("segments", [])
+            if seg.get("katha_id") is not None
+        ))
+        # Merge with legacy kathas[] if present
+        _legacy_katha_ids = [k.get("katha_id") for k in kathas if k.get("katha_id")]
+        _all_katha_ids = list(dict.fromkeys(_legacy_katha_ids + _seg_katha_ids))
+
         self.index["events"][event_key] = {
             "day_key":   day_key,
             "position":  position,
@@ -511,7 +522,9 @@ class TratorIndexBuilder:
             "status":    event.get("status"),
             "location":  event.get("location", {}).get("name") if isinstance(event.get("location"), dict) else event.get("location"),
             "vods":      [v.get("vod_key")      for v in vods   if v.get("vod_key")],
-            "kathas":    [k.get("katha_id")      for k in kathas if k.get("katha_id")],
+            "kathas":    _all_katha_ids,
+            "has_katha": len(_all_katha_ids) > 0,
+            "katha_id":  _all_katha_ids[0] if len(_all_katha_ids) == 1 else _all_katha_ids or None,
             "photos":    [p.get("photo_key")     for p in photos if p.get("photo_key")],
             "sangha":    [s.get("sangha_key")    for s in sangha if s.get("sangha_key")],
         }
@@ -759,6 +772,10 @@ class TratorIndexBuilderV62:
                 "katha_id": kid,
                 "event_key": seg.get("event_key"),
                 "day_key": seg.get("day_key"),
+                "title_pt": seg.get("title_pt"),
+                "title_en": seg.get("title_en"),
+                "scripture": seg.get("scripture"),
+                "language": seg.get("language"),
                 "sources": [],
             })
             kathas_map[kid_s]["sources"].append({
@@ -1048,7 +1065,7 @@ def main():
         print(f"❌ Arquivo não encontrado: {path}")
         sys.exit(1)
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8-sig") as f:
         try:
             visit = json.load(f)
         except json.JSONDecodeError as e:

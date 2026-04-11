@@ -307,80 +307,26 @@
         _loadKatha: function ( kathaRef, page ) {
             var self = this;
             self._showKathaLoading( page === 1 );
-
-            fetchKatha( kathaRef, page ).then( function ( raw ) {
-
-                // Normalizar: API retorna { data: { katha, passages, pagination } }
-                var body = raw && raw.data ? raw.data : raw;
-                var katha    = body.katha    || {};
-                var passages = body.passages || [];
-                var pag      = body.pagination || {};
-
-                // Promover campos aninhados de katha.content para raiz
-                if ( katha.content && typeof katha.content === 'object' ) {
-                    Object.keys( katha.content ).forEach( function ( k ) {
-                        if ( ! ( k in katha ) ) katha[ k ] = katha.content[ k ];
-                    } );
-                }
-                if ( katha.editorial && typeof katha.editorial === 'object' ) {
-                    Object.keys( katha.editorial ).forEach( function ( k ) {
-                        if ( ! ( k in katha ) ) katha[ k ] = katha.editorial[ k ];
-                    } );
-                }
-
-                self._totalPages    = pag.total_pages || pag.pages || 1;
-                self._totalPassages = pag.total || katha.passage_count || passages.length;
-                self._currentPage   = pag.page  || page;
-
-                // Flatten cada passage
-                passages = passages.map( function ( p ) {
-                    var flat = Object.assign( {}, p );
-                    [ 'content', 'temporal', 'editorial', 'thematic' ].forEach( function ( ns ) {
-                        if ( p[ ns ] && typeof p[ ns ] === 'object' ) {
-                            Object.keys( p[ ns ] ).forEach( function ( k ) {
-                                if ( ! ( k in flat ) || flat[ k ] == null ) flat[ k ] = p[ ns ][ k ];
-                            } );
-                        }
-                    } );
-                    // ── Alias mapping: API field → renderItem field ──
-                    flat.timestamp_start = flat.ts_start  || flat.timestamp_start || 0;
-                    flat.passage_id      = flat.id        || flat.passage_id      || '';
-                    flat.order           = flat.index      || flat.order           || '';
-                    // source_ref é objeto aninhado dentro de temporal
-                    var srcRef = flat.source_ref || {};
-                    if ( typeof srcRef === 'object' ) {
-                        flat.vod_key = flat.vod_key || srcRef.vod_key || '';
-                        if ( ! flat.timestamp_start && srcRef.ts_start ) {
-                            flat.timestamp_start = srcRef.ts_start;
-                        }
-                    }
-                    // content (resumo) → text_pt / text_en
-                    if ( ! flat.text_pt && flat.content && typeof flat.content === 'string' ) {
-                        flat.text_pt = flat.content;
-                        flat.text_en = flat.content;
-                    }
-
-                    return flat;
-                } );
-
+            fetchKatha( kathaRef, page ).then( function ( data ) {
+                self._totalPages    = data.pages  || 1;
+                self._totalPassages = data.total  || 0;
+                self._currentPage   = page;
                 if ( page === 1 ) {
-                    self._renderKathaFull( { katha: katha, passages: passages } );
+                    self._renderKathaFull( data );
                 } else {
-                    self._appendPassages( passages );
+                    self._appendPassages( data.passages );
                     self._updateLoadMore();
                 }
-
             } ).catch( function ( err ) {
                 console.error( '[VanaStage] Katha load error:', err );
                 self._kathaZone.innerHTML = PassageRenderer.renderError(
                     LANG === 'en'
                         ? 'Could not load passages. Try again.'
-                        : 'Não foi possível carregar os passages.'
+                        : 'Nao foi possivel carregar os passages.'
                 );
                 self._showKathaZone( true );
             } );
         },
-
 
         _renderKathaFull: function ( data ) {
             var katha    = data.katha;

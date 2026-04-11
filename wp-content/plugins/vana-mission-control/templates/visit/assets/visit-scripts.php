@@ -866,6 +866,15 @@ if ( file_exists( $passage_nav ) ) {
 }
 
 
+// Include Hari-Katha Controller (Sprint 1 — Modo Foco)
+$hk_controller = VANA_MC_PATH . 'templates/visit/assets/VanaHariKathaController.js';
+if ( file_exists( $hk_controller ) ) {
+  echo "\n<script>\n";
+  include $hk_controller;
+  echo "\n</script>\n";
+}
+
+?>
 <!-- Fallback: ensure agenda open buttons work if VanaAgenda failed to initialize -->
 <script>
  (function () {

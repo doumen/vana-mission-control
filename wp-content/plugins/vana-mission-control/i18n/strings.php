@@ -178,5 +178,12 @@ return [
     'vod.untitled'          => ['pt' => 'Sem título',                'en' => 'Untitled'],
     'vod.watch_prefix'      => ['pt' => 'Assistir:',                 'en' => 'Watch:'],
 
+    
+    // ── ORPHAN EXTRAS ────────────────────────────────────────────────────────────
+    'orphan.vods.title'   => ['pt' => 'Outros Vídeos desta Visita',     'en' => 'Other Videos from this Visit'],
+    'orphan.photos.title' => ['pt' => 'Outras Fotos desta Visita',      'en' => 'Other Photos from this Visit'],
+    'orphan.sangha.title' => ['pt' => 'Sangha desta Visita',           'en' => 'Sangha from this Visit'],
+    'orphan.subtitle'     => ['pt' => 'Conteúdo adicional não vinculado a um evento específico', 'en' => 'Additional content not linked to a specific event'],
+
 ];
 
