@@ -43,6 +43,8 @@ $tour  = Vana_Utils::get_tour_identity( (int) $tour_id, $lang );
 // Reinjeta o nav no novo $tour para o _hero-nav.php
 $tour['nav'] = $tour_nav;
 
+// (debug removed)
+
 // NOTE: do NOT inject `days` into `$tour` here — the Agenda is the source
 // of truth for active-day navigation. The hero may still receive `$days`
 // from the bootstrap; keep the hero presentation lightweight.
