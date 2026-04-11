@@ -1,33 +1,44 @@
 <?php
 /**
- * Sections / Zona Mutável
- * Monta o container único que alterna entre os estados:
- *  - visita  (seções: hari-katha, gallery, sangha)
+ * Sections / Zona Mutável — v6.2
+ * 
+ * NOTA: O container #vana-mutable-zone agora é renderizado pelo
+ * visit-template.php (PR-1, Schema 6.1). Este partial fornece
+ * APENAS os painéis internos, que são injetados dentro da MZ
+ * principal pelo visit-template.php.
+ *
+ * Painéis:
+ *  - visita  (seções: orphan-extras, gallery, sangha)
  *  - passage (conteúdo do passage carregado via REST)
  *  - lente   (lista temática de passages)
- *
- * Este partial inclui as partials existentes para cada seção
- * e fornece os painéis que o JS controla via classes .is-active
  */
 defined('ABSPATH') || exit;
 ?>
 
-<div id="vana-mutable-zone" class="vana-mutable-zone" data-state="visita" data-visit-id="<?php echo (int) ($visit_id ?? 0); ?>">
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTIONS PANEL (v6.2 — sem wrapper MZ duplicado)
+     Conteúdo complementar da visita: gallery, sangha, passages.
+     ═══════════════════════════════════════════════════════════════ -->
+<div id="vana-sections-panel" class="vana-sections-panel" data-visit-id="<?php echo (int) ($visit_id ?? 0); ?>">
 
     <!-- Painel: VISITA (seções tradicionais) -->
     <div id="mz-panel-visita" class="vana-mz__panel is-active" data-mz-state="visita" data-panel="visita" role="tabpanel" aria-hidden="false">
         <?php
                 // Hari-katha — DESATIVADO (FASE-0)
                 // Schema 6.2: Hari-kathā é acessado via botão no Stage (bottom-sheet na FASE 3).
-                // Comentado para evitar duplicação com o Stage.
                 // if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/hari-katha.php' ) ) {
                 //     include VANA_MC_PATH . 'templates/visit/parts/hari-katha.php';
                 // }
 
-            // Gallery
-            if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/gallery.php' ) ) {
+                // Orphan extras (precomputed by Trator / schema >= 6.1)
+                if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/orphan-extras.php' ) ) {
+                    include VANA_MC_PATH . 'templates/visit/parts/orphan-extras.php';
+                }
+
+                // Gallery
+                if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/gallery.php' ) ) {
                     include VANA_MC_PATH . 'templates/visit/parts/gallery.php';
-            }
+                }
 
             // Sangha moments
             if ( file_exists( VANA_MC_PATH . 'templates/visit/parts/sangha-moments.php' ) ) {
@@ -54,17 +65,20 @@ defined('ABSPATH') || exit;
         </div>
     </div>
 
-</div>
+</div><!-- /vana-sections-panel -->
 
 <script>
 (function () {
     'use strict';
 
-    var root = document.getElementById('vana-mutable-zone');
+    /* ── Panel Switcher v6.2 ──────────────────────────────────────────
+       Opera sobre #vana-sections-panel (não mais #vana-mutable-zone).
+       Escuta vana:state:changed para alternar painéis visita/passage/lente.
+       ───────────────────────────────────────────────────────────────── */
+    var root = document.getElementById('vana-sections-panel');
     if (!root) return;
 
     function setActive(state) {
-        root.setAttribute('data-state', state);
         root.querySelectorAll('.vana-mz__panel').forEach(function (p) {
             var ps = p.getAttribute('data-mz-state') || p.getAttribute('data-panel');
             var active = ps === state;
@@ -79,18 +93,15 @@ defined('ABSPATH') || exit;
         });
     }
 
-    // Clique em chips âncora que apontam para seções (ex: data-vana-chip)
+    // Clique em chips âncora que apontam para seções
     document.addEventListener('click', function (e) {
         var chip = e.target.closest('[data-vana-chip]');
         if (chip) {
             var target = chip.getAttribute('data-vana-chip');
             if (!target) return;
-            // Mapeia ids conhecidos para estados
-            if (target.indexOf('vana-section-hk') !== -1 || target.indexOf('hk') !== -1) {
-                setActive('visita');
-            } else if (target.indexOf('vana-section-gallery') !== -1) {
-                setActive('visita');
-            } else if (target.indexOf('vana-section-sangha') !== -1) {
+            if (target.indexOf('hk') !== -1 ||
+                target.indexOf('gallery') !== -1 ||
+                target.indexOf('sangha') !== -1) {
                 setActive('visita');
             }
         }
@@ -109,85 +120,63 @@ defined('ABSPATH') || exit;
         }
     });
 
-    // Abre passage in-place via REST
+    // Abre passage in-place via REST (fallback sem VanaRouter)
     function openPassage(passageId) {
-        // Legacy fallback loader: used only if VanaRouter/PassageController absent
         setActive('passage');
         var container = document.getElementById('mz-passage');
         if (!container) return;
-        container.innerHTML = '<div class="vana-mz__loading">' + (window.__vanaLang === 'en' ? 'Loading…' : 'Carregando…') + '</div>';
+        container.innerHTML = '<div class="vana-mz__loading">' +
+            (window.__vanaLang === 'en' ? 'Loading…' : 'Carregando…') + '</div>';
 
-        var restRoot = (window.CFG && window.CFG.restRoot) ? window.CFG.restRoot : '/wp-json/vana/v1/';
-        var nonce = (window.CFG && window.CFG.restNonce) ? window.CFG.restNonce : '';
+        var restRoot = (window.CFG && window.CFG.restRoot) || '/wp-json/vana/v1/';
+        var nonce    = (window.CFG && window.CFG.restNonce) || '';
 
         fetch(restRoot + 'passage/' + encodeURIComponent(passageId), {
             headers: { 'X-WP-Nonce': nonce },
             credentials: 'same-origin'
-        }).then(function (r) { return r.json(); })
-            .then(function (json) {
-                if (!json || !json.success) {
-                    container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' + (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
-                    return;
-                }
-                var html = json.data && json.data.html ? json.data.html : ('<article class="vana-passage">' + (json.data.title ? ('<h3>' + json.data.title + '</h3>') : '') + (json.data.content ? ('<div>' + json.data.content + '</div>') : '') + '</article>');
-                container.innerHTML = html;
-                try { history.pushState({ mz: 'passage', id: passageId }, '', window.location.pathname + '#passage-' + passageId); } catch (e) {}
-            }).catch(function () {
-                container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' + (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
-            });
-    }
-
-    // Listen to router events and switch panels accordingly
-    document.addEventListener('vana:state:changed', function (ev) {
-        var s = ev && ev.detail && ev.detail.state ? ev.detail.state : null;
-        if (s) setActive(s);
-    });
-
-    // Initial panel state from container attribute
-    setActive(root.getAttribute('data-state') || 'visita');
-
-    window.addEventListener('popstate', function (ev) {
-        var s = (root && root.getAttribute('data-state')) || 'visita';
-        // Simples: volta para visita por padrão
-        setActive('visita');
-    });
-
-})();
-</script>
-
-<!-- Vana Panel Switcher — escuta vana:state:changed -->
-<script>
-(function() {
-    'use strict';
-
-    var STATES = ['visita', 'passage', 'lente'];
-    var PREFIX = 'mz-panel-';
-    var ACTIVE = 'is-active';
-
-    function switchPanel(targetState) {
-        STATES.forEach(function(state) {
-            var el = document.getElementById(PREFIX + state);
-            if (!el) return;
-            el.classList.toggle(ACTIVE, state === targetState);
-            if (state === targetState) {
-                el.removeAttribute('hidden');
-                el.setAttribute('aria-hidden', 'false');
-            } else {
-                el.setAttribute('hidden', '');
-                el.setAttribute('aria-hidden', 'true');
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (json) {
+            if (!json || !json.success) {
+                container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' +
+                    (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
+                return;
             }
+            var html = (json.data && json.data.html)
+                ? json.data.html
+                : '<article class="vana-passage">' +
+                  (json.data.title ? '<h3>' + json.data.title + '</h3>' : '') +
+                  (json.data.content ? '<div>' + json.data.content + '</div>' : '') +
+                  '</article>';
+            container.innerHTML = html;
+            try {
+                history.pushState({ mz: 'passage', id: passageId }, '',
+                    window.location.pathname + '#passage-' + passageId);
+            } catch (e) {}
+        })
+        .catch(function () {
+            container.innerHTML = '<div style="padding:36px;color:var(--vana-muted);text-align:center;">' +
+                (window.__vanaLang === 'en' ? 'Failed to load passage' : 'Falha ao carregar passage') + '</div>';
         });
     }
 
-    document.addEventListener('vana:state:changed', function(e) {
-        if (e.detail && e.detail.state) {
-            switchPanel(e.detail.state);
-        }
+    // Escuta o router para trocar painéis
+    document.addEventListener('vana:state:changed', function (ev) {
+        var s = ev && ev.detail && ev.detail.state;
+        if (s) setActive(s);
     });
 
-    // Sync com estado inicial do Router
+    // Estado inicial
+    setActive('visita');
+
+    window.addEventListener('popstate', function () {
+        setActive('visita');
+    });
+
+    // Sync com VanaRouter se já ativo
     if (window.VanaRouter && window.VanaRouter.state) {
-        switchPanel(window.VanaRouter.state);
+        setActive(window.VanaRouter.state);
     }
+
 })();
 </script>
