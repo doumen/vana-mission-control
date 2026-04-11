@@ -50,8 +50,9 @@ def main():
 
     # ── Validações mínimas ────────────────────────────────────────
     schema = katha_data.get("schema_version")
-    if schema != "3.2":
-        print(f"⚠️  schema_version esperado: 3.2 — encontrado: {schema}")
+    # Accept both legacy 3.2 and newer 4.1 schema versions for ingestion
+    if schema not in ("3.2", "4.1"):
+        print(f"⚠️  schema_version esperado: 3.2 or 4.1 — encontrado: {schema}")
         sys.exit(1)
 
     katha_ref = katha_data.get("context", {}).get("katha_ref", "")

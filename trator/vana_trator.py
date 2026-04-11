@@ -788,8 +788,11 @@ class TratorIndexBuilderV62:
         # Merge into index.kathas
         for kid_s, data in kathas_map.items():
             existing = index.get("kathas", {}).get(kid_s, {})
+            # only increment total_kathas if this katha did not already exist
+            is_new = kid_s not in index.get("kathas", {})
             index.setdefault("kathas", {})[kid_s] = {**existing, **data}
-            stats["total_kathas"] = stats.get("total_kathas", 0) + 1
+            if is_new:
+                stats["total_kathas"] = stats.get("total_kathas", 0) + 1
 
         return {"index": index, "stats": stats}
 

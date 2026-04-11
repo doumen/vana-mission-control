@@ -66,8 +66,10 @@ def _load_from_wp(wp_id: int) -> dict:
     return get_visit_timeline(wp_id)   # já existe e funciona ✅
 
 
-# Versões que são compatíveis e podem ser migradas para 6.1
-MIGRATABLE_VERSIONS = {"3.1", "4.0", "5.0", "6.0", "6.1"}
+# Versions handling: allow current supported schemas to pass unchanged
+# and only migrate older, known compatible versions to 6.1.
+SUPPORTED_SCHEMAS = {"6.1", "6.2"}
+MIGRATABLE_OLDER = {"3.1", "4.0", "5.0", "6.0"}
 
 @st.cache_data(ttl=60)
 def _load(visit_ref: str, wp_id: int | None = None) -> dict:
@@ -80,13 +82,14 @@ def _load(visit_ref: str, wp_id: int | None = None) -> dict:
     # ── Migração de schema (SOMENTE modifica os dados; sem UI) -------
     if isinstance(data, dict):
         current = data.get("schema_version", "")
-        if current != "6.1" and current in MIGRATABLE_VERSIONS:
+        # Only migrate known older schemas up to 6.1. Leave 6.1/6.2 untouched.
+        if current in MIGRATABLE_OLDER:
             data["schema_version"] = "6.1"
-            # sinaliza que foi migrado — a UI que chamar _load() fará o toast
+            # signal that it was migrated — the UI that called _load() can show a toast
             data["__migrated_from__"] = current
 
-        # Preserve schema_version '6.1' for root unless an explicit migration is requested.
-        # (R-ROOT-02) Do not upgrade automatically to 6.2 here.
+        # If current is a supported modern schema (e.g., 6.1 or 6.2), leave as-is.
+        # Do not downgrade 6.2 -> 6.1 automatically.
 
     return data or {}
 
