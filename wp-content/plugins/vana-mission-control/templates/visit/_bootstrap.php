@@ -293,6 +293,28 @@ $tour_title = $tour_id
     ? Vana_Utils::tour_header_label( $tour_id, $lang )
     : '';
 
+// ── 9g. Orphan Detection (schema ≥ 6.1 — pré-calculado pelo Trator) ──
+//
+// O Trator exporta $data['orphans'] com VODs/photos/sangha que existem
+// no visit mas NÃO estão vinculados a nenhum passage/event.
+// Fonte única de verdade — zero cálculo em runtime.
+//
+$_orphans = is_array( $data['orphans'] ?? null ) ? $data['orphans'] : [];
+
+$orphan_vods   = array_values( is_array( $_orphans['vods']   ?? null ) ? $_orphans['vods']   : [] );
+$orphan_photos = array_values( is_array( $_orphans['photos'] ?? null ) ? $_orphans['photos'] : [] );
+$orphan_sangha = array_values( is_array( $_orphans['sangha'] ?? null ) ? $_orphans['sangha'] : [] );
+
+$has_orphan_vods   = ! empty( $orphan_vods );
+$has_orphan_photos = ! empty( $orphan_photos );
+$has_orphan_sangha = ! empty( $orphan_sangha );
+
+// Stats globais (útil para badges no header)
+$_stats = is_array( $data['stats'] ?? null ) ? $data['stats'] : [];
+
+unset( $_orphans );
+
+
 // ── 6. País da visita ─────────────────────────────────────────────────────────
 // Fonte 1: post meta _vana_country_code (canônico, editável no admin)
 // Fonte 2: timeline JSON country_code   (fallback quando Trator já exportar)
@@ -562,6 +584,15 @@ $tour = [
     'season_code' => $_season_code,
     'has_live'    => $_has_live,
     'is_new'      => $_is_new,
+    // Orphans (schema 6.1)
+    'has_orphan_vods'   => isset( $has_orphan_vods ) ? (bool) $has_orphan_vods : false,
+    'has_orphan_photos' => isset( $has_orphan_photos ) ? (bool) $has_orphan_photos : false,
+    'has_orphan_sangha' => isset( $has_orphan_sangha ) ? (bool) $has_orphan_sangha : false,
+    'orphan_vods'       => isset( $orphan_vods ) ? $orphan_vods : [],
+    'orphan_photos'     => isset( $orphan_photos ) ? $orphan_photos : [],
+    'orphan_sangha'     => isset( $orphan_sangha ) ? $orphan_sangha : [],
+    // Stats globais
+    'stats'             => isset( $_stats ) ? $_stats : [],
     'created_at'  => $_created_at,
 ];
 
@@ -612,6 +643,8 @@ if ( $_h_region !== '' && $_h_season !== '' && $_h_year !== '' ) {
     $header_tour_label = '';
 }
 
+
+
 // ── 9h. Limpeza de vars temporárias ──────────────────────────────────────────
 // Evita poluir o escopo do template com vars prefixadas com _
 unset(
@@ -622,5 +655,8 @@ unset(
     $_season_code,   $_has_live,      $_is_new,      $_created_at,
     $_h_region,      $_h_season,
     $_h_y_start,     $_h_y_end,       $_h_year,
+    $orphan_vods, $orphan_photos, $orphan_sangha,
+    $has_orphan_vods, $has_orphan_photos, $has_orphan_sangha,
+    $_stats,
     $_d,             $_yt,            $_m
 );
