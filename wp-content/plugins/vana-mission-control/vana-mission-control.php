@@ -815,6 +815,26 @@ final class Vana_Mission_Control {
                 $vana_mz_css_ver
             );
 
+            // Header fixes (optional corrective stylesheet + scroll helper)
+            $vhf_css_path = VANA_MC_PATH . 'assets/css/vana-header-fix.css';
+            $vhf_css_ver  = file_exists($vhf_css_path) ? (string) filemtime($vhf_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-header-fix',
+                VANA_MC_URL . 'assets/css/vana-header-fix.css',
+                [ 'vana-ui-visit-hub' ],
+                $vhf_css_ver
+            );
+
+            $vh_js_path = VANA_MC_PATH . 'assets/js/vana-scroll-top.js';
+            $vh_js_ver  = file_exists($vh_js_path) ? (string) filemtime($vh_js_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-scroll-top',
+                VANA_MC_URL . 'assets/js/vana-scroll-top.js',
+                [],
+                $vh_js_ver,
+                true
+            );
+
             $vana_ds_js_path = VANA_MC_PATH . 'assets/js/vana-day-strip.js';
             $vana_ds_js_ver  = file_exists($vana_ds_js_path) ? (string) filemtime($vana_ds_js_path) : VANA_MC_VERSION;
             wp_enqueue_script(
