@@ -24,6 +24,12 @@ if str(REPO_ROOT) not in sys.path:
 
 from trator.vana_trator import run_trator, TratorResult
 
+# Optional Autofill helper (services/autofill.py)
+try:
+    from services.autofill import Autofill
+except Exception:
+    Autofill = None
+
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
 # ══════════════════════════════════════════════════════════════════════
@@ -70,6 +76,7 @@ def _load_from_wp(wp_id: int) -> dict:
 # and only migrate older, known compatible versions to 6.1.
 SUPPORTED_SCHEMAS = {"6.1", "6.2"}
 MIGRATABLE_OLDER = {"3.1", "4.0", "5.0", "6.0"}
+MIGRATABLE_VERSIONS = SUPPORTED_SCHEMAS.union(MIGRATABLE_OLDER)
 
 @st.cache_data(ttl=60)
 def _load(visit_ref: str, wp_id: int | None = None) -> dict:
@@ -416,8 +423,24 @@ if migrated_from:
         st.cache_data.clear()
         st.rerun()
 
+# Instantiate Autofill helper if available
+af = None
+if Autofill is not None:
+    wp_fetcher = None
+    try:
+        from api.wp_client import list_kathas_for_visit
+        wp_fetcher = lambda vref: list_kathas_for_visit(vref)
+    except Exception:
+        wp_fetcher = None
+
+    yt_key = st.secrets.get("youtube", {}).get("api_key") if isinstance(st.secrets.get("youtube", {}), dict) else None
+    try:
+        af = Autofill(visit, yt_api_key=yt_key, wp_katha_fetcher=wp_fetcher)
+    except Exception:
+        af = None
+
 schema_atual = visit.get("schema_version", "") if isinstance(visit, dict) else ""
-if schema_atual and schema_atual != "6.1" and schema_atual not in MIGRATABLE_VERSIONS:
+if schema_atual and schema_atual not in SUPPORTED_SCHEMAS and schema_atual not in MIGRATABLE_OLDER:
     st.warning(
         f"⚠️ schema_version desconhecido: `{schema_atual}`. "
         f"Verifique antes de publicar."
@@ -830,16 +853,68 @@ with tab_meta:
             )
 
             def _migrate_6_1_to_6_2(v: dict) -> dict:
+                """Migra visit.json de schema 6.1 para 6.2.
+
+                Mudanças chave do 6.2:
+                  - kathas[] removido dos eventos (R-HK-4)
+                  - katha_id propagado para segments harikatha
+                  - orphan vods recebem orphan_type default
+                """
                 v = copy.deepcopy(v)
                 v["schema_version"] = "6.2"
                 v["__migrated_from__"] = "6.1"
                 v["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.2.json"
+
                 for day in v.get("days", []):
                     for ev in day.get("events", []):
+                        old_kathas = ev.get("kathas", [])
+
+                        # ── Propagar katha_id dos kathas[] legado para segments ───
+                        if old_kathas:
+                            # Mapa: vod_key → katha_id (extraído dos sources de cada katha)
+                            vod_katha_map: dict[str, int] = {}
+                            for katha in old_kathas:
+                                kid = katha.get("katha_id") or katha.get("id")
+                                if not kid:
+                                    continue
+                                for src in katha.get("sources", []):
+                                    vk = src.get("vod_key")
+                                    if vk:
+                                        try:
+                                            vod_katha_map[str(vk)] = int(kid)
+                                        except Exception:
+                                            pass
+
+                                # Fallback: se kathas[] não tem sources, usar o primeiro
+                                # katha_id para todos os segments harikatha do evento
+                                if not katha.get("sources") and "__fallback__" not in vod_katha_map:
+                                    try:
+                                        vod_katha_map["__fallback__"] = int(kid)
+                                    except Exception:
+                                        pass
+
+                            # Aplicar nos segments
+                            fallback_kid = vod_katha_map.get("__fallback__")
+                            for vod in ev.get("vods", []):
+                                vk = vod.get("vod_key", "")
+                                mapped_kid = vod_katha_map.get(vk, fallback_kid)
+                                for seg in vod.get("segments", []):
+                                    if seg.get("type") == "harikatha" and not seg.get("katha_id"):
+                                        if mapped_kid:
+                                            seg["katha_id"] = mapped_kid
+
+                        # Remover kathas[] do evento (R-HK-4)
                         ev.pop("kathas", None)
-                # orphans
-                if isinstance(v.get("orphans"), dict):
-                    v["orphans"].pop("kathas", None)
+
+                # ── Orphans ─────────────────────────────────────────────────
+                orphans = v.get("orphans", {})
+                if isinstance(orphans, dict):
+                    orphans.pop("kathas", None)
+                    # Garantir orphan_type em VODs órfãos
+                    for vod in orphans.get("vods", []):
+                        if "orphan_type" not in vod:
+                            vod["orphan_type"] = "documental"
+
                 return v
 
             if st.button("🔧 Migrar e salvar como 6.2", key="btn_migrate_6_2"):
@@ -894,9 +969,25 @@ with tab_meta:
 
     # Adicionar dia
     with st.expander("➕ Adicionar dia"):
-        ndk = st.text_input("day_key (YYYY-MM-DD)", key="new_day_key")
-        nlp = st.text_input("label_pt (ex: 21 fev)", key="new_day_lp")
-        nle = st.text_input("label_en (ex: Feb 21)", key="new_day_le")
+        if af:
+            try:
+                sug_day = af.suggest_next_day()
+            except Exception:
+                sug_day = {"day_key": "", "label_pt": "", "label_en": ""}
+        else:
+            sug_day = {"day_key": "", "label_pt": "", "label_en": ""}
+
+        ndk = st.text_input("day_key (YYYY-MM-DD)", value=sug_day.get("day_key", ""), key="new_day_key")
+
+        # Recalcular labels quando day_key muda
+        if af:
+            derived = af.derive_day_labels(ndk)
+        else:
+            derived = {"label_pt": "", "label_en": ""}
+
+        nlp = st.text_input("label_pt (ex: 21 fev)", value=derived.get("label_pt", ""), key="new_day_lp")
+        nle = st.text_input("label_en (ex: Feb 21)", value=derived.get("label_en", ""), key="new_day_le")
+
         if st.button("Adicionar dia", key="btn_add_day"):
             if ndk:
                 days.append({
@@ -935,14 +1026,34 @@ with tab_meta:
             events = day.setdefault("events", [])
 
             with st.expander("➕ Adicionar evento", expanded=False):
-                nek  = st.text_input("event_key (YYYYMMDD-HHMM-slug)", key=f"nek_{di}")
-                net  = st.selectbox(
+                ne1, ne2, ne3 = st.columns(3)
+
+                net = ne1.selectbox(
                     "type", ["programa", "mangala", "arati", "darshan", "other"],
-                    key=f"net_{di}"
+                    key=f"net_{di}")
+                netm = ne2.text_input("time (HH:MM)", key=f"netm_{di}")
+
+                # Sugestão reativa do autofill
+                if af:
+                    try:
+                        sug_ev = af.suggest_event(day, event_type=net, time_str=netm)
+                    except Exception:
+                        sug_ev = {"event_key": "", "title_pt": "", "title_en": "", "status": "future", "location": {}}
+                else:
+                    sug_ev = {"event_key": "", "title_pt": "", "title_en": "", "status": "future", "location": {}}
+
+                nek  = ne1.text_input("event_key", value=sug_ev["event_key"], key=f"nek_{di}")
+                netp = ne2.text_input("title_pt", value=sug_ev["title_pt"], key=f"netp_{di}")
+                nete = ne3.text_input("title_en", value=sug_ev["title_en"], key=f"nete_{di}")
+
+                nest = ne3.selectbox(
+                    "status",
+                    ["past", "active", "future", "live", "soon"],
+                    index=["past", "active", "future", "live", "soon"].index(sug_ev.get("status", "future")),
+                    key=f"nest_{di}",
                 )
-                netm = st.text_input("time (HH:MM)", key=f"netm_{di}")
-                netp = st.text_input("title_pt", key=f"netp_{di}")
-                nete = st.text_input("title_en", key=f"nete_{di}")
+                neloc = ne3.text_input("local", value=sug_ev.get("location", {}).get("name", ""), key=f"neloc_{di}")
+
                 if st.button("Adicionar evento", key=f"btn_aev_{di}"):
                     if nek:
                         events.append({
@@ -951,8 +1062,8 @@ with tab_meta:
                             "title_pt":  netp,
                             "title_en":  nete,
                             "time":      netm,
-                            "status":    "upcoming",
-                            "location":  {},
+                            "status":    nest,
+                            "location":  {"name": neloc} if neloc else {},
                             "vods":      [],
                             "kathas":    [],
                             "photos":    [],
@@ -1057,6 +1168,27 @@ with tab_vods:
                     nvte = st.text_input("title_en", key="nvte")
                     nvpart = st.number_input("vod_part", min_value=1, value=1, key="nvpart")
 
+                # Autofill suggestions for VOD (when available)
+                if af:
+                    try:
+                        sug = af.suggest_vod(day.get("day_key"), sel_ev, video_id=st.session_state.get("nvid", ""), provider=st.session_state.get("nvprov", "youtube"))
+                    except Exception:
+                        sug = None
+
+                    if sug:
+                        with st.expander("💡 Sugestão Autofill para VOD", expanded=False):
+                            st.markdown(f"**vod_key:** `{sug.get('vod_key','')}`")
+                            st.markdown(f"**title_pt:** {sug.get('title_pt','')}  ")
+                            st.markdown(f"**title_en:** {sug.get('title_en','')}  ")
+                            st.markdown(f"**vod_part:** {sug.get('vod_part',1)}  ")
+                            if st.button("Aplicar sugestão VOD", key="apply_vod_sug"):
+                                st.session_state['nvk'] = sug.get('vod_key','') or ''
+                                st.session_state['nvid'] = st.session_state.get('nvid','') or st.session_state.get('nvid','')
+                                st.session_state['nvtp'] = sug.get('title_pt','') or st.session_state.get('nvtp','')
+                                st.session_state['nvte'] = sug.get('title_en','') or st.session_state.get('nvte','')
+                                st.session_state['nvpart'] = sug.get('vod_part', 1)
+                                st.rerun()
+
                 if st.button("Adicionar VOD", key="btn_add_vod"):
                     if nvk and nvid:
                         nvk_clean = _normalize_vod_key(nvk)
@@ -1126,6 +1258,27 @@ with tab_vods:
                         with sc3:
                             nsst = st.number_input("timestamp_start (s)", min_value=0, value=0, key=f"nsst_{vi}")
                             nset = st.number_input("timestamp_end (s)",   min_value=0, value=0, key=f"nset_{vi}")
+
+                        # Autofill suggestions for Segment
+                        if af:
+                            try:
+                                seg_sug = af.suggest_segment(vod, day.get("day_key"), seg_type=st.session_state.get(f"nst_{vi}", "kirtan"), event=sel_ev)
+                            except Exception:
+                                seg_sug = None
+
+                            if seg_sug:
+                                with st.expander("💡 Sugestão Autofill para Segment", expanded=False):
+                                    st.markdown(f"**segment_id:** `{seg_sug.get('segment_id','')}`")
+                                    st.markdown(f"**title_pt:** {seg_sug.get('title_pt','')}")
+                                    st.markdown(f"**timestamp_start:** {seg_sug.get('timestamp_start',0)}")
+                                    st.markdown(f"**timestamp_end:** {seg_sug.get('timestamp_end',0)}")
+                                    if st.button("Aplicar sugestão Segment", key=f"apply_seg_sug_{vi}"):
+                                        st.session_state[f"nsk_{vi}"] = seg_sug.get('segment_id','')
+                                        st.session_state[f"nstp_{vi}"] = seg_sug.get('title_pt','')
+                                        st.session_state[f"nste_{vi}"] = seg_sug.get('title_en','')
+                                        st.session_state[f"nsst_{vi}"] = int(seg_sug.get('timestamp_start',0) or 0)
+                                        st.session_state[f"nset_{vi}"] = int(seg_sug.get('timestamp_end',0) or 0)
+                                        st.rerun()
 
                         if st.button("Adicionar segment", key=f"btn_aseg_{vi}"):
                             if nsk:
@@ -1212,87 +1365,215 @@ with tab_vods:
 # TAB 3 — KATHAS + PASSAGES
 # ══════════════════════════════════════════════════════════════════════
 with tab_kathas:
-    st.markdown("### 🙏 Hari-Kathās desta Visita")
+    st.markdown("### 🙏 Hari-Kathās Vinculadas")
     st.caption(
-        "As kathas são derivadas dos segments `harikatha` dos VODs. "
-        "Para alterar o `katha_id`, edite o segment na aba 🎬 VODs."
+        "Visão consolidada de todas as Hari-Kathās referenciadas nos "
+        "segments desta visita. O `katha_id` é a FK para o CPT `vana_katha` no WordPress."
     )
 
-    # ── Varredura: coleta todos os segments harikatha da visita ──
-    hk_found: list[dict] = []
+    # ── Coletar katha_ids dos segments ────────────────────────────────
+    katha_map: dict[int, list[dict]] = {}   # katha_id → list of sources
+    hk_without_id: list[str] = []           # segment_ids sem katha_id
 
     for day in visit.get("days", []):
-        for event in day.get("events", []):
-            for vod in event.get("vods", []):
+        day_key = day.get("day_key", "")
+        for ev in day.get("events", []):
+            ev_key   = ev.get("event_key", "")
+            ev_title = ev.get("title_pt", ev_key)
+            for vod in ev.get("vods", []):
+                vod_key  = vod.get("vod_key", "")
+                video_id = vod.get("video_id", "")
+                provider = vod.get("provider", "")
                 for seg in vod.get("segments", []):
-                    if seg.get("type") == "harikatha" and seg.get("katha_id"):
-                        hk_found.append({
-                            "day_key":    day.get("day_key"),
-                            "label_pt":   day.get("label_pt"),
-                            "event_key":  event.get("event_key"),
-                            "event_time": event.get("time"),
-                            "title_pt":   event.get("title_pt"),
-                            "vod_key":    vod.get("vod_key"),
-                            "video_id":   vod.get("video_id"),
-                            "segment_id": seg.get("segment_id"),
-                            "seg_title":  seg.get("title_pt", ""),
-                            "katha_id":   seg.get("katha_id"),
-                            "ts_start":   seg.get("timestamp_start", 0),
-                            "ts_end":     seg.get("timestamp_end", 0),
-                        })
+                    if seg.get("type") != "harikatha":
+                        continue
+                    kid = seg.get("katha_id")
+                    seg_id = seg.get("segment_id", "?")
+                    source_info = {
+                        "segment_id":      seg_id,
+                        "event_key":       ev_key,
+                        "event_title":     ev_title,
+                        "day_key":         day_key,
+                        "vod_key":         vod_key,
+                        "video_id":        video_id,
+                        "provider":        provider,
+                        "timestamp_start": seg.get("timestamp_start", 0),
+                        "timestamp_end":   seg.get("timestamp_end", 0),
+                    }
+                    if kid:
+                        katha_map.setdefault(kid, []).append(source_info)
+                    else:
+                        hk_without_id.append(seg_id)
 
-    if not hk_found:
+    # ── Métricas ──────────────────────────────────────────────────────
+    km1, km2, km3 = st.columns(3)
+    km1.metric("Kathās vinculadas", len(katha_map))
+    km2.metric("Segments harikatha", len(hk_without_id) + sum(len(v) for v in katha_map.values()))
+    km3.metric("⚠️ Sem katha_id", len(hk_without_id))
+
+    # ── Alerta de segments órfãos ─────────────────────────────────────
+    if hk_without_id:
+        st.error(
+            f"❌ **{len(hk_without_id)} segment(s) `harikatha` sem `katha_id`:**\n\n"
+            f"`{'`, `'.join(hk_without_id)}`\n\n"
+            "Vá na aba 🎬 VODs e preencha o `katha_id` (WP post ID) para cada um."
+        )
+
+    if not katha_map:
         st.info(
-            "Nenhum segment `harikatha` encontrado nesta visita.\n\n"
-            "Adicione VODs com segments do tipo `harikatha` na aba 🎬 VODs."
+            "Nenhuma Hari-Kathā vinculada a esta visita. "
+            "Adicione segments com `type: harikatha` e preencha `katha_id` na aba 🎬 VODs."
         )
     else:
-        st.success(f"✅ {len(hk_found)} Hari-Kathā(s) encontrada(s) nesta visita.")
+        # ── Tentar buscar metadados do WP ─────────────────────────────
+        @st.cache_data(ttl=120, show_spinner="Buscando kathās no WP...")
+        def _fetch_katha_meta_batch(katha_ids: tuple) -> dict[int, dict]:
+            """Busca metadados de múltiplas kathās do WP."""
+            results = {}
+            try:
+                from api.wp_client import get_katha_meta
+                for kid in katha_ids:
+                    try:
+                        meta = get_katha_meta(kid)
+                        if meta:
+                            results[kid] = meta
+                    except Exception:
+                        pass
+            except ImportError:
+                pass
+            return results
 
-        for hi, hk in enumerate(hk_found):
-            ts_label = (
-                f"{hk['ts_start']//3600:02d}:"
-                f"{(hk['ts_start']%3600)//60:02d}:"
-                f"{hk['ts_start']%60:02d}"
-            ) if hk['ts_start'] else "—"
+        katha_ids_tuple = tuple(sorted(katha_map.keys()))
+        wp_metas = _fetch_katha_meta_batch(katha_ids_tuple)
 
-            with st.expander(
-                f"🙏 [{hk['katha_id']}] "
-                f"{hk['label_pt']} · "
-                f"{hk['event_time']} · "
-                f"{hk['seg_title'] or hk['segment_id']}",
-                expanded=hi == 0,
-            ):
-                c1, c2, c3 = st.columns(3)
-                c1.metric("katha_id",   hk["katha_id"])
-                c2.metric("Início",     ts_label)
-                c3.metric("segment_id", hk["segment_id"])
+        # ── Listar cada kathā ─────────────────────────────────────────
+        for kid in sorted(katha_map.keys()):
+            sources = katha_map[kid]
+            wp_meta = wp_metas.get(kid)
 
-                st.markdown(
-                    f"**Evento:** `{hk['event_key']}`  \n"
-                    f"**VOD:** `{hk['vod_key']}`  \n"
-                    f"**Segment:** `{hk['segment_id']}`"
-                )
+            # Header
+            if wp_meta:
+                title_display = wp_meta.get("title", f"Kathā #{kid}")
+                scripture     = wp_meta.get("scripture", "")
+                language      = wp_meta.get("language", "")
+                header = f"🙏 #{kid} · {title_display}"
+                if scripture:
+                    header += f" · 📖 {scripture}"
+                if language:
+                    header += f" ({language})"
+            else:
+                header = f"🙏 #{kid} · {len(sources)} source(s)"
 
-                if hk.get("video_id") and hk.get("ts_start"):
-                    yt_url = f"https://youtu.be/{hk['video_id']}?t={hk['ts_start']}"
-                    st.link_button("▶ Verificar no YouTube", yt_url)
+            with st.expander(header, expanded=True):
 
-                st.divider()
+                # ── Card de metadados WP ──────────────────────────────
+                if wp_meta:
+                    mc1, mc2, mc3, mc4 = st.columns(4)
+                    mc1.metric("Título", wp_meta.get("title", "—")[:30])
+                    mc2.metric("Escritura", wp_meta.get("scripture", "—"))
+                    mc3.metric("Idioma", wp_meta.get("language", "—"))
+                    mc4.metric("Passages", wp_meta.get("total_passages", "?"))
 
-                st.markdown("**Passages** — editadas no WordPress CPT")
-                st.info(
-                    f"📖 Para editar as passages desta katha, acesse:\n\n"
-                    f"`/wp-admin/post.php?action=edit&post={hk['katha_id']}`"
-                )
-
-                wp_base = st.secrets.get("wordpress", {}).get("api_base", "")
-                if wp_base:
-                    wp_edit_url = (
-                        wp_base.replace("/wp-json", "")
-                        + f"/wp-admin/post.php?action=edit&post={hk['katha_id']}"
+                    permalink = wp_meta.get("permalink")
+                    if permalink:
+                        st.link_button("🌐 Ver no WordPress", permalink)
+                else:
+                    st.warning(
+                        f"⚠️ Kathā **#{kid}** não encontrada no WordPress. "
+                        "Verifique se o post existe e está publicado, ou se "
+                        "a função `get_katha_meta` está implementada no `wp_client`."
                     )
-                    st.link_button(f"✏️ Editar Katha #{hk['katha_id']} no WP", wp_edit_url)
+
+                # ── Tabela de sources ─────────────────────────────────
+                st.markdown("**📍 Sources (segments):**")
+
+                for si, src in enumerate(sources):
+                    sc1, sc2, sc3, sc4 = st.columns([2, 2, 2, 1])
+                    sc1.markdown(f"**`{src['segment_id']}`**")
+                    sc2.markdown(
+                        f"📅 `{src['day_key']}` · "
+                        f"`{src['event_key']}`"
+                    )
+
+                    # Timestamp como link para YouTube
+                    ts = src["timestamp_start"]
+                    te = src["timestamp_end"]
+                    ts_fmt = f"{ts // 3600}:{(ts % 3600) // 60:02d}:{ts % 60:02d}" if ts else "0:00:00"
+                    te_fmt = f"{te // 3600}:{(te % 3600) // 60:02d}:{te % 60:02d}" if te else "0:00:00"
+
+                    if src["provider"] == "youtube" and src["video_id"]:
+                        yt_link = f"https://www.youtube.com/watch?v={src['video_id']}&t={ts}s"
+                        sc3.markdown(f"⏱️ [{ts_fmt} → {te_fmt}]({yt_link})")
+                    else:
+                        sc3.markdown(f"⏱️ {ts_fmt} → {te_fmt}")
+
+                    sc4.markdown(f"`{src['vod_key']}`")
+
+                # ── Verificação de integridade ────────────────────────
+                events_with_this_katha = set(s["event_key"] for s in sources)
+                if len(events_with_this_katha) > 1:
+                    st.info(
+                        f"ℹ️ Esta kathā aparece em **{len(events_with_this_katha)} evento(s)**: "
+                        f"`{'`, `'.join(events_with_this_katha)}`. "
+                        "Isso é válido para HK fragmentado (R-HK-6)."
+                    )
+
+                for ev_key in events_with_this_katha:
+                    other_kathas_in_event = set()
+                    for other_kid, other_sources in katha_map.items():
+                        if other_kid == kid:
+                            continue
+                        for os_ in other_sources:
+                            if os_["event_key"] == ev_key:
+                                other_kathas_in_event.add(other_kid)
+                    if other_kathas_in_event:
+                        st.warning(
+                            f"⚠️ Evento `{ev_key}` tem **múltiplas kathās**: "
+                            f"#{kid} e #{', #'.join(str(k) for k in other_kathas_in_event)}. "
+                            "Verifique se deveria ser eventos separados (R-HK-3)."
+                        )
+
+    # ── Resumo para publicação ────────────────────────────────────────
+    st.divider()
+    st.markdown("### 📋 Checklist Kathā")
+
+    checks = []
+
+    # 1. Todos os harikatha têm katha_id?
+    if hk_without_id:
+        checks.append(f"❌ {len(hk_without_id)} segment(s) harikatha sem `katha_id`")
+    else:
+        total_hk = sum(len(v) for v in katha_map.values())
+        checks.append(f"✅ Todos os {total_hk} segments harikatha têm `katha_id`")
+
+    # 2. Kathās existem no WP?
+    missing_wp = [kid for kid in katha_map if kid not in wp_metas] if katha_map else []
+    if missing_wp:
+        checks.append(
+            f"⚠️ {len(missing_wp)} kathā(s) não encontrada(s) no WP: "
+            f"#{', #'.join(str(k) for k in missing_wp)}"
+        )
+    elif katha_map:
+        checks.append(f"✅ Todas as {len(katha_map)} kathā(s) verificadas no WP")
+
+    # 3. Schema 6.2 compliance
+    schema_v = visit.get("schema_version", "")
+    has_legacy_kathas = False
+    for day in visit.get("days", []):
+        for ev in day.get("events", []):
+            if ev.get("kathas"):
+                has_legacy_kathas = True
+                break
+
+    if schema_v == "6.2" and has_legacy_kathas:
+        checks.append("❌ Schema 6.2 mas evento ainda contém `kathas[]` — migração incompleta")
+    elif schema_v == "6.2":
+        checks.append("✅ Schema 6.2 — `kathas[]` removido dos eventos (R-HK-4)")
+    elif schema_v == "6.1" and katha_map:
+        checks.append("ℹ️ Schema 6.1 — considere migrar para 6.2 na aba 📋 Visita")
+
+    for c in checks:
+        st.markdown(c)
 
 
 # ══════════════════════════════════════════════════════════════════════
