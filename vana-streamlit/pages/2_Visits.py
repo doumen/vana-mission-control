@@ -1582,6 +1582,23 @@ with tab_kathas:
 with tab_galeria:
     st.markdown("### 🖼️ Fotos e Sangha")
 
+    @st.cache_resource
+    def _get_r2():
+        try:
+            r2_cfg = st.secrets.get("r2", {})
+            from services.r2_service import R2Service
+            return R2Service(
+                endpoint    = r2_cfg.get("endpoint", ""),
+                access_key  = r2_cfg.get("access_key", ""),
+                secret_key  = r2_cfg.get("secret_key", ""),
+                bucket      = r2_cfg.get("bucket", ""),
+                public_base = r2_cfg.get("public_base", ""),
+            )
+        except Exception:
+            return None
+
+    r2 = _get_r2()
+
     days = visit.get("days", [])
     if not days:
         st.info("Adicione dias primeiro.")
@@ -1602,30 +1619,145 @@ with tab_galeria:
             st.markdown("#### 📸 Photos")
             photos = gsel_ev.setdefault("photos", [])
 
-            with st.expander("➕ Adicionar Photo"):
-                ph1, ph2 = st.columns(2)
-                with ph1:
-                    nphk  = st.text_input("photo_key (ph-YYYYMMDD-NNN)", key="nphk")
-                    nphfu = st.text_input("full_url", key="nphfu")
-                with ph2:
-                    nphth = st.text_input("thumb_url", key="nphth")
-                    nphcp = st.text_input("caption_pt", key="nphcp")
-                    nphce = st.text_input("caption_en", key="nphce")
-                    npha  = st.text_input("author", key="npha")
+            with st.expander("➕ Adicionar foto"):
+                upload_mode = st.radio(
+                    "Origem da foto",
+                    ["📎 Upload do computador", "🔗 Importar de URL", "🔗 URL manual (sem CDN)"],
+                    key=f"upload_mode_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}",
+                    horizontal=True,
+                )
 
-                if st.button("Adicionar Photo", key="btn_addph"):
-                    if nphk:
-                        photos.append({
-                            "photo_key":  nphk,
-                            "thumb_url":  nphth,
-                            "full_url":   nphfu,
-                            "caption_pt": nphcp,
-                            "caption_en": nphce,
-                            "author":     npha,
-                        })
-                        gsel_ev["photos"] = photos
-                        _save(gh, visit_ref, visit, editor_name or "anon", f"photo {nphk}: adicionada")
-                        st.rerun()
+                new_photo_cap = st.text_input("Legenda (PT)", key=f"new_photo_cap_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+                np_c1, np_c2 = st.columns(2)
+                new_photo_wg    = np_c1.checkbox("Com Gurudeva", key=f"new_photo_wg_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+                new_photo_cover = np_c2.checkbox("Candidata a capa", key=f"new_photo_cover_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+
+                # MODE 1: Upload from client
+                if upload_mode == "📎 Upload do computador":
+                    uploaded_file = st.file_uploader(
+                        "Selecione a foto",
+                        type=["jpg", "jpeg", "png", "webp", "avif"],
+                        key=f"file_upload_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}",
+                    )
+
+                    if uploaded_file:
+                        st.image(uploaded_file, width=300, caption=uploaded_file.name)
+                        st.caption(f"📐 {uploaded_file.size / 1024:.0f} KB · `{uploaded_file.type}`")
+                        convert_webp = st.checkbox("Converter para WebP (recomendado)", value=True, key=f"convert_webp_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+
+                        if st.button("☁️ Enviar para CDN", key=f"btn_upload_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}"):
+                            if not r2:
+                                st.error("❌ R2 não configurado. Verifique `[r2]` em secrets.toml")
+                            else:
+                                with st.spinner("Enviando para CDN..."):
+                                    try:
+                                        img_bytes = uploaded_file.getvalue()
+                                        ct = uploaded_file.type or "image/jpeg"
+                                        if convert_webp and ct != "image/webp":
+                                            img_bytes, ct = r2._convert_to_webp(img_bytes)
+
+                                        result = r2.upload_photo(
+                                            visit_ref=visit_ref,
+                                            day_key=gsel_day.get("day_key", ""),
+                                            img_bytes=img_bytes,
+                                            content_type=ct,
+                                            filename_hint=uploaded_file.name,
+                                        )
+
+                                        photos.append({
+                                            "url":             result["url"],
+                                            "r2_key":          result["r2_key"],
+                                            "caption_pt":      new_photo_cap,
+                                            "caption_en":      "",
+                                            "with_gurudeva":   new_photo_wg,
+                                            "cover_candidate": new_photo_cover,
+                                            "credit":          "",
+                                            "provider":        "r2",
+                                            "size_bytes":      result["size"],
+                                            "uploaded_at":     result["uploaded_at"],
+                                            "source":          "upload",
+                                        })
+                                        gsel_ev["photos"] = photos
+                                        _save(gh, visit_ref, visit, editor_name or "anon", f"photo: uploaded to CDN ({result['hash']})")
+                                        st.success(f"✅ Foto enviada! ({result['size'] / 1024:.0f} KB)")
+                                        st.experimental_rerun()
+
+                                    except Exception as e:
+                                        st.error(f"❌ Erro no upload: {e}")
+
+                # MODE 2: Import from URL
+                elif upload_mode == "🔗 Importar de URL":
+                    source_url = st.text_input("URL da foto original", key=f"import_url_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}", placeholder="https://example.com/photo.jpg")
+
+                    if source_url:
+                        try:
+                            st.image(source_url, width=300, caption="Preview da origem")
+                        except Exception:
+                            st.warning("⚠️ Não foi possível carregar preview.")
+
+                        import_c1, import_c2 = st.columns(2)
+                        convert_webp_url = import_c1.checkbox("Converter para WebP", value=True, key=f"convert_webp_url_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+                        max_mb = import_c2.number_input("Tamanho máx (MB)", value=10.0, min_value=1.0, max_value=50.0, key=f"max_mb_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
+
+                        if st.button("☁️ Importar para CDN", key=f"btn_import_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}"):
+                            if not r2:
+                                st.error("❌ R2 não configurado.")
+                            else:
+                                with st.spinner("Baixando e enviando para CDN..."):
+                                    try:
+                                        result = r2.upload_photo_from_url(
+                                            source_url=source_url,
+                                            visit_ref=visit_ref,
+                                            day_key=gsel_day.get("day_key", ""),
+                                            convert_webp=convert_webp_url,
+                                            max_size_mb=max_mb,
+                                        )
+
+                                        photos.append({
+                                            "url":             result["url"],
+                                            "r2_key":          result["r2_key"],
+                                            "source_url":      source_url,
+                                            "caption_pt":      new_photo_cap,
+                                            "caption_en":      "",
+                                            "with_gurudeva":   new_photo_wg,
+                                            "cover_candidate": new_photo_cover,
+                                            "credit":          "",
+                                            "provider":        "r2",
+                                            "size_bytes":      result["size"],
+                                            "uploaded_at":     result["uploaded_at"],
+                                            "source":          "import_url",
+                                        })
+                                        gsel_ev["photos"] = photos
+                                        _save(gh, visit_ref, visit, editor_name or "anon", f"photo: imported from URL to CDN")
+                                        st.success("✅ Importada para CDN")
+                                        st.experimental_rerun()
+
+                                    except ValueError as e:
+                                        st.error(f"❌ {e}")
+                                    except Exception as e:
+                                        st.error(f"❌ Erro na importação: {e}")
+
+                # MODE 3: Manual URL (no CDN)
+                else:
+                    new_photo_url = st.text_input("URL da foto", key=f"manual_url_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}", placeholder="https://...")
+
+                    if st.button("Adicionar referência", key=f"btn_add_photo_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}"):
+                        if new_photo_url:
+                            photos.append({
+                                "url":             new_photo_url,
+                                "caption_pt":      new_photo_cap,
+                                "caption_en":      "",
+                                "with_gurudeva":   new_photo_wg,
+                                "cover_candidate": new_photo_cover,
+                                "credit":          "",
+                                "provider":        "external",
+                                "source":          "manual_url",
+                            })
+                            gsel_ev["photos"] = photos
+                            _save(gh, visit_ref, visit, editor_name or "anon", "photo: added external URL")
+                            st.experimental_rerun()
+                        else:
+                            st.warning("URL é obrigatória.")
 
             # Grid de fotos
             if photos:
@@ -1643,10 +1775,19 @@ with tab_galeria:
                             ph["caption_en"] = st.text_input("caption_en", value=ph.get("caption_en", ""), key=f"phce_{phi}")
                             ph["author"]     = st.text_input("author",     value=ph.get("author", ""),     key=f"pha_{phi}")
                             if st.button("🗑️ Remover", key=f"del_ph_{phi}"):
-                                photos.pop(phi)
+                                removed = photos.pop(phi)
+                                # If photo was stored in R2, try to delete from bucket
+                                r2_key = removed.get("r2_key", "")
+                                if r2_key and r2:
+                                    try:
+                                        r2.delete_photo(r2_key)
+                                        st.toast(f"🗑️ Deletada do CDN: `{r2_key}`")
+                                    except Exception as e:
+                                        st.warning(f"⚠️ Foto removida do visit.json mas erro ao deletar do CDN: {e}")
+
                                 gsel_ev["photos"] = photos
                                 _save(gh, visit_ref, visit, editor_name or "anon", "photo: removida")
-                                st.rerun()
+                                st.experimental_rerun()
 
             if st.button("💾 Salvar Photos", key="save_photos"):
                 _save(gh, visit_ref, visit, editor_name or "anon", "photos: atualizadas")

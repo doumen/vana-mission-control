@@ -445,3 +445,236 @@ def list_visits_wp(per_page: int = 100) -> list[dict]:
 
     results.sort(key=lambda x: x["date_start"], reverse=True)
     return results
+
+
+# ══════════════════════════════════════════════════════════════════════
+# KATHAS — leitura do CPT vana_katha via WP REST
+# ══════════════════════════════════════════════════════════════════════
+
+# Meta keys usadas pelo plugin Vana para o CPT vana_katha.
+# Ajuste se o plugin usar nomes diferentes.
+_KATHA_META_KEYS = {
+    "scripture":       "_vana_scripture",        # ex: "SB 10.31"
+    "language":        "_vana_language",          # ex: "hi", "en", "pt"
+    "katha_ref":       "_vana_katha_ref",         # ex: "katha:sb-10-31-gopi-gita-navadvipa-2026"
+    "visit_ref":       "_vana_visit_ref",         # ex: "navadvipa-2026-feb"
+    "total_passages":  "_vana_total_passages",    # ex: 42
+    "date_recorded":   "_vana_date_recorded",     # ex: "2026-02-22"
+}
+
+
+def get_katha_meta(katha_id: int) -> Optional[dict]:
+    """
+    Busca metadados de uma única kathā pelo WP post ID.
+
+    Returns:
+        {id, title, scripture, language, katha_ref, visit_ref,
+         total_passages, date_recorded, permalink, wp_status}
+        ou None se não encontrada.
+    """
+    url = f"{WP_BASE_URL}/vana_katha/{katha_id}"
+    params = {"_fields": "id,title,status,slug,link,meta"}
+
+    try:
+        resp = requests.get(url, auth=WP_AUTH, params=params, timeout=15)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+    except requests.RequestException:
+        return None
+
+    item = resp.json()
+    meta = item.get("meta", {})
+
+    return {
+        "id":              item.get("id"),
+        "title":           item.get("title", {}).get("rendered", f"Kathā #{katha_id}"),
+        "scripture":       meta.get(_KATHA_META_KEYS["scripture"], ""),
+        "language":        meta.get(_KATHA_META_KEYS["language"], ""),
+        "katha_ref":       meta.get(_KATHA_META_KEYS["katha_ref"], ""),
+        "visit_ref":       meta.get(_KATHA_META_KEYS["visit_ref"], ""),
+        "total_passages":  meta.get(_KATHA_META_KEYS["total_passages"], None),
+        "date_recorded":   meta.get(_KATHA_META_KEYS["date_recorded"], ""),
+        "permalink":       item.get("link", ""),
+        "wp_status":       item.get("status", ""),
+        "slug":            item.get("slug", ""),
+    }
+
+
+def get_katha_meta_batch(katha_ids: list[int]) -> dict[int, dict]:
+    """
+    Busca metadados de múltiplas kathās em uma única request (via include[]).
+
+    Limitação WP REST: máx ~100 IDs por request. Para listas maiores,
+    fazer paginação manual.
+    """
+    if not katha_ids:
+        return {}
+
+    # Dedupe e limita
+    unique_ids = list(set(katha_ids))[:100]
+
+    url = f"{WP_BASE_URL}/vana_katha"
+    params = {
+        "include":  ",".join(str(i) for i in unique_ids),
+        "per_page": len(unique_ids),
+        "_fields":  "id,title,status,slug,link,meta",
+    }
+
+    try:
+        resp = requests.get(url, auth=WP_AUTH, params=params, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException:
+        # Fallback: buscar uma a uma
+        results = {}
+        for kid in unique_ids:
+            meta = get_katha_meta(kid)
+            if meta:
+                results[kid] = meta
+        return results
+
+    results = {}
+    for item in resp.json():
+        meta = item.get("meta", {})
+        kid = item.get("id")
+        if kid is None:
+            continue
+
+        results[kid] = {
+            "id":              kid,
+            "title":           item.get("title", {}).get("rendered", f"Kathā #{kid}"),
+            "scripture":       meta.get(_KATHA_META_KEYS["scripture"], ""),
+            "language":        meta.get(_KATHA_META_KEYS["language"], ""),
+            "katha_ref":       meta.get(_KATHA_META_KEYS["katha_ref"], ""),
+            "visit_ref":       meta.get(_KATHA_META_KEYS["visit_ref"], ""),
+            "total_passages":  meta.get(_KATHA_META_KEYS["total_passages"], None),
+            "date_recorded":   meta.get(_KATHA_META_KEYS["date_recorded"], ""),
+            "permalink":       item.get("link", ""),
+            "wp_status":       item.get("status", ""),
+            "slug":            item.get("slug", ""),
+        }
+
+    return results
+
+
+def list_kathas_for_visit(visit_ref: str) -> list[dict]:
+    """
+    Lista todas as kathās vinculadas a uma visita específica.
+
+    Busca via meta query: _vana_visit_ref = visit_ref.
+    Se o plugin não suportar meta query, faz fallback listando todas
+    e filtrando client-side.
+    """
+    # Estratégia 1: meta_query (requer que o plugin exposa o meta como filterable)
+    url = f"{WP_BASE_URL}/vana_katha"
+    params = {
+        "per_page":  100,
+        "_fields":   "id,title,status,slug,link,meta",
+        "orderby":   "date",
+        "order":     "asc",
+    }
+
+    # Tentar meta_query via query param (depende do plugin registrar o meta como queryable)
+    # Formato: ?meta_key=_vana_visit_ref&meta_value=navadvipa-2026-feb
+    if visit_ref:
+        params["meta_key"]   = _KATHA_META_KEYS["visit_ref"]
+        params["meta_value"] = visit_ref
+
+    try:
+        resp = requests.get(url, auth=WP_AUTH, params=params, timeout=20)
+
+        # Se WP retorna 400 (meta_query não suportada), fallback
+        if resp.status_code == 400:
+            return _list_kathas_fallback(visit_ref)
+
+        resp.raise_for_status()
+        items = resp.json()
+
+    except requests.RequestException:
+        return _list_kathas_fallback(visit_ref)
+
+    return _parse_katha_list(items)
+
+
+def _list_kathas_fallback(visit_ref: str) -> list[dict]:
+    """
+    Fallback: lista TODAS as kathās e filtra client-side por visit_ref.
+    Menos eficiente, mas funciona sem meta_query no REST.
+    """
+    url = f"{WP_BASE_URL}/vana_katha"
+    params = {
+        "per_page": 100,
+        "_fields":  "id,title,status,slug,link,meta",
+        "orderby":  "date",
+        "order":    "asc",
+    }
+
+    try:
+        resp = requests.get(url, auth=WP_AUTH, params=params, timeout=20)
+        resp.raise_for_status()
+        all_items = resp.json()
+    except requests.RequestException:
+        return []
+
+    # Filtrar client-side
+    filtered = []
+    for item in all_items:
+        meta = item.get("meta", {})
+        item_visit_ref = meta.get(_KATHA_META_KEYS["visit_ref"], "")
+        if item_visit_ref == visit_ref:
+            filtered.append(item)
+
+    return _parse_katha_list(filtered)
+
+
+def _parse_katha_list(items: list) -> list[dict]:
+    """Converte items crus do WP REST para o formato padronizado."""
+    results = []
+    for item in items:
+        meta = item.get("meta", {})
+        kid = item.get("id")
+        if kid is None:
+            continue
+
+        results.append({
+            "id":              kid,
+            "title":           item.get("title", {}).get("rendered", f"Kathā #{kid}"),
+            "scripture":       meta.get(_KATHA_META_KEYS["scripture"], ""),
+            "language":        meta.get(_KATHA_META_KEYS["language"], ""),
+            "katha_ref":       meta.get(_KATHA_META_KEYS["katha_ref"], ""),
+            "visit_ref":       meta.get(_KATHA_META_KEYS["visit_ref"], ""),
+            "total_passages":  meta.get(_KATHA_META_KEYS["total_passages"], None),
+            "date_recorded":   meta.get(_KATHA_META_KEYS["date_recorded"], ""),
+            "permalink":       item.get("link", ""),
+            "wp_status":       item.get("status", ""),
+            "slug":            item.get("slug", ""),
+        })
+
+    # Ordenar por date_recorded
+    results.sort(key=lambda x: x.get("date_recorded") or "")
+    return results
+
+
+def list_kathas_all(per_page: int = 100) -> list[dict]:
+    """
+    Lista TODAS as kathās publicadas no WP.
+    Útil para diagnóstico e para popular dropdowns sem filtro de visit.
+
+    Returns:
+        [{id, title, scripture, language, ...}, ...]
+    """
+    url = f"{WP_BASE_URL}/vana_katha"
+    params = {
+        "per_page": per_page,
+        "_fields":  "id,title,status,slug,link,meta",
+        "orderby":  "date",
+        "order":    "desc",
+    }
+
+    try:
+        resp = requests.get(url, auth=WP_AUTH, params=params, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException:
+        return []
+
+    return _parse_katha_list(resp.json())
