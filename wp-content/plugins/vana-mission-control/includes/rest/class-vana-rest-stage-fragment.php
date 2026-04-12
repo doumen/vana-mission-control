@@ -33,18 +33,21 @@ class Vana_REST_Stage_Fragment {
                 ],
                 'item_id' => [
                     'required'          => false,
-                    'default'           => 0,
+                    'default'           => '',
                     'validate_callback' => function ($v, WP_REST_Request $request) {
-                        if ((string) $request->get_param('item_type') === 'event') {
+                        $type = (string) $request->get_param('item_type');
+                        if ( $type === 'event' ) {
                             return is_string($v) || is_numeric($v);
                         }
-                        return is_numeric($v);
+                        // vod: aceita video_id string (11 chars) OU post ID inteiro
+                        return strlen(trim((string)$v)) > 0;
                     },
                     'sanitize_callback' => function ($v, WP_REST_Request $request) {
-                        if ((string) $request->get_param('item_type') === 'event') {
+                        $type = (string) $request->get_param('item_type');
+                        if ( $type === 'event' || ! is_numeric($v) ) {
                             return sanitize_text_field((string) $v);
                         }
-                        return absint($v);
+                        return (string) absint($v);
                     },
                 ],
                 'item_type' => [
@@ -87,8 +90,20 @@ class Vana_REST_Stage_Fragment {
 
     // ─────────────────────────────────────────────────────────
     public static function handle(WP_REST_Request $request): WP_REST_Response {
+        // Prevent LiteSpeed from serving cached HTML for this REST route.
+        // This is critical because LiteSpeed may cache /wp-json responses
+        // and serve stale fragment HTML. Ensure the endpoint always executes.
+        if ( function_exists( 'do_action' ) ) {
+            do_action( 'litespeed_control_set_nocache', 'vana_stage_fragment' );
+        }
+        // Standard no-cache headers for other caches and proxies
+        if ( function_exists( 'nocache_headers' ) ) {
+            nocache_headers();
+        }
+        header( 'X-LiteSpeed-Cache-Control: no-cache' );
+
         $visit_id  = (int)    $request->get_param('visit_id');
-        $item_id   = (int)    $request->get_param('item_id');
+        $item_id   = (string) $request->get_param('item_id');
         $item_type = (string) $request->get_param('item_type');
         $lang      = (string) $request->get_param('lang');
 
@@ -126,7 +141,7 @@ class Vana_REST_Stage_Fragment {
         }
 
         // ── Valida item_id obrigatório para outros tipos ──────
-        if ($item_id <= 0) {
+        if (empty($item_id)) {
             return self::html_response(
                 '<div class="vana-stage-fragment-error">item_id inválido.</div>',
                 400
@@ -143,14 +158,78 @@ class Vana_REST_Stage_Fragment {
             );
         }
 
-        // Expõe params via $_GET para o template PHP puro
-        // (pattern idêntico ao _bootstrap.php)
-        $_GET['visit_id']  = $visit_id;
-        $_GET['item_id']   = $item_id;
-        $_GET['item_type'] = $item_type;
-        $_GET['lang']      = $lang;
+        // ── Resolve vod_data (video_id string OU post ID int) ──────
+        $vod_data = [];
 
+        // Caso 1: video_id do YouTube (string não-numérica)
+        if ( ! is_numeric( $item_id ) || strlen( (string) $item_id ) === 11 ) {
+            // Tenta encontrar post com meta _video_id
+            $posts = get_posts([
+                'post_type'      => [ 'vana_katha', 'any' ],
+                'meta_query'     => [[
+                    'key'     => '_video_id',
+                    'value'   => $item_id,
+                    'compare' => '=',
+                ]],
+                'posts_per_page' => 1,
+                'fields'         => 'ids',
+            ]);
+            if ( ! empty( $posts ) ) {
+                $katha_data = get_post_meta( $posts[0], '_vana_katha_data', true );
+                $vod_data   = is_array( $katha_data ) ? $katha_data : [];
+            }
+
+            // Fallback: busca no timeline da visita
+            if ( empty( $vod_data ) ) {
+                $timeline = json_decode( (string) get_post_meta( $visit_id, '_vana_visit_timeline_json', true ), true ) ?? [];
+                $timeline = is_array( $timeline ) ? $timeline : [];
+                $days = $timeline['days'] ?? $timeline;
+                foreach ( $days as $day ) {
+                    foreach ( $day['events'] ?? [] as $event ) {
+                        foreach ( $event['vods'] ?? [] as $vod ) {
+                            if ( ( $vod['video_id'] ?? '' ) === $item_id ) {
+                                $vod_data = [
+                                    'video_id' => $vod['video_id'],
+                                    'provider' => $vod['provider'] ?? 'youtube',
+                                    'title'    => [
+                                        'pt' => $vod['title_pt'] ?? $vod['title']['pt'] ?? '',
+                                        'en' => $vod['title_en'] ?? $vod['title']['en'] ?? '',
+                                    ],
+                                    'segments' => $vod['segments'] ?? [],
+                                ];
+                                break 3;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Último fallback: monta mínimo para o player funcionar
+            if ( empty( $vod_data ) ) {
+                $vod_data = [
+                    'video_id' => (string) $item_id,
+                    'provider' => 'youtube',
+                    'title'    => [ 'pt' => '', 'en' => '' ],
+                    'segments' => [],
+                ];
+            }
+        }
+
+        // Caso 2: post ID numérico (comportamento original)
+        if ( empty( $vod_data ) && is_numeric( $item_id ) && (int) $item_id > 0 ) {
+            $katha_data = get_post_meta( (int) $item_id, '_vana_katha_data', true );
+            $vod_data   = is_array( $katha_data ) ? $katha_data : [];
+        }
+
+        // ── Renderiza via ob_start + extract (sem poluir $_GET) ──
         ob_start();
+        extract( [
+            'visit_id'  => $visit_id,
+            'item_id'   => $item_id,
+            'item_type' => $item_type,
+            'lang'      => $lang,
+            'vod_data'  => $vod_data,
+        ] );
         include $fragment_path;
         $html = (string) ob_get_clean();
 
@@ -223,43 +302,106 @@ class Vana_REST_Stage_Fragment {
     // ─────────────────────────────────────────────────────────
     // Restore: re-renderiza o stage.php original da visita
     // ─────────────────────────────────────────────────────────
-    private static function render_restore(int $visit_id, string $lang): string {
-        $stage_path = VANA_MC_PATH . 'templates/visit/parts/stage.php';
-        if (! file_exists($stage_path)) return '';
+	private static function render_restore(int $visit_id, string $lang): string {
+		$stage_path = VANA_MC_PATH . 'templates/visit/parts/stage.php';
+		if ( ! file_exists( $stage_path ) ) {
+			return '';
+		}
 
-        // Bootstrap mínimo — espelha o que o _bootstrap_shim.php faz
-        // Use canonical helper for timezone and canonical fields when possible
-        require_once __DIR__ . '/../visit-stage-bootstrap.php';
-        $bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'lang' => $lang ] );
+		require_once __DIR__ . '/../visit-stage-bootstrap.php';
+		$bootstrap = vana_visit_stage_bootstrap( $visit_id, [ 'lang' => $lang ] );
 
-        $visit_meta = get_post_meta($visit_id, '_vana_visit_data', true);
-        $visit_data = is_array($visit_meta) ? $visit_meta : [];
+		$payload = get_post_meta( $visit_id, '_vana_visit_data', true );
+		if ( ! is_array( $payload ) ) {
+			$payload = [];
+		}
 
-        // Pega o primeiro dia como default
-        $days       = is_array($visit_data['days'] ?? null) ? $visit_data['days'] : [];
-        $active_day = ! empty($days) ? $days[0] : [];
+		$visit_tz = isset( $bootstrap['visit_tz'] ) && is_string( $bootstrap['visit_tz'] ) && $bootstrap['visit_tz'] !== ''
+			? $bootstrap['visit_tz']
+			: 'UTC';
 
-        $active_day_date  = (string) ($active_day['date'] ?? '');
-        $visit_tz         = (string) ( $bootstrap['visit_tz'] ?? ( $visit_data['timezone'] ?? 'UTC' ) );
-        $active_event     = $bootstrap['active_event'] ?? null;
-        $active_vod       = [];
-        $vod_list         = [];
-        $vod_count        = 0;
+		$visit_status    = $bootstrap['visit_status'] ?? '';
+		$visit_city_ref  = $bootstrap['visit_city_ref'] ?? 0;
+		$active_day      = $bootstrap['active_day'] ?? null;
+		$active_day_date = $bootstrap['active_day_date'] ?? '';
+		$active_event    = $bootstrap['active_event'] ?? null;
+
+        // Reconstrói vod_list a partir do active_event (schema 5.1 canônico)
+        // item_id = video_id string (enviado pelo schedule.php via hx-vals)
+        // vod_key = vod_id_single legado
+
+        $_rest_active_event = $bootstrap['active_event'] ?? null;
+        $vod_list = [];
+
+        if ( is_array( $_rest_active_event ) ) {
+            $_ek = (string) ( $_rest_active_event['event_key'] ?? $bootstrap['active_day_date'] ?? '' );
+            foreach ( (array) ( $_rest_active_event['media']['vods'] ?? [] ) as $_v ) {
+                if ( is_array( $_v ) ) {
+                    $_v['_event_key'] = $_ek;
+                    $vod_list[] = $_v;
+                }
+            }
+            unset( $_ek, $_v );
+        }
+
+        // Fallback legado: payload traz vod_list pré-montada
+        if ( empty( $vod_list ) && isset( $payload['vod_list'] ) && is_array( $payload['vod_list'] ) ) {
+            $vod_list = $payload['vod_list'];
+        }
+
+        $vod_count = count( $vod_list );
+
+        // Resolve índice: item_id (P1) > vod_key (P2) > 0 (P3)
+        $_req_item = (string) ( $payload['item_id']  ?? '' );
+        $_req_key  = (string) ( $payload['vod_key']  ?? '' );
+
         $active_vod_index = 0;
-        $active_event     = $bootstrap['active_event'] ?? null;
 
-        // phpcs:disable WordPress.PHP.DontExtract
-        extract(compact(
-            'lang', 'visit_id', 'visit_tz',
-            'active_day', 'active_day_date',
-            'active_vod', 'vod_list', 'vod_count', 'active_vod_index'
-        ));
-        // phpcs:enable
+        if ( $_req_item !== '' ) {
+            foreach ( $vod_list as $_vi => $_vod ) {
+                if (
+                    ( (string) ( $_vod['video_id'] ?? '' ) === $_req_item ) ||
+                    ( (string) ( $_vod['url']      ?? '' ) === $_req_item )
+                ) {
+                    $active_vod_index = $_vi;
+                    break;
+                }
+            }
+        } elseif ( $_req_key !== '' ) {
+            foreach ( $vod_list as $_vi => $_vod ) {
+                if ( (string) ( $_vod['video_id'] ?? '' ) === $_req_key ) {
+                    $active_vod_index = $_vi;
+                    break;
+                }
+            }
+        }
+        unset( $_rest_active_event, $_req_item, $_req_key, $_vi, $_vod );
 
-        ob_start();
-        include $stage_path;
-        return (string) ob_get_clean();
-    }
+        $active_vod = ( $vod_count > 0 && isset( $vod_list[ $active_vod_index ] ) )
+            ? $vod_list[ $active_vod_index ]
+            : ( is_array( $payload['active_vod'] ?? null ) ? $payload['active_vod'] : [] );
+
+		// phpcs:disable WordPress.PHP.DontExtract
+		extract( compact(
+			'lang',
+			'visit_id',
+			'visit_tz',
+			'visit_city_ref',
+			'visit_status',
+			'active_day',
+			'active_day_date',
+			'active_event',
+			'active_vod',
+			'vod_list',
+			'vod_count',
+			'active_vod_index'
+		) );
+		// phpcs:enable
+
+		ob_start();
+		include $stage_path;
+		return (string) ob_get_clean();
+}
 
     // ─────────────────────────────────────────────────────────
     // Helper — WP_REST_Response com Content-Type: text/html

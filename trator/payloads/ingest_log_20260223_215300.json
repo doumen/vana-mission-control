@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-02-23T21:53:00.711304",
+  "visit_id": "vrindavan-2026-02",
+  "tour_key": "tour:vrindavan-2026",
+  "result": {
+    "success": false,
+    "message": "Schema não suportado: schema_version deve ser 3.1",
+    "data": null
+  }
+}

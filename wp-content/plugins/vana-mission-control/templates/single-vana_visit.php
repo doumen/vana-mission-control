@@ -29,6 +29,10 @@ the_post();
 
 require_once VANA_MC_PATH . 'templates/visit/_bootstrap.php';
 
+error_log( '[single-vana_visit] After _bootstrap.php. $days count: ' . count($days ?? []) );
+error_log( '[single-vana_visit] $timeline keys: ' . implode(',', array_keys($timeline ?? [])) );
+error_log( '[single-vana_visit] $timeline[days] count: ' . count($timeline['days'] ?? []) );
+
 /* ============================================================
    3. METAS DE APRESENTAÇÃO (OG / PWA)
    ============================================================ */
@@ -45,28 +49,39 @@ $timeline_hash   = (string) get_post_meta( $post_id, '_vana_timeline_hash',     
 
 
 /* ============================================================
-  4. DADOS DE VISITA
+  4. DADOS DE VISITA (populated by _bootstrap.php)
   ============================================================ */
 
+// Note: $timeline, $days, $lang, $visit_tz, etc. already defined by _bootstrap.php via extract()
 $visit_data = $timeline;
-$days       = (array) ( $visit_data['days'] ?? [] );
 
 /* ============================================================
   5. ACTIVE VOD INDEX
   ============================================================ */
 
-$active_vod_index = max(
-    0,
-    (int) sanitize_text_field( wp_unslash( $_GET['vod'] ?? '0' ) )
-);
+// ── 5. ACTIVE VOD INDEX ───────────────────────────────────────────────────────
+// Calculado em _bootstrap.php seção 3b.
+// Guard de segurança: nunca sobrescreve o valor já resolvido.
+if ( ! isset( $active_vod_index ) ) {
+    $active_vod_index = max(
+        0,
+        (int) sanitize_text_field( wp_unslash( $_GET['vod'] ?? '0' ) )
+    );
+}
+$active_vod  = $active_vod  ?? [];
+$vod_list    = $vod_list    ?? [];
+$vod_count   = $vod_count   ?? 0;
 
 /* ============================================================
   6. META DADOS PARA <head>
   ============================================================ */
 
-$page_title_pt = (string) ( $visit_data['title_pt'] ?? get_the_title() );
-$page_title_en = (string) ( $visit_data['title_en'] ?? $page_title_pt );
-$page_title    = $lang === 'en' ? $page_title_en : $page_title_pt;
+$page_title = Vana_Utils::resolve_visit_title(
+  is_array($visit_data) ? $visit_data : [],
+  $lang,
+  $post_id,
+  (string) ($visit_data['location_meta']['city_ref'] ?? '')
+);
 
 $site_name     = get_bloginfo( 'name' ) ?: 'Vana Madhuryam';
 $canonical_url = get_permalink( $post_id );
@@ -280,12 +295,20 @@ $GLOBALS['_vana_visit'] = [
     body.vana-splash-active #vana-page-root { visibility: hidden; }
   </style>
 
+  
+
   <?php wp_head(); ?>
 
 </head>
 <body class="vana-splash-active vana-visit-page"
       data-stage-mode="<?php echo esc_attr( $stage_mode ); ?>"
       data-visit-status="<?php echo esc_attr( $visit_status ); ?>">
+
+  <style id="vana-page-visibility-fix">
+    /* Emergency: ensure page root and header are visible while debugging splash logic */
+    #vana-page-root { visibility: visible !important; }
+    .vana-header { visibility: visible !important; display: flex !important; }
+  </style>
 
 <div id="vana-splash" role="status" aria-live="polite"
      aria-label="<?php echo esc_attr( $lang === 'en' ? 'Loading…' : 'Carregando…' ); ?>">

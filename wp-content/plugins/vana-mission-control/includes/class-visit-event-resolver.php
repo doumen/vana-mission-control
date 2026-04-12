@@ -29,6 +29,14 @@ class VisitEventResolver {
         return [];
     }
 
+        /**
+         * Retorna a data canônica do dia (day_key ou date_local).
+         * Schema 6.2 usa day_key; legacy usa date_local.
+         */
+        private static function dayDate(array $day): string {
+            return (string) ($day['day_key'] ?? $day['date_local'] ?? '');
+        }
+
     /**
      * Resolve eventos e hero do dia ativo
      *
@@ -69,7 +77,7 @@ class VisitEventResolver {
         // 2.2 Prioridade 2: ?v_day= explícito
         if (empty($active_day) && $requested_day) {
             foreach ($timeline['days'] ?? [] as $day) {
-                if (($day['date_local'] ?? '') === $requested_day) {
+                if (self::dayDate(is_array($day) ? $day : []) === $requested_day) {
                     $active_day = $day;
                     break;
                 }
@@ -82,7 +90,7 @@ class VisitEventResolver {
                 $tz = new DateTimeZone($visit_timezone);
                 $today = (new DateTimeImmutable('now', $tz))->format('Y-m-d');
                 foreach ($timeline['days'] ?? [] as $day) {
-                    if (($day['date_local'] ?? '') === $today) {
+                    if (self::dayDate(is_array($day) ? $day : []) === $today) {
                         $active_day = $day;
                         break;
                     }
@@ -108,10 +116,13 @@ class VisitEventResolver {
                 }
             }
         }
-        $active_event = $active_event ?: self::resolveActiveEvent($active_events);
+        // Extrair primary_event_key do dia ativo (schema 6.2)
+        $primary_event_key = (string) ($active_day['primary_event_key'] ?? '');
+
+        $active_event = $active_event ?: self::resolveActiveEvent($active_events, $primary_event_key);
 
         // 5. Hero event — prioridade explícita (D10)
-        $hero_event = self::findHeroEvent($active_events, $overrides);
+        $hero_event = self::findHeroEvent($active_events, $overrides, $primary_event_key);
 
         // Garantia: hero_event nunca null nem vazio
         if (empty($hero_event)) {
@@ -125,7 +136,7 @@ class VisitEventResolver {
         return [
             'visit_ref'       => $visit_ref,
             'active_day'      => $active_day,
-            'active_day_date' => $active_day['date_local'] ?? '',
+            'active_day_date' => self::dayDate(is_array($active_day) ? $active_day : []),
             'active_events'   => $active_events,
             'active_event'    => $active_event, // nullable quando não há eventos
             'hero_event'      => $hero_event,
@@ -135,16 +146,24 @@ class VisitEventResolver {
     /**
      * Resolve o evento ativo (prioridade: live → com VOD → qualquer)
      */
-    private static function resolveActiveEvent(array $events): ?array {
+    private static function resolveActiveEvent(array $events, string $primary_event_key = ''): ?array {
         // Primeiro live (qualquer, com ou sem VOD)
         foreach ($events as $event) {
             if (($event['status'] ?? '') === 'live') {
                 return $event;
             }
         }
-        // Primeiro com VOD
+        // primary_event_key do dia (schema 6.2) — precedência sobre "primeiro com VOD"
+        if ($primary_event_key !== '') {
+            foreach ($events as $event) {
+                if (($event['event_key'] ?? '') === $primary_event_key) {
+                    return $event;
+                }
+            }
+        }
+        // Primeiro com VOD — aceita schema 6.1 (`event.vods`) ou legacy (`event.media.vods`).
         foreach ($events as $event) {
-            if (!empty($event['media']['vods'] ?? [])) {
+            if (!empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }
@@ -155,7 +174,7 @@ class VisitEventResolver {
     /**
      * Encontra o hero event pela prioridade D10
      */
-    private static function findHeroEvent(array $events, array $overrides): ?array {
+    private static function findHeroEvent(array $events, array $overrides, string $primary_event_key = ''): ?array {
         // 5.1 Override hero (maior prioridade)
         if (isset($overrides['hero']['event_key'])) {
             $override_key = $overrides['hero']['event_key'];
@@ -166,21 +185,30 @@ class VisitEventResolver {
             }
         }
 
-        // 5.2 Primeiro live + VOD
+        // 5.2 Primeiro live + VOD (aceita schema 6.1 ou legacy)
         foreach ($events as $event) {
-            if (($event['status'] ?? '') === 'live' && !empty($event['media']['vods'] ?? [])) {
+            if (($event['status'] ?? '') === 'live' && !empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }
 
-        // 5.3 Primeiro com VOD qualquer status
+        // 5.3 primary_event_key do dia (schema 6.2)
+        if ($primary_event_key !== '') {
+            foreach ($events as $event) {
+                if (($event['event_key'] ?? '') === $primary_event_key) {
+                    return $event;
+                }
+            }
+        }
+
+        // 5.4 Primeiro com VOD qualquer status (aceita schema 6.1 ou legacy)
         foreach ($events as $event) {
-            if (!empty($event['media']['vods'] ?? [])) {
+            if (!empty($event['vods'] ?? $event['media']['vods'] ?? [])) {
                 return $event;
             }
         }
 
-        // 5.4 Fallback: primeiro evento
+        // 5.5 Fallback: primeiro evento
         return $events[0] ?? null;
     }
 }

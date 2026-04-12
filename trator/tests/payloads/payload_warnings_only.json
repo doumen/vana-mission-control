@@ -1,0 +1,87 @@
+{
+  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
+  "schema_version": "6.1",
+  "visit_ref": "vrindavan-2026-02-warn",
+  "tour_ref":  "india-2026",
+
+  "metadata": {
+    "city_pt":    "Vṛndāvana",
+    "city_en":    "Vrindavan",
+    "country":    "IN",
+    "date_start": "2026-02-21",
+    "date_end":   "2026-02-21",
+    "timezone":   "Asia/Kolkata",
+    "status":     "completed"
+  },
+
+  "days": [
+    {
+      "day_key":       "2026-02-21",
+      "label_pt":      "21 fev",
+      "label_en":      "Feb 21",
+      "primary_event": "20260221-1703-programa",
+
+      "events": [
+        {
+          "event_key": "20260221-1703-programa",
+          "type":      "programa",
+          "title_pt":  "Programa sem location",
+          "title_en":  "Program without location",
+          "time":      "17:03",
+          "status":    "past",
+
+          "vods": [
+            {
+              "vod_key":    "vod-20260221-002",
+              "provider":   "youtube",
+              "video_id":   "dQw4w9WgXcQ",
+              "url":        null,
+              "thumb_url":  null,
+              "duration_s": 9000,
+              "title_pt":   "Programa",
+              "title_en":   "Program",
+              "vod_part":   1,
+              "segments": [
+                {
+                  "segment_id":      "seg-20260221-004",
+                  "type":            "harikatha",
+                  "title_pt":        "Hari-Kathā",
+                  "title_en":        "Hari-Kathā",
+                  "timestamp_start": 0,
+                  "timestamp_end":   9000,
+                  "katha_id":        678
+                }
+              ]
+            }
+          ],
+
+          "kathas": [
+            {
+              "katha_id":  678,
+              "katha_key": "katha-20260221-sb1031",
+              "title_pt":  "SB 10.31",
+              "title_en":  "SB 10.31",
+              "scripture": "SB 10.31",
+              "language":  "hi",
+              "sources": [
+                {
+                  "vod_key":    "vod-20260221-002",
+                  "segment_id": "seg-20260221-004",
+                  "timestamp_end": 9000,
+                  "vod_part":   1
+                }
+              ],
+              "passages": []
+            }
+          ],
+          "photos":  [],
+          "sangha":  []
+        }
+      ]
+    }
+  ],
+
+  "orphans": {
+    "vods": [], "photos": [], "sangha": [], "kathas": []
+  }
+}

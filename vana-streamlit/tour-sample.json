@@ -1,0 +1,26 @@
+{
+  "origin_key":  "tour:india-2026",
+  "title":       "Tour Espiritual Índia 2026",
+  "slug":        "india-2026",
+  "subtitle":    "Uma jornada para a alma",
+  "theme":       "india",
+  "description": "Peregrinação aos dhamas sagrados da Índia sob a guia de Srila Vana Maharaj.",
+  "dates":       "01 a 15 de Março 2026",
+  "organizers":  "Vana Team",
+  "start_date":  "2026-03-01",
+  "is_current":  true,
+  "itinerary": [
+    {
+      "cidade":        "Vrindavan",
+      "datas_locais":  "01-05 Mar",
+      "hospedagem":    "MVT",
+      "contato_local": ""
+    },
+    {
+      "cidade":        "Jaipur",
+      "datas_locais":  "06-08 Mar",
+      "hospedagem":    "City Palace",
+      "contato_local": ""
+    }
+  ]
+}

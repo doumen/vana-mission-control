@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-02-23T22:02:37.568686",
+  "visit_id": "vrindavan-2026-02",
+  "tour_key": "tour:vrindavan-2026",
+  "endpoint": "https://beta.vanamadhuryamdaily.com/wp-json/vana/v1/ingest-visit",
+  "result": {
+    "success": true,
+    "message": "Visita processada e ingerida com sucesso!",
+    "data": {
+      "visit_id": 359,
+      "origin_key": "visit:vrindavan-2026-02",
+      "action": "created",
+      "permalink": "https://beta.vanamadhuryamdaily.com/visit/vrindavan-2026-02/",
+      "hash": "da5682e129180dbc46de86e225d83adbf0975b29d5f1137649a387ed90dbc56e",
+      "tour_updated": false,
+      "tour_id": null
+    }
+  }
+}

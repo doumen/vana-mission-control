@@ -1,0 +1,17 @@
+{
+  "contract_id": "vana.mission",
+  "contract_version": "3.0",
+  "meta": {
+    "source": "manual-entry",
+    "author": "Marcel"
+  },
+  "tour": {
+    "origin_key": "tour:south-america-2025-2026",
+    "slug": "summer-tour-south-america-2025-2026",
+    "title": "Summer Tour Śrīla Gurudeva South America 2025/2026",
+    "theme": "latam",
+    "dates_label": "Dezembro 2025 – Fevereiro 2026",
+    "is_current": true,
+    "post_status": "publish"
+  }
+}

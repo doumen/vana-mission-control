@@ -88,6 +88,7 @@ final class Vana_Katha_CPT {
             '_vana_katha_verses_json',             // verses_cited[]
             '_vana_katha_glossary_json',           // glossary[]
             '_vana_katha_notes_json',              // notes[]
+            '_vana_katha_sources_json',
         ];
     
         foreach ( $string_meta as $key ) {

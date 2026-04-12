@@ -1,0 +1,169 @@
+{
+  "$schema": "https://vanamadhuryam.com/schemas/timeline-6.1.json",
+  "schema_version": "6.1",
+  "visit_ref": "vrindavan-2026-02-frag",
+  "tour_ref":  "india-2026",
+
+  "metadata": {
+    "city_pt":    "Vṛndāvana",
+    "city_en":    "Vrindavan",
+    "country":    "IN",
+    "date_start": "2026-02-22",
+    "date_end":   "2026-02-22",
+    "timezone":   "Asia/Kolkata",
+    "status":     "completed"
+  },
+
+  "days": [
+    {
+      "day_key":       "2026-02-22",
+      "label_pt":      "22 fev",
+      "label_en":      "Feb 22",
+      "primary_event": "20260222-1800-hk",
+
+      "events": [
+        {
+          "event_key": "20260222-1800-hk",
+          "type":      "programa",
+          "title_pt":  "Hari-Kathā — 22 fev",
+          "title_en":  "Hari-Kathā — Feb 22",
+          "time":      "18:00",
+          "status":    "past",
+          "location": {
+            "name": "Gopīnātha Bhavana",
+            "lat":  27.5794,
+            "lng":  77.6952
+          },
+
+          "vods": [
+            {
+              "vod_key":    "vod-20260222-001",
+              "provider":   "youtube",
+              "video_id":   "XYZ001",
+              "url":        null,
+              "thumb_url":  "https://img.youtube.com/vi/XYZ001/maxresdefault.jpg",
+              "duration_s": 4200,
+              "title_pt":   "Hari-Kathā — 22 fev (parte 1)",
+              "title_en":   "Hari-Kathā — Feb 22 (part 1)",
+              "vod_part":   1,
+              "segments": [
+                {
+                  "segment_id":      "seg-20260222-001",
+                  "type":            "harikatha",
+                  "title_pt":        "Hari-Kathā — SB 10.31 (parte 1)",
+                  "title_en":        "Hari-Kathā — SB 10.31 (part 1)",
+                  "timestamp_start": 0,
+                  "timestamp_end":   4200,
+                  "katha_id":        679
+                }
+              ]
+            },
+            {
+              "vod_key":    "vod-20260222-002",
+              "provider":   "youtube",
+              "video_id":   "XYZ002",
+              "url":        null,
+              "thumb_url":  "https://img.youtube.com/vi/XYZ002/maxresdefault.jpg",
+              "duration_s": 2700,
+              "title_pt":   "Hari-Kathā — 22 fev (parte 2)",
+              "title_en":   "Hari-Kathā — Feb 22 (part 2)",
+              "vod_part":   2,
+              "segments": [
+                {
+                  "segment_id":      "seg-20260222-002",
+                  "type":            "harikatha",
+                  "title_pt":        "Hari-Kathā — SB 10.31 (parte 2)",
+                  "title_en":        "Hari-Kathā — SB 10.31 (part 2)",
+                  "timestamp_start": 0,
+                  "timestamp_end":   2700,
+                  "katha_id":        679
+                }
+              ]
+            }
+          ],
+
+          "kathas": [
+            {
+              "katha_id":  679,
+              "katha_key": "katha-20260222-sb1031-cont",
+              "title_pt":  "SB 10.31 — Gopī-gīta (continuação)",
+              "title_en":  "SB 10.31 — Gopī-gīta (continuation)",
+              "scripture": "SB 10.31",
+              "language":  "hi",
+              "sources": [
+                {
+                  "vod_key":         "vod-20260222-001",
+                  "segment_id":      "seg-20260222-001",
+                  "timestamp_start": 0,
+                  "timestamp_end":   4200,
+                  "vod_part":        1
+                },
+                {
+                  "vod_key":         "vod-20260222-002",
+                  "segment_id":      "seg-20260222-002",
+                  "timestamp_start": 0,
+                  "timestamp_end":   2700,
+                  "vod_part":        2
+                }
+              ],
+              "passages": [
+                {
+                  "passage_id":  "hkp-20260222-001",
+                  "passage_key": "hkp-20260222-001",
+                  "title_pt":    "Viraha como caminho",
+                  "title_en":    "Viraha as the path",
+                  "teaching_pt": "Gurudeva aprofunda o conceito de viraha-bhakti...",
+                  "teaching_en": "Gurudeva deepens the concept of viraha-bhakti...",
+                  "key_quote":   "śṛṇvatāṁ sva-kathāḥ kṛṣṇaḥ puṇya-śravaṇa-kīrtanaḥ",
+                  "source_ref": {
+                    "vod_key":         "vod-20260222-001",
+                    "segment_id":      "seg-20260222-001",
+                    "timestamp_start": 0,
+                    "timestamp_end":   2100
+                  }
+                },
+                {
+                  "passage_id":  "hkp-20260222-002",
+                  "passage_key": "hkp-20260222-002",
+                  "title_pt":    "Prema como destino",
+                  "title_en":    "Prema as the destination",
+                  "teaching_pt": "Gurudeva conclui com o objetivo final do caminho devocional...",
+                  "teaching_en": "Gurudeva concludes with the ultimate goal of the devotional path...",
+                  "key_quote":   "premā pumartho mahān",
+                  "source_ref": {
+                    "vod_key":         "vod-20260222-002",
+                    "segment_id":      "seg-20260222-002",
+                    "timestamp_start": 0,
+                    "timestamp_end":   2700
+                  }
+                }
+              ]
+            }
+          ],
+
+          "photos":  [],
+          "sangha":  []
+        }
+      ]
+    }
+  ],
+
+  "orphans": {
+    "vods": [
+      {
+        "vod_key":   "vod-orphan-001",
+        "provider":  "facebook",
+        "video_id":  null,
+        "url":       "https://www.facebook.com/watch/?v=777",
+        "thumb_url": null,
+        "duration_s": null,
+        "title_pt":  "Darśana rápido na rua",
+        "title_en":  "Quick street darśana",
+        "segments":  []
+      }
+    ],
+    "photos": [],
+    "sangha": [],
+    "kathas": []
+  }
+}

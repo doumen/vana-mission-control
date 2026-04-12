@@ -1,0 +1,96 @@
+/* ═══════════════════════════════════════════════════════════════
+   VANA HEADER — CSS CORRIGIDO v1.0
+   Correções estruturais: box-sizing, flex, width, SVG
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 0. RESET BOX-SIZING (escopo do header) ─────────────────── */
+.vana-header,
+.vana-header *,
+.vana-header *::before,
+.vana-header *::after {
+    box-sizing: border-box;
+}
+
+/* ── 1. HEADER CONTAINER ────────────────────────────────────── */
+.vana-header {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 2px solid var(--vana-gold, #FFD906);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ── 2. INNER WRAPPER (o verdadeiro flex container) ──────────── */
+.vana-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1280px;
+    height: 56px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    gap: 0.5rem;
+}
+
+/* ── 3. BOTÃO TOURS (esquerda) ──────────────────────────────── */
+.vana-header__tours-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--vana-text, #1e293b);
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.15s ease;
+}
+
+.vana-header__tours-btn:hover { opacity: 0.7; }
+.vana-header__tours-btn:focus-visible { outline: 2px solid var(--vana-gold, #FFD906); outline-offset: 2px; border-radius: 4px; }
+
+.vana-header__tours-icon { display: flex; align-items: center; justify-content: center; line-height: 0; }
+.vana-header__tours-icon svg { display: block; width: 18px; height: 14px; }
+
+/* ── 4. BRAND CENTER (logo + título) ────────────────────────── */
+.vana-header__brand { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.vana-header__logo { display: block; flex-shrink: 0; width: 32px; height: 32px; object-fit: contain; border-radius: 50%; }
+.vana-header__logo-placeholder { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; font-size: 1.25rem; line-height: 1; }
+.vana-header__site-name { font-size: 0.9375rem; font-weight: 600; color: var(--vana-text, #1e293b); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+@media (max-width: 374px) { .vana-header__site-name { display: none; } }
+@media (max-width: 479px) { .vana-header__site-name { font-size: 0.8125rem; } }
+
+/* ── 5. BOTÃO AGENDA (direita) ──────────────────────────────── */
+.vana-header__agenda-btn { display: flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 0.375rem; height: 44px; padding: 0 0.5rem; margin: 0; background: transparent; border: none; cursor: pointer; color: var(--vana-text, #1e293b); -webkit-tap-highlight-color: transparent; transition: opacity 0.15s ease; }
+.vana-header__agenda-btn:hover { opacity: 0.7; }
+.vana-header__agenda-btn:focus-visible { outline: 2px solid var(--vana-gold, #FFD906); outline-offset: 2px; border-radius: 4px; }
+.vana-header__agenda-btn svg { display: block; flex-shrink: 0; width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; }
+.vana-header__agenda-btn svg rect, .vana-header__agenda-btn svg line, .vana-header__agenda-btn svg path, .vana-header__agenda-btn svg circle { stroke: inherit; }
+.vana-header__agenda-label { font-size: 0.8125rem; font-weight: 600; color: currentColor; white-space: nowrap; line-height: 1; }
+@media (max-width: 374px) { .vana-header__agenda-label { display: none; } }
+
+/* ── 6. SCROLL-TO-TOP BUTTON (feature nova) ─────────────────── */
+.vana-scroll-top { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 900; display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: var(--vana-gold, #FFD906); color: var(--vana-text, #1e293b); border: none; border-radius: 50%; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); cursor: pointer; opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s ease; -webkit-tap-highlight-color: transparent; }
+.scrolled .vana-scroll-top { opacity: 1; visibility: visible; transform: translateY(0); }
+.vana-scroll-top:hover { background: #e6c300; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); }
+.vana-scroll-top:focus-visible { outline: 2px solid var(--vana-text, #1e293b); outline-offset: 2px; }
+.vana-scroll-top svg { display: block; width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.5; fill: none; }
+
+/* Smooth scrolling fallback */
+html { scroll-behavior: smooth; }

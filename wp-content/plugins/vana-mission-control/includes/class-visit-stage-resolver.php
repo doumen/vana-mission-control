@@ -289,7 +289,7 @@ final class VisitStageResolver {
         }
     
         // 2. visit_status explícito — tem precedência sobre active_day
-        $closed   = [ 'closed', 'ended', 'archived' ];
+        $closed   = [ 'closed', 'ended', 'archived', 'completed' ];
         $upcoming = [ 'future', 'upcoming', 'scheduled' ];
     
         if ( in_array( $visit_status, $closed, true ) ) {

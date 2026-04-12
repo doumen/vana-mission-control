@@ -1,0 +1,452 @@
+<main class="vana-visit-main">
+
+    <!-- ─────────────────────────────────────────────────────────────────────────
+         DAY TABS (navegação entre dias)
+         ───────────────────────────────────────────────────────────────────────── -->
+    
+    <!-- ─────────────────────────────────────────────────────────────────────────
+         EVENT SELECTOR (Se múltiplos eventos no dia)
+         ───────────────────────────────────────────────────────────────────────── -->
+    
+<nav class="vana-event-selector" aria-label="event_selector.aria" role="tablist">
+  <div class="vana-event-selector__list">
+
+    
+      <button type="button" class="vana-event-btn" role="tab" aria-selected="false" aria-current="false" data-vana-event-key="vrindavan-353-a" data-vana-visit-id="353" data-vana-lang="pt">
+
+                  <span class="vana-event-btn__time">
+            09:00          </span>
+        
+        <span class="vana-event-btn__title">
+          Aula da Manhã        </span>
+
+                  <span class="vana-event-btn__badge badge--done">
+            ✅ status.completed          </span>
+        
+      </button>
+
+    
+      <button type="button" class="vana-event-btn vana-event-btn--active" role="tab" aria-selected="true" aria-current="true" data-vana-event-key="vrindavan-353-b" data-vana-visit-id="353" data-vana-lang="pt">
+
+                  <span class="vana-event-btn__time">
+            17:00          </span>
+        
+        <span class="vana-event-btn__title">
+          Aula da Tarde        </span>
+
+                  <span class="vana-event-btn__badge badge--live">
+            🔴 status.live          </span>
+        
+      </button>
+
+    
+  </div>
+</nav>
+    <!-- ── STAGE + VOD GRID ──────────────────────────────────────────────────── -->
+    <div class="vana-stage-grid">
+      <div class="vana-stage-grid__main">
+        <!-- ─────────────────────────────────────────────────────────────────────────
+             STAGE (VOD Player + Stage Fragment)
+             ───────────────────────────────────────────────────────────────────────── -->
+        
+<section class="vana-stage " id="vana-stage" data-event-key="vrindavan-353-b" aria-label="Palco principal" data-is-neutral="0" data-transitioning="0">
+
+  <!-- ══════════════════════════════════════════════════════
+       PLAYER
+       ══════════════════════════════════════════════════════ -->
+  <div class="vana-stage-video">
+
+    
+      <!-- Placeholder diferenciado: live vs. sem mídia -->
+      <div class="vana-stage-placeholder" role="status" aria-live="polite" style="color:var(--vana-muted);font-size:1.2rem;text-align:center;padding:40px;">
+                  <span class="dashicons dashicons-video-alt3" style="font-size:2.5rem;display:block;margin-bottom:12px;
+                       color:var(--vana-pink);" aria-hidden="true"></span>
+          stage.live_soon              </div>
+
+    
+  </div>
+  <!-- /player -->
+
+  <!-- ══════════════════════════════════════════════════════
+       INFO
+       ══════════════════════════════════════════════════════ -->
+  <div class="vana-stage-info">
+
+    <div style="display:flex;align-items:center;gap:15px;
+                margin-bottom:0;">
+      <span class="vana-stage-info-badge">
+        Aula      </span>
+      <h2 id="vanaStageTitle" style="margin:0;font-family:'Syne',sans-serif;font-size:1.3rem;">
+        Gravação      </h2>
+    </div>
+
+    <!-- Botões: Share + Open Hari-Katha -->
+          <div class="vana-stage-actions" style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap;">
+        <button type="button" class="vana-stage-action-btn vana-stage-action-btn--share" id="vana-stage-share-btn" aria-label="stage.share" title="stage.share">
+          <span aria-hidden="true">📤</span>
+          <span>stage.share</span>
+        </button>
+
+        <button type="button" class="vana-stage-action-btn vana-stage-action-btn--hk" id="vana-stage-hk-btn" data-drawer="vana-hk-drawer" aria-label="stage.open_hk" title="stage.open_hk">
+          <span aria-hidden="true">🙏</span>
+          <span>stage.open_hk</span>
+        </button>
+      </div>
+    
+    
+    <!-- Localização + Mapa lazy -->
+          <div class="vana-stage-loc" style="margin-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:12px;
+                    border:1px solid var(--vana-line);background:var(--vana-bg-soft);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="dashicons dashicons-location-alt" aria-hidden="true" style="color:var(--vana-pink);"></span>
+            <strong style="color:var(--vana-text);">
+              Rūpa Sanātana Gauḍīya Maṭha            </strong>
+          </div>
+                      <button type="button" id="vanaLoadMapBtn_2026-02-18" style="padding:8px 12px;background:rgba(255,255,255,0.06);
+                     border:1px solid var(--vana-line);border-radius:8px;
+                     cursor:pointer;font-weight:700;font-size:.9rem;" aria-expanded="false" aria-controls="vanaMapWrap_2026-02-18">
+              Carregar mapa            </button>
+                  </div>
+
+                  <div id="vanaMapWrap_2026-02-18" style="display:none;margin-top:12px;border-radius:12px;
+                      overflow:hidden;border:1px solid var(--vana-line);
+                      height:200px;background:#e2e8f0;" aria-hidden="true">
+            <iframe id="vanaMapIframe_2026-02-18" width="100%" height="100%" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen="" title="Ver no mapa" data-src="https://maps.google.com/maps?q=27.5815%2C77.6997&amp;hl=pt&amp;z=15&amp;output=embed"></iframe>
+          </div>
+          <script>
+          (function () {
+            var btn    = document.getElementById("vanaLoadMapBtn_2026-02-18");
+            var wrap   = document.getElementById("vanaMapWrap_2026-02-18");
+            var iframe = document.getElementById("vanaMapIframe_2026-02-18");
+            if (!btn || !wrap || !iframe) return;
+            btn.addEventListener('click', function () {
+              if (!iframe.getAttribute('src')) {
+                iframe.setAttribute('src', iframe.getAttribute('data-src') || '');
+              }
+              wrap.style.display = 'block';
+              wrap.setAttribute('aria-hidden', 'false');
+              btn.setAttribute('aria-expanded', 'true');
+              btn.disabled = true;
+            });
+          })();
+          </script>
+              </div>
+    
+  </div>
+  <!-- /info -->
+
+  <!-- ══════════════════════════════════════════════════════
+       SEGMENTOS / CAPÍTULOS (YouTube only)
+       ══════════════════════════════════════════════════════ -->
+  
+</section>
+      </div><!-- /vana-stage-grid__main -->
+
+      <aside class="vana-stage-grid__sidebar">
+        <!-- ─────────────────────────────────────────────────────────────────────────
+             VOD LIST SECTION
+             ───────────────────────────────────────────────────────────────────────── -->
+              </aside><!-- /vana-stage-grid__sidebar -->
+    </div><!-- /vana-stage-grid -->
+
+    <!-- ─────────────────────────────────────────────────────────────────────────
+         UNIFIED SECTIONS PANEL
+         (Hari-Katha | Galeria | Sangha | Revista)
+         ───────────────────────────────────────────────────────────────────────── -->
+    
+<!-- ════════════════════════════════════════════════════════
+     SECTIONS PANEL — Tabs de conteúdo
+     ════════════════════════════════════════════════════════ -->
+<div id="vana-sections" class="vana-sections" role="tablist" aria-label="Seções de conteúdo">
+
+    <!-- Section 1: Hari-Katha -->
+    <section id="vana-section-hk" class="vana-section-panel" data-vana-section="vana-section-hk" data-section-id="section-hk" role="tabpanel" aria-labelledby="vana-chip-hk" data-visit-id="353" data-day="2026-02-18" data-lang="pt">
+        <div class="vana-section-header">
+            <h3 class="vana-section-title">🙏 sections.hari_katha</h3>
+        </div>
+        <div class="vana-section-body">
+            <div class="vana-hk__intro">Nenhuma kathā registrada para este dia.</div>
+            <div data-role="katha-list" class="vana-hk__list" hidden=""></div>
+            <div data-role="passage-list" class="vana-hk__passages" hidden=""></div>
+        </div>
+    </section>
+
+    <!-- Section 2: Galeria -->
+    <section id="vana-section-gallery" class="vana-section-panel" data-vana-section="vana-section-gallery" data-section-id="section-gallery" role="tabpanel" aria-labelledby="vana-chip-gallery">
+        <div class="vana-section-header">
+            <h3 class="vana-section-title">📷 sections.gallery</h3>
+        </div>
+        <div class="vana-section-body">
+                            <p class="vana-section-empty">sections.empty</p>
+                    </div>
+    </section>
+
+    <!-- Section 3: Sangha Moments -->
+    <section id="vana-section-sangha" class="vana-section-panel" data-vana-section="vana-section-sangha" data-section-id="section-sangha" role="tabpanel" aria-labelledby="vana-chip-sangha">
+        <div class="vana-section-header">
+            <h3 class="vana-section-title">💬 sections.sangha</h3>
+        </div>
+        <div class="vana-section-body">
+                            <p class="vana-section-empty">sections.empty</p>
+                    </div>
+    </section>
+
+    <!-- Section 4: Revista -->
+    <section id="vana-section-revista" class="vana-section-panel" data-vana-section="vana-section-revista" data-section-id="section-revista" role="tabpanel" aria-labelledby="vana-chip-revista">
+        <div class="vana-section-header">
+            <h3 class="vana-section-title">📰 sections.revista</h3>
+        </div>
+        <div class="vana-section-body" id="vana-revista-content">
+            <p class="vana-section-empty">sections.revista_loading</p>
+        </div>
+    </section>
+
+</div>
+
+    <!-- ─────────────────────────────────────────────────────────────────────────
+         SCHEDULE SECTION
+         ───────────────────────────────────────────────────────────────────────── -->
+    
+<section id="vana-section-schedule" class="vana-section vana-section--schedule" aria-labelledby="vana-schedule-heading" aria-live="polite" aria-atomic="false">
+
+  <h2 class="vana-section-title" id="vana-schedule-heading">
+    Programação          <span style="
+        display:        inline-flex;
+        align-items:    center;
+        gap:            6px;
+        font-size:      0.78rem;
+        font-weight:    800;
+        color:          #f87171;
+        background:     rgba(220,38,38,0.15);
+        border:         1px solid rgba(220,38,38,0.3);
+        padding:        3px 12px;
+        border-radius:  20px;
+        margin-left:    12px;
+        vertical-align: middle;
+        font-family:    'Questrial', sans-serif;
+        text-transform: uppercase;
+      ">
+        <span style="
+          width:         7px; height:7px; border-radius:50%;
+          background:    #f87171;
+          animation:     vana-pulse 1.2s infinite;
+          flex-shrink:   0;
+        " aria-hidden="true"></span>
+        Ao vivo agora      </span>
+      </h2>
+
+  <!-- Legenda dual-timezone -->
+  <div id="vana-tz-hint" style="display: block; color: var(--vana-muted); font-size: 0.82rem; font-weight: 700; margin: -12px 0px 14px; padding: 6px 12px; background: var(--vana-bg-soft); border-radius: 8px; border: 1px solid var(--vana-line); width: fit-content;">
+    Fuso horário local  </div>
+
+  <div class="vana-schedule-list" role="list" aria-label="Programação">
+
+    
+      <!-- ══ ITEM WRAPPER — inclui accordion ══════════════════ -->
+      <div class="vana-schedule-item-wrap" role="listitem" data-title-full="Maṅgala-ārati" style="margin-bottom: 4px;">
+
+        <!-- Item principal -->
+        <div id="vana-sched-2026-02-18-05-30-ma-gala--rati" class="vana-schedule-item" role="listitem" aria-label="05:30 — Maṅgala-ārati" style="opacity: .65;">
+
+          <!-- Horário + dual-tz -->
+          <div class="vana-schedule-time" aria-hidden="true">
+            <div>05:30</div>
+                          <div id="vana-ltime-2026-02-18-05-30-ma-gala--rati" class="vana-local-time-target" data-ts="1771392600" style="font-size: 0.72rem; font-weight: 700; color: var(--vana-muted); font-family: monospace; margin-top: 2px; overflow: hidden; max-width: 100%; white-space: normal; word-break: break-word; display: block;" aria-label="Horário local">Seu horário: 02:30 BRT</div>
+                      </div>
+
+          <!-- Conteúdo -->
+          <div class="vana-schedule-title" style="flex-grow:1; margin:0 15px;">
+
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+
+                              <span class="dashicons dashicons-yes-alt" aria-hidden="true" style="color:#4ade80; font-size:16px; width:16px; height:16px; flex-shrink:0;"></span>
+              
+              <strong style="font-size:1.05rem; color:var(--vana-text); cursor:pointer;" title="Maṅgala-ārati">
+                Maṅgala-ārati              </strong>
+
+              
+            </div>
+
+            
+            
+          </div>
+
+          <!-- Badge status -->
+          <div class="vana-schedule-status status-done" aria-label="Status: Encerrado">
+            Encerrado          </div>
+
+        </div>
+        <!-- /item principal -->
+
+        
+      </div>
+      <!-- /item-wrap -->
+
+    
+      <!-- ══ ITEM WRAPPER — inclui accordion ══════════════════ -->
+      <div class="vana-schedule-item-wrap" role="listitem" data-title-full="Hari-kathā" style="margin-bottom: 4px;">
+
+        <!-- Item principal -->
+        <div id="vana-sched-2026-02-18-17-00-hari-kath" class="vana-schedule-item vana-schedule-item--live" role="listitem" aria-label="17:00 — Hari-kathā — Ao vivo agora" style="border-left: 4px solid #f87171; background: rgba(220,38,38,0.08);">
+
+          <!-- Horário + dual-tz -->
+          <div class="vana-schedule-time" aria-hidden="true">
+            <div>17:00</div>
+                          <div id="vana-ltime-2026-02-18-17-00-hari-kath" class="vana-local-time-target" data-ts="1771434000" style="font-size: 0.72rem; font-weight: 700; color: var(--vana-muted); font-family: monospace; margin-top: 2px; overflow: hidden; max-width: 100%; white-space: normal; word-break: break-word; display: block;" aria-label="Horário local">Seu horário: 14:00 BRT</div>
+                      </div>
+
+          <!-- Conteúdo -->
+          <div class="vana-schedule-title" style="flex-grow:1; margin:0 15px;">
+
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+
+                              <span style="
+                  width:9px; height:9px; border-radius:50%;
+                  background:#f87171; flex-shrink:0;
+                  animation:vana-pulse 1.2s infinite;
+                " aria-hidden="true"></span>
+              
+              <strong style="font-size:1.05rem; color:var(--vana-text); cursor:pointer;" title="Hari-kathā">
+                Hari-kathā              </strong>
+
+              
+            </div>
+
+            
+            
+          </div>
+
+          <!-- Badge status -->
+          <div class="vana-schedule-status status-live" aria-label="Status: Ao vivo">
+            Ao vivo          </div>
+
+        </div>
+        <!-- /item principal -->
+
+        
+      </div>
+      <!-- /item-wrap -->
+
+    
+  </div>
+
+</section>
+
+<style>
+@keyframes vana-pulse {
+  0%, 100% { opacity:1; transform:scale(1); }
+  50%       { opacity:.4; transform:scale(1.35); }
+}
+</style>
+
+<script>
+(function () {
+  var eventTz = "UTC";
+  var hint    = document.getElementById('vana-tz-hint');
+  if (!hint) return;
+  try {
+    var localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (localTz && localTz !== eventTz) hint.style.display = 'block';
+  } catch (_) {}
+})();
+</script>
+
+    <!-- ─────────────────────────────────────────────────────────────────────────
+         COMMUNITY LINKS
+         ───────────────────────────────────────────────────────────────────────── -->
+    
+<section class="vana-section vana-section--community" aria-label="Comunidade" style="margin-top: 48px;
+         padding-top: 32px;
+         border-top: 1px solid var(--vana-line);">
+
+  <!-- ══════════════════════════════════════════════
+       1. REDES DE GURUDEVA (sempre visível, discreto)
+       ══════════════════════════════════════════════ -->
+  <div style="
+    display:         flex;
+    align-items:     center;
+    justify-content: space-between;
+    flex-wrap:       wrap;
+    gap:             12px;
+    margin-bottom:   16px;
+  ">
+    <span style="
+      font-family:    'Syne', sans-serif;
+      font-weight:    700;
+      font-size:      0.82rem;
+      color:          var(--vana-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+    ">
+      Seguir    </span>
+
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <a href="https://www.youtube.com/@vanamadhuryamofficial" target="_blank" rel="noopener noreferrer" class="vana-community-link vana-community-link--yt" aria-label="YouTube (Abre em nova aba)" style="
+            display:         inline-flex;
+            align-items:     center;
+            gap:             7px;
+            padding:         8px 14px;
+            border-radius:   8px;
+            text-decoration: none;
+            font-weight:     700;
+            font-size:       0.85rem;
+            font-family:     'Syne', sans-serif;
+            color:           var(--vana-text);
+            background:      rgba(255,0,0,0.12);
+            border:          1px solid rgba(255,0,0,0.25);
+            transition:      opacity .2s, transform .2s;
+          " onmouseover="this.style.opacity='.8';this.style.transform='translateY(-2px)'" onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
+          <span class="dashicons dashicons-youtube" aria-hidden="true" style="font-size:16px;width:16px;height:16px;"></span>
+          YouTube        </a>
+              <a href="https://www.facebook.com/vanamadhuryamofficial" target="_blank" rel="noopener noreferrer" class="vana-community-link vana-community-link--fb" aria-label="Facebook (Abre em nova aba)" style="
+            display:         inline-flex;
+            align-items:     center;
+            gap:             7px;
+            padding:         8px 14px;
+            border-radius:   8px;
+            text-decoration: none;
+            font-weight:     700;
+            font-size:       0.85rem;
+            font-family:     'Syne', sans-serif;
+            color:           var(--vana-text);
+            background:      rgba(24,119,242,0.10);
+            border:          1px solid rgba(24,119,242,0.25);
+            transition:      opacity .2s, transform .2s;
+          " onmouseover="this.style.opacity='.8';this.style.transform='translateY(-2px)'" onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
+          <span class="dashicons dashicons-facebook-alt" aria-hidden="true" style="font-size:16px;width:16px;height:16px;"></span>
+          Facebook        </a>
+              <a href="https://www.instagram.com/vanamadhuryamofficial/" target="_blank" rel="noopener noreferrer" class="vana-community-link vana-community-link--ig" aria-label="Instagram (Abre em nova aba)" style="
+            display:         inline-flex;
+            align-items:     center;
+            gap:             7px;
+            padding:         8px 14px;
+            border-radius:   8px;
+            text-decoration: none;
+            font-weight:     700;
+            font-size:       0.85rem;
+            font-family:     'Syne', sans-serif;
+            color:           var(--vana-text);
+            background:      rgba(243,11,115,0.10);
+            border:          1px solid rgba(243,11,115,0.25);
+            transition:      opacity .2s, transform .2s;
+          " onmouseover="this.style.opacity='.8';this.style.transform='translateY(-2px)'" onmouseout="this.style.opacity='1';this.style.transform='translateY(0)'">
+          <span class="dashicons dashicons-instagram" aria-hidden="true" style="font-size:16px;width:16px;height:16px;"></span>
+          Instagram        </a>
+          </div>
+  </div>
+
+  
+</section>
+
+    <!-- Inclui a gaveta da agenda dentro do main, antes do fechamento -->
+        <script>
+    // Debug: log to console what we have
+    console.log('[visit-template] Days available: 0');
+    console.log('[visit-template] Data keys: ["schema_version","location_meta","days","visit_status"]');
+    console.log('[visit-template] timeline.days count: 1');
+    console.log('[visit-template] timeline days: [{"date_local":"2026-02-18","hero":{"title_pt":"Hari-kath\u0101 em R\u016bpa San\u0101tana Gau\u1e0d\u012bya Ma\u1e6dha","title_en":"Hari-kath\u0101 at R\u016bpa San\u0101tana Gau\u1e0d\u012bya Ma\u1e6dha","description_pt":"A primeira aula da Tour, estabelecendo o humor do Parikram\u0101.","description_en":"The first class of the Tour, establishing the mood of the Parikram\u0101.","provider":"youtube","video_id":"dQw4w9WgXcQ","location":{"name":"R\u016bpa San\u0101tana Gau\u1e0d\u012bya Ma\u1e6dha","lat":27.5815,"lng":77.6997},"segments":[{"time_local":"00:00","title_pt":"K\u012brtana Inicial","title_en":"Opening K\u012brtana"},{"time_local":"15:20","title_pt":"Gl\u00f3rias de R\u016bpa Gosv\u0101m\u012b","title_en":"Glories of R\u016bpa Gosv\u0101m\u012b"}]},"vods":[{"title_pt":"Dar\u015bana R\u00e1pido na Rua","title_en":"Quick Street Dar\u015bana","provider":"facebook","url":"https:\/\/www.facebook.com\/watch\/?v=123456789","location":{"name":"Ruas de Seva Kunja","lat":27.5845,"lng":77.7022}}],"schedule":[{"time_local":"05:30","title_pt":"Ma\u1e45gala-\u0101rati","title_en":"Ma\u1e45gala-\u0101rati","status":"done"},{"time_local":"17:00","title_pt":"Hari-kath\u0101","title_en":"Hari-kath\u0101","status":"live"}],"photos":[[{"thumb_url":"https:\/\/picsum.photos\/300\/300?random=5","full_url":"https:\/\/picsum.photos\/1200\/800?random=5","caption_pt":"A beleza do Dh\u0101ma","caption_en":"The beauty of the Dh\u0101ma"}]],"active_events":[{"event_key":"vrindavan-353-a","title_pt":"Aula da Manh\u00e3","title_en":"Morning Class","time_start":"09:00","status":"completed","vod":{"provider":"youtube","video_id":"dQw4w9WgXcQ"},"vod_list":[{"provider":"youtube","video_id":"dQw4w9WgXcQ"}]},{"event_key":"vrindavan-353-b","title_pt":"Aula da Tarde","title_en":"Afternoon Class","time_start":"17:00","status":"live","vod":{"provider":"youtube","video_id":"9bZkp7q19f0"},"vod_list":[{"provider":"youtube","video_id":"9bZkp7q19f0"}]}]}]'.substring(0, 200));
+    </script>
+
+  </main>

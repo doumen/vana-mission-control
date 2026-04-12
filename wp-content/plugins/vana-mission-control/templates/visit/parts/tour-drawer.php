@@ -32,7 +32,7 @@ defined('ABSPATH') || exit;
      ════════════════════════════════════════════════════════ -->
 <div
     id="vana-tour-drawer"
-    class="vana-drawer"
+    class="vana-drawer vana-drawer--tour"
     role="dialog"
     aria-modal="true"
     aria-label="<?php echo esc_attr(vana_t('hero.tours', $lang)); ?>"

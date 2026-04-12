@@ -303,7 +303,8 @@ function vana_normalize_event( array $flat ): array {
 function vana_get_stage_content( array $event ): array {
 
     // ── 1. VOD ────────────────────────────────────────────
-    $vods = $event['media']['vods'] ?? [];
+    // Prefer schema 6.1 canonical `event.vods[]`, fall back to legacy `event.media.vods[]`.
+    $vods = $event['vods'] ?? $event['media']['vods'] ?? [];
     if ( ! empty( $vods[0] ) && is_array( $vods[0] ) ) {
         return [
             'type' => 'vod',

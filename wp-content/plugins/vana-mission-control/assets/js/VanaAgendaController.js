@@ -1,261 +1,176 @@
-/**
- * VanaAgendaController.js
- *
- * Single responsibility: Agenda Drawer (open/close, day tabs, events).
- * Data source: SSR markup only - no AJAX, no fetch.
- *
- * @package Vana Mission Control
- */
+;( function () {
+  'use strict';
 
-( function () {
-    'use strict';
+  // ── Referências DOM ──────────────────────────────────────────
+  const drawer  = document.getElementById( 'vana-agenda-drawer' );
+  const overlay = document.querySelector( '[data-vana-agenda-overlay]' );
+  const trigger = document.querySelector( '[data-vana-agenda-open]' );
+  const closeBtn = drawer?.querySelector( '[data-vana-agenda-close]' );
 
-    const DRAWER_SEL = '[data-vana-agenda-drawer]';
-    const OVERLAY_SEL = '[data-vana-agenda-overlay]';
-    const TAB_SEL = '[data-vana-day-tab]';
-    const EVENT_SEL = '[data-vana-event]';
-    const OPEN_BTN_SEL = '[data-vana-agenda-open]';
-    const CLOSE_BTN_SEL = '[data-vana-agenda-close]';
-    const PANEL_SEL = '.vana-agenda-events';
+  if ( ! drawer ) return;
 
-    let isOpen = false;
-    let activeDay = null;
-    let lastFocused = null;
+  // ScrollLock singleton (reference-counted) — create if absent
+  if ( ! window.VanaScrollLock ) {
+    ( function () {
+      let _count = 0;
+      const body = document.body;
+      window.VanaScrollLock = {
+        acquire() { if ( ++_count === 1 ) body.style.overflow = 'hidden'; },
+        release() { if ( --_count <= 0 ) { _count = 0; body.style.overflow = ''; } },
+        getCount() { return _count; },
+        forceRelease() { _count = 0; body.style.overflow = ''; }
+      };
+    } )();
+  }
 
-    function emit( name, detail ) {
-        document.dispatchEvent( new CustomEvent( name, {
-            bubbles: true,
-            detail: detail || {},
-        } ) );
+  // ── Fix 1: usa classe .is-open em vez de [hidden] ────────────
+  let _agendaOwnedLock = false;
+
+  function open() {
+    console.log('VanaAgenda.open() called — drawer:', !!drawer, 'overlay:', !!overlay, 'stageOpen?', window.VanaStageBridge?.isOpen());
+    // Ensure elements hidden by the `hidden` attribute become visible
+    drawer.removeAttribute( 'hidden' );
+    overlay?.removeAttribute( 'hidden' );
+    drawer.classList.add( 'is-open' );
+    overlay?.classList.add( 'is-open' );
+    drawer.setAttribute( 'aria-hidden', 'false' );
+    // use ScrollLock to prevent body scroll when drawer is open
+    document.body.classList.add( 'vana-drawer-open' );
+    // Only acquire if the Stage is not already holding the lock
+    _agendaOwnedLock = ! window.VanaStageBridge?.isOpen();
+    if ( _agendaOwnedLock ) window.VanaScrollLock.acquire();
+    drawer.querySelector( '.vana-day-tab' )?.focus();
+  }
+
+  function close() {
+    console.log('VanaAgenda.close() called');
+    drawer.classList.remove( 'is-open' );
+    overlay?.classList.remove( 'is-open' );
+    drawer.setAttribute( 'aria-hidden', 'true' );
+    // Re-hide to match initial markup/state
+    drawer.setAttribute( 'hidden', '' );
+    overlay?.setAttribute( 'hidden', '' );
+    document.body.classList.remove( 'vana-drawer-open' );
+    // release the scroll lock only if this agenda actually acquired it
+    if ( _agendaOwnedLock ) { window.VanaScrollLock.release(); _agendaOwnedLock = false; }
+    trigger?.focus();
+  }
+
+  trigger?.addEventListener( 'click', open );
+  closeBtn?.addEventListener( 'click', close );
+  overlay?.addEventListener( 'click', close );
+
+  document.addEventListener( 'keydown', e => {
+    if ( e.key === 'Escape' && drawer.classList.contains( 'is-open' ) ) close();
+  } );
+
+  // ── Fix 2: Toggle PT/EN ──────────────────────────────────────
+  document.addEventListener( 'click', e => {
+    const btn = e.target.closest( '[data-vana-lang]' );
+    if ( ! btn ) return;
+
+    const lang = btn.dataset.vanaLang;           // 'pt' ou 'en'
+    if ( ! lang ) return;
+
+    const url = new URL( window.location.href );
+    url.searchParams.set( 'lang', lang );
+    window.location.href = url.toString();
+  } );
+
+  // ── Day Tabs ─────────────────────────────────────────────────
+  drawer.addEventListener( 'click', e => {
+    const tab = e.target.closest( '.vana-day-tab' );
+    if ( ! tab ) return;
+
+    const dayKey = tab.dataset.dayKey;
+
+    drawer.querySelectorAll( '.vana-day-tab' ).forEach( t => {
+      t.classList.toggle( 'is-active', t === tab );
+      t.setAttribute( 'aria-selected', t === tab ? 'true' : 'false' );
+    } );
+
+    drawer.querySelectorAll( '.vana-day-panel' ).forEach( p => {
+      const active = p.dataset.dayPanel === dayKey;
+      p.classList.toggle( 'is-active', active );
+      active ? p.removeAttribute( 'hidden' ) : p.setAttribute( 'hidden', '' );
+    } );
+  } );
+
+  // ── Expand / Collapse EVENTO ─────────────────────────────────
+  drawer.addEventListener( 'click', e => {
+    const toggle = e.target.closest( '.vana-event-toggle' );
+    if ( ! toggle ) return;
+
+    const item     = toggle.closest( '.vana-event-item' );
+    const body     = document.getElementById( toggle.getAttribute( 'aria-controls' ) );
+    const expanded = toggle.getAttribute( 'aria-expanded' ) === 'true';
+    const iconEl   = toggle.querySelector( '.vana-event-toggle__icon' );
+
+    toggle.setAttribute( 'aria-expanded', String( !expanded ) );
+    item.classList.toggle( 'is-expanded', !expanded );
+    if ( iconEl ) iconEl.textContent = expanded ? '+' : '−';
+    expanded ? body?.setAttribute( 'hidden', '' ) : body?.removeAttribute( 'hidden' );
+  } );
+
+  // ── Expand / Collapse PASSAGE ────────────────────────────────
+  drawer.addEventListener( 'click', e => {
+    const toggle = e.target.closest( '.vana-passage-toggle' );
+    if ( ! toggle ) return;
+
+    const item     = toggle.closest( '.vana-passage-item' );
+    const body     = document.getElementById( toggle.getAttribute( 'aria-controls' ) );
+    const expanded = toggle.getAttribute( 'aria-expanded' ) === 'true';
+    const iconEl   = toggle.querySelector( '.vana-passage-toggle__icon' );
+
+    toggle.setAttribute( 'aria-expanded', String( !expanded ) );
+    item.classList.toggle( 'is-expanded', !expanded );
+    if ( iconEl ) iconEl.textContent = expanded ? '+' : '−';
+    expanded ? body?.setAttribute( 'hidden', '' ) : body?.removeAttribute( 'hidden' );
+  } );
+
+  // ── Delegação de ações ───────────────────────────────────────
+  drawer.addEventListener( 'click', e => {
+    const btn = e.target.closest( '[data-action]' );
+    if ( ! btn ) return;
+
+    const action = btn.dataset.action;
+
+    if ( action === 'load-vod' || action === 'seek-passage' ) {
+      const ts = action === 'seek-passage'
+        ? ( parseInt( btn.dataset.timestamp, 10 ) || 0 )
+        : 0;
+
+      // Fecha agenda ANTES — garante release() antes do acquire() do stage
+      // count: 1→0 (close) depois 0→1 (loadVod) = correto
+      close();
+
+      requestAnimationFrame( () => {
+        window.VanaStageBridge?.loadVod(
+          btn.dataset.vodKey,
+          btn.dataset.videoId,
+          btn.dataset.provider,
+          ts
+        );
+      } );
+      return;
     }
 
-    function getEls() {
-        const drawer = document.querySelector( DRAWER_SEL );
-        const overlay = document.querySelector( OVERLAY_SEL );
-        const openBtn = document.querySelector( OPEN_BTN_SEL );
-        const closeBtn = drawer ? drawer.querySelector( CLOSE_BTN_SEL ) : null;
-        const tabs = drawer ? Array.from( drawer.querySelectorAll( TAB_SEL ) ) : [];
-        const events = drawer ? Array.from( drawer.querySelectorAll( EVENT_SEL ) ) : [];
-        const panels = drawer ? Array.from( drawer.querySelectorAll( PANEL_SEL ) ) : [];
-
-        return { drawer, overlay, openBtn, closeBtn, tabs, events, panels };
+    if ( action === 'open-photos' ) {
+      document.dispatchEvent( new CustomEvent( 'vana:photos:open', {
+        detail: { eventKey: btn.dataset.eventKey }
+      } ) );
+      return;
     }
 
-    function getFocusable( root ) {
-        if ( ! root ) return [];
-        return Array.from(
-            root.querySelectorAll(
-                'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-            )
-        ).filter( el => el.offsetParent !== null );
+    if ( action === 'open-sangha' ) {
+      document.dispatchEvent( new CustomEvent( 'vana:sangha:open', {
+        detail: { eventKey: btn.dataset.eventKey }
+      } ) );
+      return;
     }
+  } );
 
-    function trapFocus( drawerEl ) {
-        if ( ! drawerEl ) return;
+  // ── API pública ──────────────────────────────────────────────
+  window.VanaAgenda = { open, close };
 
-        drawerEl.addEventListener( 'keydown', function ( e ) {
-            if ( e.key !== 'Tab' ) return;
-
-            const focusable = getFocusable( drawerEl );
-            if ( focusable.length === 0 ) return;
-
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-
-            if ( e.shiftKey && document.activeElement === first ) {
-                e.preventDefault();
-                last.focus();
-                return;
-            }
-
-            if ( ! e.shiftKey && document.activeElement === last ) {
-                e.preventDefault();
-                first.focus();
-            }
-        } );
-    }
-
-    function setVisibility( el, visible ) {
-        if ( ! el ) return;
-        if ( visible ) {
-            el.hidden = false;
-            el.removeAttribute( 'hidden' );
-        } else {
-            el.hidden = true;
-            el.setAttribute( 'hidden', '' );
-        }
-    }
-
-    function openDrawer() {
-        const { drawer, overlay, openBtn, closeBtn } = getEls();
-        if ( ! drawer ) return;
-
-        lastFocused = document.activeElement;
-
-        setVisibility( drawer, true );
-        setVisibility( overlay, true );
-        drawer.classList.add( 'is-open' );
-        if ( overlay ) overlay.classList.add( 'is-open' );
-        document.body.style.overflow = 'hidden';
-
-        if ( openBtn ) openBtn.setAttribute( 'aria-expanded', 'true' );
-
-        isOpen = true;
-        activeDay = activeDay || ( drawer.querySelector( TAB_SEL )?.dataset.vanaDayTab || null );
-
-        if ( closeBtn ) {
-            closeBtn.focus();
-        } else {
-            drawer.focus();
-        }
-
-        emit( 'vana:agenda:open', {
-            visitId: document.querySelector( '.vana-visit' )?.dataset.visitId || null,
-        } );
-    }
-
-    function closeDrawer() {
-        const { drawer, overlay, openBtn } = getEls();
-        if ( ! drawer ) return;
-
-        drawer.classList.remove( 'is-open' );
-        if ( overlay ) overlay.classList.remove( 'is-open' );
-        setVisibility( drawer, false );
-        setVisibility( overlay, false );
-        document.body.style.overflow = '';
-
-        if ( openBtn ) openBtn.setAttribute( 'aria-expanded', 'false' );
-
-        isOpen = false;
-
-        if ( lastFocused && typeof lastFocused.focus === 'function' ) {
-            lastFocused.focus();
-        }
-
-        emit( 'vana:agenda:close', {} );
-    }
-
-    function activateDay( dayId ) {
-        const { tabs, panels } = getEls();
-        if ( ! dayId || tabs.length === 0 ) return;
-
-        tabs.forEach( tab => {
-            const isActive = tab.dataset.vanaDayTab === dayId;
-            tab.classList.toggle( 'vana-agenda-day-tab--active', isActive );
-            tab.setAttribute( 'aria-selected', isActive ? 'true' : 'false' );
-        } );
-
-        panels.forEach( panel => {
-            const panelId = panel.id;
-            const shouldShow = tabs.some(
-                tab => tab.dataset.vanaDayTab === dayId && tab.getAttribute( 'aria-controls' ) === panelId
-            );
-
-            if ( shouldShow ) {
-                panel.classList.remove( 'hidden' );
-            } else {
-                panel.classList.add( 'hidden' );
-            }
-        } );
-
-        activeDay = dayId;
-        emit( 'vana:agenda:day:change', {
-            dayId: dayId,
-            date: dayId,
-        } );
-    }
-
-    function handleEventClick( eventEl ) {
-        if ( ! eventEl ) return;
-
-        const eventKey = eventEl.dataset.vanaEvent || null;
-        emit( 'vana:agenda:event:click', {
-            eventKey: eventKey,
-            dayId: activeDay,
-        } );
-
-        if ( eventKey ) {
-            const selectorBtn = document.querySelector(
-                '[data-vana-event-key="' + CSS.escape( eventKey ) + '"]'
-            );
-            if ( selectorBtn ) {
-                selectorBtn.click();
-            }
-        }
-
-        closeDrawer();
-    }
-
-    function bindOpenClose() {
-        const { openBtn, closeBtn, overlay, drawer } = getEls();
-        if ( ! drawer ) return;
-
-        if ( openBtn ) {
-            openBtn.addEventListener( 'click', function ( e ) {
-                e.preventDefault();
-                openDrawer();
-            } );
-        }
-
-        if ( closeBtn ) {
-            closeBtn.addEventListener( 'click', function ( e ) {
-                e.preventDefault();
-                closeDrawer();
-            } );
-        }
-
-        if ( overlay ) {
-            overlay.addEventListener( 'click', closeDrawer );
-        }
-
-        document.addEventListener( 'keydown', function ( e ) {
-            if ( e.key === 'Escape' && isOpen ) {
-                closeDrawer();
-            }
-        } );
-    }
-
-    function bindTabs() {
-        const { tabs } = getEls();
-        if ( tabs.length === 0 ) return;
-
-        tabs.forEach( tab => {
-            tab.addEventListener( 'click', function () {
-                activateDay( tab.dataset.vanaDayTab || null );
-            } );
-        } );
-
-        const first = tabs.find( tab => tab.classList.contains( 'vana-agenda-day-tab--active' ) ) || tabs[0];
-        if ( first ) {
-            activateDay( first.dataset.vanaDayTab || null );
-        }
-    }
-
-    function bindEvents() {
-        const { events } = getEls();
-        if ( events.length === 0 ) return;
-
-        events.forEach( btn => {
-            btn.addEventListener( 'click', function () {
-                handleEventClick( btn );
-            } );
-        } );
-    }
-
-    function init() {
-        const { drawer } = getEls();
-        if ( ! drawer ) return;
-
-        drawer.setAttribute( 'tabindex', '-1' );
-        trapFocus( drawer );
-        bindOpenClose();
-        bindTabs();
-        bindEvents();
-    }
-
-    if ( document.readyState === 'loading' ) {
-        document.addEventListener( 'DOMContentLoaded', init );
-    } else {
-        init();
-    }
 } )();

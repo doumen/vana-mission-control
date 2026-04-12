@@ -1,0 +1,13 @@
+# Backups e temporários
+*.bak
+*.bak-*
+*.php.bak.*
+*.sh
+
+# Imagens de teste
+*.png
+
+# Arquivos de log/respostas do projeto
+resp*.md
+fase*.md
+*.txt

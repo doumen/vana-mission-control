@@ -64,6 +64,8 @@ if (!vana_mc_check_requirements()) {
 
 // ── Core ──────────────────────────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-utils.php";
+require_once VANA_MC_PATH . "includes/class-vana-assets.php";
+
 require_once VANA_MC_PATH . "includes/class-vana-index.php";
 require_once VANA_MC_PATH . "includes/class-vana-hmac.php";
 require_once VANA_MC_PATH . "includes/class-vana-contract.php";
@@ -75,6 +77,17 @@ require_once VANA_MC_PATH . "includes/class-vana-visit-cpt.php";
 require_once VANA_MC_PATH . "includes/class-vana-submission-cpt.php"; // ← ALLOWED_HOSTS, MAX_IMAGES
 require_once VANA_MC_PATH . "includes/class-vana-gallery-metabox.php";
 Vana_Gallery_Metabox::init();
+$__vana__tour_metabox_path = VANA_MC_PATH . "includes/class-vana-tour-metabox.php";
+if (file_exists($__vana__tour_metabox_path)) {
+    require_once $__vana__tour_metabox_path;
+    if (class_exists('Vana_Tour_Metabox')) {
+        Vana_Tour_Metabox::init();
+    } else {
+        error_log('Vana MC: class Vana_Tour_Metabox not found after include: ' . $__vana__tour_metabox_path);
+    }
+} else {
+    error_log('Vana MC: missing include file: ' . $__vana__tour_metabox_path);
+}
 
 // ── Storage / Media (v2) ──────────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-image-processor.php"; // ← NOVO
@@ -110,6 +123,9 @@ require_once VANA_MC_PATH . "api/class-vana-hari-katha-api.php";
 
 // ── Visit REST API — Fase 1 ───────────────────────────────
 require_once VANA_MC_PATH . "includes/class-vana-rest-api.php";
+
+require_once VANA_MC_PATH  . 'includes/rest/class-vana-rest-katha.php';
+
 Vana_REST_API::init();
 
 // ═══════════════════════════════════════════════════════════
@@ -140,6 +156,7 @@ final class Vana_Mission_Control {
             Vana_Submission_CPT::init();
             Vana_Katha_CPT::init();
             Vana_HK_Passage_CPT::init();
+            Vana_Tour_CPT::init();
         }, 5);
 
         // ── CPTs — via hook correto ───────────────────────
@@ -179,7 +196,7 @@ final class Vana_Mission_Control {
     }
 
     public function register_cpts(): void {
-        Vana_Tour_CPT::register();
+        // Tour CPT is initialized via Vana_Tour_CPT::init() during plugins_loaded
     }
 
     public function register_rest_routes(): void {
@@ -288,13 +305,15 @@ final class Vana_Mission_Control {
                 $visit_count = count($visit_query->posts);
             }
 
-            $items[] = [
-                'id'          => $tour_id,
-                'title'       => get_the_title($tour_id),
-                'permalink'   => get_permalink($tour_id),
-                'is_current'  => $tour_id === $current_tour_id,
-                'visit_count' => $visit_count,
-            ];
+                $lang = (isset($_POST['lang']) && in_array($_POST['lang'], ['pt','en'], true)) ? $_POST['lang'] : 'pt';
+
+                $items[] = [
+                    'id'          => $tour_id,
+                    'title'       => (string) Vana_Utils::resolve_tour_title($tour_id, $lang),
+                    'permalink'   => get_permalink($tour_id),
+                    'is_current'  => $tour_id === $current_tour_id,
+                    'visit_count' => $visit_count,
+                ];
         }
 
         wp_send_json_success($items);
@@ -434,7 +453,12 @@ final class Vana_Mission_Control {
 
             $items[] = [
                 'id'         => $id,
-                'title'      => (string) ($data['title_' . $lang] ?? $data['title_pt'] ?? get_the_title($id)),
+                'title'      => (string) Vana_Utils::resolve_visit_title(
+                    is_array($data) ? $data : [],
+                    $lang,
+                    $id,
+                    (string) ($data['location_meta']['city_ref'] ?? '')
+                ),
                 'permalink'  => (string) get_permalink($id),
                 'start_date' => (string) get_post_meta($id, '_vana_start_date', true),
                 'is_current' => $id === $visit_id,
@@ -620,11 +644,31 @@ final class Vana_Mission_Control {
                 ? (string) filemtime($vana_ac_path)
                 : VANA_MC_VERSION;
 
+            // Stage Bridge (loads before agenda controller)
+            $vana_sb_path = VANA_MC_PATH . 'assets/js/VanaStageBridge.js';
+            $vana_sb_ver  = file_exists($vana_sb_path)
+                ? (string) filemtime($vana_sb_path)
+                : VANA_MC_VERSION;
+
+            // Agenda CSS
+            $vana_ag_css_path = VANA_MC_PATH . 'assets/css/vana-agenda.css';
+            $vana_ag_css_ver  = file_exists($vana_ag_css_path)
+                ? (string) filemtime($vana_ag_css_path)
+                : VANA_MC_VERSION;
+
             wp_enqueue_style(
                 "vana-ui-visit-hub",
                 VANA_MC_URL . "assets/css/vana-ui.visit-hub.css",
                 [],
                 VANA_MC_VERSION
+            );
+
+            // Agenda stylesheet (loads after base visit CSS)
+            wp_enqueue_style(
+                'vana-agenda',
+                VANA_MC_URL . 'assets/css/vana-agenda.css',
+                [ 'vana-ui-visit-hub' ],
+                $vana_ag_css_ver
             );
 
             wp_enqueue_script(
@@ -651,11 +695,153 @@ final class Vana_Mission_Control {
                 true
             );
 
+            // VanaScrollLock: small head script, must load before other controllers
+            $vana_sl_path = VANA_MC_PATH . 'assets/js/VanaScrollLock.js';
+            $vana_sl_ver  = file_exists($vana_sl_path)
+                ? (string) filemtime($vana_sl_path)
+                : VANA_MC_VERSION;
+
+            wp_enqueue_script(
+                'vana-scroll-lock',
+                VANA_MC_URL . 'assets/js/VanaScrollLock.js',
+                [],
+                $vana_sl_ver,
+                false // load in head so singleton exists early
+            );
+
+            // Agenda controller should load before the StageBridge so it can
+            // create the lock and initialize UI first.
             wp_enqueue_script(
                 "vana-agenda-controller",
                 VANA_MC_URL . "assets/js/VanaAgendaController.js",
-                [],
+                [ 'vana-scroll-lock' ],
                 $vana_ac_ver,
+                true
+            );
+
+            // Stage bridge depends on the agenda and the scroll-lock singleton.
+            wp_enqueue_script(
+                'vana-stage-bridge',
+                VANA_MC_URL . 'assets/js/VanaStageBridge.js',
+                [ 'vana-scroll-lock', 'vana-agenda-controller' ],
+                $vana_sb_ver,
+                true
+            );
+
+            // ─────────────────────────────────────────────────────
+            // Vana State Router (zona mutável) — carrega após stage-bridge
+            $vana_sr_path = VANA_MC_PATH . 'assets/js/VanaStateRouter.js';
+            $vana_sr_ver  = file_exists($vana_sr_path)
+                ? (string) filemtime($vana_sr_path)
+                : VANA_MC_VERSION;
+
+            wp_enqueue_script(
+                'vana-state-router',
+                VANA_MC_URL . 'assets/js/VanaStateRouter.js',
+                [ 'vana-stage-bridge' ],
+                $vana_sr_ver,
+                true
+            );
+            // Router patch: ensure events emitted for consumers
+            $vana_rp_path = VANA_MC_PATH . 'assets/js/VanaRouterPatch.js';
+            $vana_rp_ver  = file_exists($vana_rp_path) ? (string) filemtime($vana_rp_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-router-patch',
+                VANA_MC_URL . 'assets/js/VanaRouterPatch.js',
+                [ 'vana-state-router' ],
+                $vana_rp_ver,
+                true
+            );
+            // ─────────────────────────────────────────────────────
+
+            // VanaStageController (loads passages, exposes `window.VanaStage`)
+            $vana_stc_path = VANA_MC_PATH . 'assets/js/VanaStageController.js';
+            $vana_stc_ver  = file_exists($vana_stc_path)
+                ? (string) filemtime($vana_stc_path)
+                : VANA_MC_VERSION;
+
+            wp_enqueue_script(
+                'vana-stage-controller',
+                VANA_MC_URL . 'assets/js/VanaStageController.js',
+                [ 'vana-state-router' ],
+                $vana_stc_ver,
+                true
+            );
+
+            // Passa configuração para o controller do Stage
+            wp_localize_script(
+                'vana-stage-controller',
+                'vanaStageConfig',
+                [
+                    'restBase' => rest_url( 'vana/v1' ),
+                    'lang'     => Vana_Assets::get_current_lang(),
+                ]
+            );
+
+            // PassageController — carrega passage via REST quando o Router muda para 'passage'
+            $vana_pc_path = VANA_MC_PATH . 'assets/js/PassageController.js';
+            $vana_pc_ver  = file_exists($vana_pc_path) ? (string) filemtime($vana_pc_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-passage-controller',
+                VANA_MC_URL . 'assets/js/PassageController.js',
+                [ 'vana-state-router', 'vana-stage-controller' ],
+                $vana_pc_ver,
+                true
+            );
+
+            wp_localize_script(
+                'vana-passage-controller',
+                'vanaPassageConfig',
+                [ 'restBase' => rest_url( 'vana/v1' ) ]
+            );
+
+            // Day strip (hero) — styles + behavior for new day-strip partial
+            $vana_ds_css_path = VANA_MC_PATH . 'assets/css/vana-day-strip.css';
+            $vana_ds_css_ver  = file_exists($vana_ds_css_path) ? (string) filemtime($vana_ds_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-day-strip',
+                VANA_MC_URL . 'assets/css/vana-day-strip.css',
+                [ 'vana-ui-visit-hub' ],
+                $vana_ds_css_ver
+            );
+
+            // Zona mutável CSS
+            $vana_mz_css_path = VANA_MC_PATH . 'assets/css/vana-mutable-zone.css';
+            $vana_mz_css_ver  = file_exists($vana_mz_css_path) ? (string) filemtime($vana_mz_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-mutable-zone',
+                VANA_MC_URL . 'assets/css/vana-mutable-zone.css',
+                [ 'vana-day-strip' ],
+                $vana_mz_css_ver
+            );
+
+            // Header fixes (optional corrective stylesheet + scroll helper)
+            $vhf_css_path = VANA_MC_PATH . 'assets/css/vana-header-fix.css';
+            $vhf_css_ver  = file_exists($vhf_css_path) ? (string) filemtime($vhf_css_path) : VANA_MC_VERSION;
+            wp_enqueue_style(
+                'vana-header-fix',
+                VANA_MC_URL . 'assets/css/vana-header-fix.css',
+                [ 'vana-ui-visit-hub' ],
+                $vhf_css_ver
+            );
+
+            $vh_js_path = VANA_MC_PATH . 'assets/js/vana-scroll-top.js';
+            $vh_js_ver  = file_exists($vh_js_path) ? (string) filemtime($vh_js_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-scroll-top',
+                VANA_MC_URL . 'assets/js/vana-scroll-top.js',
+                [],
+                $vh_js_ver,
+                true
+            );
+
+            $vana_ds_js_path = VANA_MC_PATH . 'assets/js/vana-day-strip.js';
+            $vana_ds_js_ver  = file_exists($vana_ds_js_path) ? (string) filemtime($vana_ds_js_path) : VANA_MC_VERSION;
+            wp_enqueue_script(
+                'vana-day-strip',
+                VANA_MC_URL . 'assets/js/vana-day-strip.js',
+                [ 'vana-agenda-controller' ],
+                $vana_ds_js_ver,
                 true
             );
         }
@@ -736,6 +922,7 @@ register_activation_hook(__FILE__, function () {
     Vana_Index::init();
     Vana_Index::create_table();
     Vana_Tour_CPT::register();
+    Vana_Tour_CPT::register_meta();
     if (class_exists("Vana_Visit_CPT")) {
         Vana_Visit_CPT::register();
         Vana_Visit_CPT::register_meta();

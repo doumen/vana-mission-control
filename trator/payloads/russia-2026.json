@@ -1,0 +1,16 @@
+{
+  "contract_id": "vana.mission",
+  "contract_version": "3.0",
+  "meta": {
+    "source": "manual-entry"
+  },
+  "tour": {
+    "origin_key": "tour:russia-summer-2026",
+    "slug": "russia-summer-tour-2026",
+    "title": "Russia Summer Tour 2026",
+    "theme": "russia",
+    "dates_label": "Junho – Julho 2026",
+    "is_current": false,
+    "post_status": "pending"
+  }
+}

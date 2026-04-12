@@ -1,0 +1,40 @@
+{
+  "kind": "visit",
+  "origin_key": "visit:india_2026:navadvipa_01",
+  "parent_origin_key": "tour:india_2026",
+  "title": "Navadvīpa Parikramā 2026",
+  "slug_suggestion": "navadvipa-parikrama-2026",
+      "schema_version": "3.1",
+    "timezone": "Asia/Kolkata",
+    "location_meta": {
+      "city_ref": "Navadvīpa, IN",
+      "lat": 23.4167,
+      "lng": 88.3667
+    },
+
+    "days": [
+      {
+        "date_local": "2026-02-24",
+        "hero": {
+          "title_pt": "Navadvīpa — A Terra Udāra de Mahāprabhu",
+          "title_en": "Navadvīpa — The Udāra Land of Mahāprabhu",
+          "description_pt": "Hari-kathā noturna sobre CC Ādi-līlā 8.24 — a glória do Gaura-dhāma.",
+          "description_en": "Evening Hari-kathā on CC Ādi-līlā 8.24 — the glory of Gaura-dhāma.",
+          "provider": "youtube",
+          "video_id": ""
+        },
+        "schedule": [
+          {
+            "time_local": "20:00",
+            "title_pt": "Hari-kathā — CC Ādi-līlā 8.24",
+            "title_en": "Hari-kathā — CC Ādi-līlā 8.24",
+            "status": "done",
+            "event_key": "noite-katha-20260224"
+          }
+        ],
+        "vods": [],
+        "photos": []
+      }
+    ]
+  }
+

@@ -426,7 +426,7 @@ final class Vana_Submission_CPT {
             case 'visit_id': {
                 $vid   = (int) get_post_meta($post_id, '_visit_id', true);
                 $link  = $vid ? get_edit_post_link($vid) : '';
-                $title = $vid ? (get_the_title($vid) ?: "#{$vid}") : '';
+                $title = $vid ? ((string) Vana_Utils::resolve_visit_title([], 'pt', $vid) ?: "#{$vid}") : '';
                 echo $vid
                     ? '<a href="' . esc_url((string) $link) . '">'
                       . esc_html($title) . '</a>'
@@ -560,7 +560,7 @@ final class Vana_Submission_CPT {
         echo '<option value="0">Todas as Visitas</option>';
         foreach ($visit_ids as $vid) {
             $vid   = (int) $vid;
-            $title = get_the_title($vid) ?: "Visita #{$vid}";
+            $title = (string) Vana_Utils::resolve_visit_title([], 'pt', $vid) ?: "Visita #{$vid}";
             echo '<option value="' . esc_attr((string) $vid) . '"'
                . selected($current, $vid, false) . '>'
                . esc_html($title) . '</option>';

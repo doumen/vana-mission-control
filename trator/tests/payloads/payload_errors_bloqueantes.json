@@ -1,0 +1,73 @@
+{
+  "schema_version": "5.0",
+  "visit_ref": "",
+
+  "days": [
+    {
+      "day_key": "2026-02-21",
+      "primary_event": "evento-invalido",
+      "events": [
+        {
+          "event_key": "evento-invalido",
+          "type": "programa",
+          "title_pt": "Evento inválido",
+          "title_en": "Invalid Event",
+          "time": "17:00",
+          "status": "past",
+          "location": {"name": "Local", "lat": 0, "lng": 0},
+
+          "vods": [
+            {
+              "vod_key": "video-abc",
+              "provider": "youtube",
+              "video_id": "XYZ",
+              "thumb_url": null,
+              "duration_s": 1000,
+              "vod_part": "primeiro",
+              "segments": [
+                {
+                  "segment_id": "segmento-abc",
+                  "type":       "palestra",
+                  "timestamp_start": 5000,
+                  "timestamp_end":   2000
+                },
+                {
+                  "segment_id":      "seg-20260221-004",
+                  "type":            "kirtan",
+                  "timestamp_start": 0,
+                  "timestamp_end":   1000,
+                  "katha_id":        999
+                }
+              ]
+            }
+          ],
+
+          "kathas": [
+            {
+              "katha_key": "katha_invalida",
+              "title_pt":  "Sem ID",
+              "sources": [
+                {
+                  "vod_key": "vod-INEXISTENTE-001",
+                  "vod_part": "string-invalida"
+                }
+              ],
+              "passages": [
+                {
+                  "passage_id": "passage-abc",
+                  "title_pt":   "Sem formato",
+                  "source_ref": {
+                    "timestamp_start": 6000,
+                    "timestamp_end":   5000
+                  }
+                }
+              ]
+            }
+          ],
+          "photos":  [],
+          "sangha":  []
+        }
+      ]
+    }
+  ]
+}

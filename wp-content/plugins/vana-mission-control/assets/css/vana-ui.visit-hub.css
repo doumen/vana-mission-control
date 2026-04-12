@@ -128,3 +128,325 @@
 
 /* Stage — transição de opacity controlada pelo JS */
 #vana-stage { transition: opacity .15s ease; }
+
+/* ═══════════════════════════════════════════════════════════════
+   AGENDA DRAWER — Schema 6.1
+   assets/css/vana-ui.visit-hub.css
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Gaveta Agenda ──────────────────────────────────────────── */
+.vana-drawer--agenda {
+    position:         fixed;
+    top:              0;
+    right:            0;
+    left:             auto;
+    bottom:           0;
+    width:            min(320px, 92vw);
+    height:           100dvh;
+    background:       var(--vana-surface, #1a1a2e);
+    color:            var(--vana-on-surface, #e8e0d4);
+    display:          flex;
+    flex-direction:   column;
+    overflow:         hidden;
+    z-index:          9999;
+    box-shadow:       -4px 0 24px rgba(0,0,0,.45);
+    transform:        translateX(100%);
+    transition:       transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity .18s ease;
+    visibility:       hidden;
+    pointer-events:   none;
+    opacity:          0;
+}
+
+.vana-drawer--agenda.is-open,
+.vana-drawer--agenda:not([hidden]) {
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.vana-drawer--agenda[hidden] {
+    /* keep in flow for stacking, but visually hidden (avoids display:none conflicts) */
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transform: translateX(100%) !important;
+    opacity: 0 !important;
+}
+
+/* Overlay */
+.vana-drawer__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 899;
+}
+
+/* Body scroll aberta */
+body.vana-drawer-open {
+    overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.vana-drawer__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .875rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    flex-shrink: 0;
+}
+
+.vana-drawer__title {
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: .02em;
+}
+
+.vana-drawer__close {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: .375rem;
+    border-radius: .375rem;
+    line-height: 1;
+    opacity: .7;
+    transition: opacity .15s;
+}
+.vana-drawer__close:hover { opacity: 1; }
+
+/* ── Body ───────────────────────────────────────────────────── */
+.vana-drawer__body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    overscroll-behavior: contain;
+}
+
+/* ── Day Tabs ───────────────────────────────────────────────── */
+.vana-agenda__day-nav {
+    display: flex;
+    gap: .25rem;
+    padding: .625rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+}
+.vana-agenda__day-nav::-webkit-scrollbar { display: none; }
+
+.vana-agenda__day-tab {
+    background: none;
+    border: 1px solid rgba(255,255,255,.12);
+    color: inherit;
+    padding: .3rem .65rem;
+    border-radius: 2rem;
+    font-size: .78rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+}
+.vana-agenda__day-tab:hover {
+    background: rgba(255,255,255,.07);
+}
+.vana-agenda__day-tab.is-active {
+    background: var(--vana-accent, #c9a96e);
+    border-color: var(--vana-accent, #c9a96e);
+    color: #1a1a2e;
+    font-weight: 600;
+}
+
+.vana-agenda__day-tab-live {
+    width: 7px;
+    height: 7px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: vana-blink 1.2s ease-in-out infinite;
+}
+
+/* ── Tithi ──────────────────────────────────────────────────── */
+.vana-agenda__tithi {
+    font-size: .75rem;
+    color: var(--vana-muted, #9e9e9e);
+    padding: .5rem 1rem .25rem;
+    font-style: italic;
+}
+
+/* ── Event List ─────────────────────────────────────────────── */
+.vana-agenda__panel { flex: 1; }
+
+.vana-agenda__event-list {
+    list-style: none;
+    margin: 0;
+    padding: .25rem 0 1rem;
+}
+
+.vana-agenda__event {
+    padding: .625rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    transition: background .15s;
+}
+
+.vana-agenda__event.is-interactive {
+    cursor: pointer;
+}
+.vana-agenda__event.is-interactive:hover {
+    background: rgba(255,255,255,.04);
+}
+
+/* ── Event Header ───────────────────────────────────────────── */
+.vana-agenda__event-header {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .375rem;
+}
+
+.vana-agenda__event-time {
+    font-size: .75rem;
+    color: var(--vana-muted, #9e9e9e);
+    min-width: 2.8rem;
+    flex-shrink: 0;
+}
+
+.vana-agenda__event-title {
+    flex: 1;
+    font-size: .875rem;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+/* ── Status Badges ──────────────────────────────────────────── */
+.vana-agenda__badge {
+    font-size: .68rem;
+    padding: .15rem .45rem;
+    border-radius: 2rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.vana-agenda__badge--live   { background: #ef4444; color: #fff; }
+.vana-agenda__badge--active { background: var(--vana-accent, #c9a96e); color: #1a1a2e; }
+.vana-agenda__badge--past   { background: rgba(255,255,255,.1); color: inherit; }
+.vana-agenda__badge--future { background: rgba(255,255,255,.06); color: var(--vana-muted, #9e9e9e); }
+
+/* ── Media List (VODs) ──────────────────────────────────────── */
+.vana-agenda__media-list {
+    list-style: none;
+    margin: .25rem 0 0 2.8rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+}
+
+.vana-agenda__media-btn {
+    background: rgba(255,255,255,.06);
+    border: none;
+    color: inherit;
+    padding: .3rem .625rem;
+    border-radius: .375rem;
+    font-size: .78rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    width: 100%;
+    text-align: left;
+    transition: background .15s;
+}
+.vana-agenda__media-btn:hover {
+    background: rgba(255,255,255,.12);
+}
+
+.vana-agenda__media-icon { font-size: .85rem; flex-shrink: 0; }
+.vana-agenda__media-label { flex: 1; }
+
+.vana-agenda__media-part {
+    font-size: .68rem;
+    color: var(--vana-muted, #9e9e9e);
+    flex-shrink: 0;
+}
+
+/* ── Ações Secundárias ──────────────────────────────────────── */
+.vana-agenda__event-actions {
+    display: flex;
+    gap: .375rem;
+    margin-top: .375rem;
+    margin-left: 2.8rem;
+    flex-wrap: wrap;
+}
+
+.vana-agenda__action {
+    background: none;
+    border: 1px solid rgba(255,255,255,.15);
+    color: inherit;
+    padding: .2rem .55rem;
+    border-radius: 2rem;
+    font-size: .72rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    transition: background .15s, border-color .15s;
+}
+.vana-agenda__action:hover {
+    background: rgba(255,255,255,.08);
+    border-color: rgba(255,255,255,.3);
+}
+
+.vana-agenda__action-count {
+    background: var(--vana-accent, #c9a96e);
+    color: #1a1a2e;
+    border-radius: 2rem;
+    padding: .05rem .35rem;
+    font-size: .65rem;
+    font-weight: 700;
+}
+
+/* ── Footer / Lang switcher ─────────────────────────────────── */
+.vana-agenda__footer {
+    padding: .625rem 1rem;
+    border-top: 1px solid rgba(255,255,255,.08);
+    flex-shrink: 0;
+}
+
+.vana-agenda__lang {
+    display: flex;
+    gap: .375rem;
+}
+
+.vana-agenda__lang-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,.15);
+    color: inherit;
+    padding: .2rem .6rem;
+    border-radius: 2rem;
+    font-size: .75rem;
+    cursor: pointer;
+    transition: background .15s;
+}
+.vana-agenda__lang-btn.is-active {
+    background: var(--vana-accent, #c9a96e);
+    border-color: var(--vana-accent, #c9a96e);
+    color: #1a1a2e;
+    font-weight: 600;
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+.vana-agenda__empty {
+    padding: 1.5rem 1rem;
+    color: var(--vana-muted, #9e9e9e);
+    font-size: .85rem;
+    text-align: center;
+}
+
+/* ── Animações ──────────────────────────────────────────────── */
+@keyframes vana-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+}

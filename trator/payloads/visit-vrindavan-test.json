@@ -1,0 +1,257 @@
+{
+  "schema_version": "6.2",
+  "visit_ref": "vrindavan-2026-02",
+  "tour_ref": "india-2026",
+  "metadata": {
+    "city_pt": "Vṛndāvana",
+    "city_en": "Vrindavan",
+    "country": "IN",
+    "date_start": "2026-02-18",
+    "date_end": "2026-02-27",
+    "timezone": "Asia/Kolkata",
+    "status": "completed"
+  },
+  "days": [
+    {
+      "day_key": "2026-02-21",
+      "label_pt": "21 fev",
+      "label_en": "Feb 21",
+      "tithi": "Ekadashi",
+      "tithi_name_pt": "Vijaya Ekādaśī",
+      "tithi_name_en": "Vijaya Ekadashi",
+      "primary_event_key": "20260221-1703-programa",
+      "events": [
+        {
+          "event_key": "20260221-0530-mangala",
+          "type": "mangala",
+          "title_pt": "Maṅgala-ārati",
+          "title_en": "Maṅgala-ārati",
+          "time": "05:30",
+          "status": "past",
+          "location": { "name": "Rūpa Sanātana Gauḍīya Maṭha", "lat": 27.5815, "lng": 77.6997 },
+          "vods": [
+            {
+              "vod_key": "vod-20260221-001",
+              "provider": "youtube",
+              "video_id": "ABC111",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/ABC111/maxresdefault.jpg",
+              "duration_s": 2700,
+              "title_pt": "Maṅgala-ārati — 21 fev",
+              "title_en": "Maṅgala-ārati — Feb 21",
+              "vod_part": 1,
+              "segments": [
+                {
+                  "segment_id": "seg-20260221-001",
+                  "type": "arati",
+                  "title_pt": "Maṅgala-ārati",
+                  "title_en": "Maṅgala-ārati",
+                  "timestamp_start": 0,
+                  "timestamp_end": 2700,
+                  "katha_id": null
+                }
+              ]
+            }
+          ],
+          "photos": [
+            {
+              "photo_key": "ph-20260221-001",
+              "thumb_url": "https://cdn.vanamadhuryam.com/ph-20260221-001-thumb.jpg",
+              "full_url": "https://cdn.vanamadhuryam.com/ph-20260221-001.jpg",
+              "caption_pt": "Maṅgala-ārati ao amanhecer",
+              "caption_en": "Maṅgala-ārati at dawn",
+              "author": "Madhava das"
+            }
+          ],
+          "sangha": [
+            {
+              "sangha_key": "sg-20260221-001",
+              "type": "message",
+              "provider": "instagram",
+              "url": "https://www.instagram.com/p/XXX/",
+              "thumb_url": null,
+              "caption_pt": "Que ārati transformadora!",
+              "caption_en": "What a transforming ārati!",
+              "author": "@devoto_ig"
+            }
+          ]
+        },
+        {
+          "event_key": "20260221-1703-programa",
+          "type": "programa",
+          "title_pt": "Programa — 21 fev",
+          "title_en": "Program — Feb 21",
+          "time": "17:03",
+          "status": "past",
+          "location": { "name": "Gopīnātha Bhavana", "lat": 27.5794, "lng": 77.6952 },
+          "vods": [
+            {
+              "vod_key": "vod-20260221-002",
+              "provider": "youtube",
+              "video_id": "dQw4w9WgXcQ",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+              "duration_s": 13802,
+              "title_pt": "Programa completo — 21 fev",
+              "title_en": "Full Program — Feb 21",
+              "vod_part": 1,
+              "segments": [
+                {
+                  "segment_id": "seg-20260221-002",
+                  "type": "kirtan",
+                  "title_pt": "Kirtan de abertura",
+                  "title_en": "Opening Kirtan",
+                  "timestamp_start": 0,
+                  "timestamp_end": 2732,
+                  "katha_id": null
+                },
+                {
+                  "segment_id": "seg-20260221-003",
+                  "type": "pushpanjali",
+                  "title_pt": "Outros palestrantes",
+                  "title_en": "Other speakers",
+                  "timestamp_start": 2733,
+                  "timestamp_end": 4800,
+                  "katha_id": null
+                },
+                {
+                  "segment_id": "seg-20260221-004",
+                  "type": "harikatha",
+                  "title_pt": "Hari-Kathā — SB 10.31",
+                  "title_en": "Hari-Kathā — SB 10.31",
+                  "timestamp_start": 4801,
+                  "timestamp_end": 9000,
+                  "katha_id": 678
+                },
+                {
+                  "segment_id": "seg-20260221-005",
+                  "type": "dance",
+                  "title_pt": "Dança",
+                  "title_en": "Dance",
+                  "timestamp_start": 9300,
+                  "timestamp_end": 10861,
+                  "katha_id": null
+                },
+                {
+                  "segment_id": "seg-20260221-006",
+                  "type": "drama",
+                  "title_pt": "Teatro",
+                  "title_en": "Theater",
+                  "timestamp_start": 11400,
+                  "timestamp_end": 13802,
+                  "katha_id": null
+                }
+              ]
+            }
+          ],
+          "photos": [
+            {
+              "photo_key": "ph-20260221-002",
+              "thumb_url": "https://cdn.vanamadhuryam.com/ph-20260221-002-thumb.jpg",
+              "full_url": "https://cdn.vanamadhuryam.com/ph-20260221-002.jpg",
+              "caption_pt": "Gurudeva durante a kathā",
+              "caption_en": "Gurudeva during the kathā",
+              "author": "Radha devi dasi"
+            }
+          ],
+          "sangha": [
+            {
+              "sangha_key": "sg-20260221-002",
+              "type": "message",
+              "provider": "direct",
+              "url": null,
+              "thumb_url": null,
+              "caption_pt": "Essa palestra mudou minha vida.",
+              "caption_en": "This lecture changed my life.",
+              "author": "Govinda das"
+            }
+          ]
+        },
+        {
+          "event_key": "20260222-1800-hk",
+          "type": "programa",
+          "title_pt": "Hari-Kathā — 22 fev",
+          "title_en": "Hari-Kathā — Feb 22",
+          "time": "18:00",
+          "status": "past",
+          "location": { "name": "Gopīnātha Bhavana", "lat": 27.5794, "lng": 77.6952 },
+          "vods": [
+            {
+              "vod_key": "vod-20260222-001",
+              "provider": "youtube",
+              "video_id": "XYZ001",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/XYZ001/maxresdefault.jpg",
+              "duration_s": 4200,
+              "title_pt": "Hari-Kathā — 22 fev (parte 1)",
+              "title_en": "Hari-Kathā — Feb 22 (part 1)",
+              "vod_part": 1,
+              "segments": [
+                {
+                  "segment_id": "seg-20260222-001",
+                  "type": "harikatha",
+                  "title_pt": "Hari-Kathā — SB 10.31 (parte 1)",
+                  "title_en": "Hari-Kathā — SB 10.31 (part 1)",
+                  "timestamp_start": 0,
+                  "timestamp_end": 4200,
+                  "katha_id": 679
+                }
+              ]
+            },
+            {
+              "vod_key": "vod-20260222-002",
+              "provider": "youtube",
+              "video_id": "XYZ002",
+              "url": null,
+              "thumb_url": "https://img.youtube.com/vi/XYZ002/maxresdefault.jpg",
+              "duration_s": 2700,
+              "title_pt": "Hari-Kathā — 22 fev (parte 2)",
+              "title_en": "Hari-Kathā — Feb 22 (part 2)",
+              "vod_part": 2,
+              "segments": [
+                {
+                  "segment_id": "seg-20260222-002",
+                  "type": "harikatha",
+                  "title_pt": "Hari-Kathā — SB 10.31 (parte 2)",
+                  "title_en": "Hari-Kathā — SB 10.31 (part 2)",
+                  "timestamp_start": 0,
+                  "timestamp_end": 2700,
+                  "katha_id": 679
+                }
+              ]
+            }
+          ],
+          "photos": [],
+          "sangha": []
+        }
+      ]
+    }
+  ],
+  "orphans": {
+    "vods": [
+      {
+        "vod_key": "vod-orphan-001",
+        "provider": "facebook",
+        "video_id": null,
+        "url": "https://www.facebook.com/watch/?v=777",
+        "thumb_url": "https://cdn.vanamadhuryam.com/vod-orphan-001-thumb.jpg",
+        "duration_s": null,
+        "title_pt": "Darśana rápido na rua",
+        "title_en": "Quick street darśana",
+        "orphan_type": "documental",
+        "segments": []
+      }
+    ],
+    "photos": [
+      {
+        "photo_key": "ph-orphan-001",
+        "thumb_url": "https://cdn.vanamadhuryam.com/ph-orphan-001-thumb.jpg",
+        "full_url": "https://cdn.vanamadhuryam.com/ph-orphan-001.jpg",
+        "caption_pt": "Momento espontâneo",
+        "caption_en": "Spontaneous moment",
+        "author": null
+      }
+    ],
+    "sangha": []
+  }
+}

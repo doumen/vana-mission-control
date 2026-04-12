@@ -6,22 +6,26 @@
  * Variáveis esperadas do _bootstrap.php:
  *   $lang, $visit_id, $visit_tz
  *   $active_day_date, $active_vod_index
- *
- * Responsabilidades:
- *   1. Dual-timezone  — converte timestamps Unix p/ fuso local do visitante
- *   2. Lightbox       — galeria de fotos (VanaGallery)
- *   3. Segmentos      — seek no player YouTube via postMessage
- *   4. Fallback FB    — detecta falha no iframe Facebook e exibe painel
- *   5. Copy link      — botão copiar link (Facebook fallback)
- *   6. Tabs keyboard  — navegação por teclado nas abas de dias
- *   7. Lazy map       — já tratado inline em stage.php (sem JS extra aqui)
  */
 defined('ABSPATH') || exit;
+
+// Garante $tour_id mesmo se o escopo não herdou do _bootstrap.php
+if ( empty( $tour_id ) ) {
+    $visit_id_scripts = $visit_id ?? get_the_ID();
+    $tour_id          = (int) get_post_meta( $visit_id_scripts, '_vana_tour_id', true );
+}
+if ( empty( $tour_title ) && ! empty( $tour_id ) ) {
+    $tour_title = Vana_Utils::tour_header_label( $tour_id, $lang ?? 'pt' );
+}
+if ( empty( $tour_url ) && ! empty( $tour_id ) ) {
+    $tour_url = (string) get_permalink( $tour_id );
+}
 
 // Dados PHP → JS (localize seguro, sem dados sensíveis)
 $js_data = [
     'lang'            => $lang,
     'visitId'         => $visit_id,
+    'tourId'          => $tour_id,
     'activeDayDate'   => $active_day_date,
     'activeVodIndex'  => (int) $active_vod_index,
     'eventTz'         => $visit_tz->getName(),
@@ -49,9 +53,15 @@ $js_data = [
     'tourId'  => $tour_id ?: null,
     'tourTitle' => $tour_id ? $tour_title : null,
     'tourUrl'   => $tour_id ? $tour_url : null,
+    'timeline'  => $data ?? [],
     'currentVisit' => [
       'id'    => (int) $visit_id,
-      'title' => get_the_title( $visit_id ),
+      'title' => Vana_Utils::resolve_visit_title(
+          $data ?? [],
+          $lang,
+          (int) $visit_id,
+          (string) ($data['metadata']['city_ref'] ?? '')
+      ),
       'url'   => get_permalink( $visit_id ),
     ],
   ];
@@ -65,15 +75,19 @@ $js_data = [
    * the `window.vanaDrawer` payload and the initialization order.
    */
   ?>
-  <script>
-  window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
-  </script>
+<script>
+window.vanaDrawer = <?php echo wp_json_encode( $drawer_data ); ?>;
+</script>
 <script>
 /* ============================================================
    VANA VISIT PAGE — scripts v2.6
    ============================================================ */
 (function (CFG) {
   'use strict';
+
+  // Expose current lang to other IIFEs (Hari-kathā, Drawer) which don't
+  // receive `CFG` as parameter. This prevents "CFG is not defined" errors.
+  window.__vanaLang = CFG.lang || 'pt';
 
   /* ----------------------------------------------------------
      0. UTILITÁRIOS
@@ -125,7 +139,7 @@ $js_data = [
     function addVod(vod) {
       if (!vod || typeof vod !== 'object') return;
 
-      var vodId = vod.id || vod.vod_id || '';
+      var vodId = vod.vod_key || vod.id || vod.vod_id || '';
       if (!vodId) return;
 
       _vodIndex[String(vodId)] = vod;
@@ -643,11 +657,33 @@ $js_data = [
     var sec    = segStart ? timeToSec(segStart) : 0;
     var iframe = document.getElementById('vanaStageIframe');
 
+    var src = 'https://www.youtube-nocookie.com/embed/' + videoId
+      + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
+    if (sec > 0) src += '&start=' + sec;
+
     if (iframe) {
-      var src = 'https://www.youtube-nocookie.com/embed/' + videoId
-        + '?rel=0&modestbranding=1&enablejsapi=1&autoplay=1&origin=' + encodeURIComponent(window.location.origin);
-      if (sec > 0) src += '&start=' + sec;
       iframe.src = src;
+    } else {
+      // Create iframe dynamically when not present in SSR
+      var stageVideo = document.querySelector('.vana-stage-video');
+      if (stageVideo) {
+        var wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        var newIframe = document.createElement('iframe');
+        newIframe.id = 'vanaStageIframe';
+        newIframe.src = src;
+        newIframe.title = title || '';
+        newIframe.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;border:0;');
+        newIframe.setAttribute('allowfullscreen', '');
+        newIframe.setAttribute('allow', 'autoplay');
+        newIframe.setAttribute('loading', 'lazy');
+        // Clear existing placeholder and append iframe
+        stageVideo.innerHTML = '';
+        stageVideo.appendChild(newIframe);
+        iframe = newIframe;
+      }
     }
 
     var titleEl = document.getElementById('vanaStageTitle')
@@ -657,6 +693,8 @@ $js_data = [
     var stage = document.querySelector('.vana-stage');
     if (!stage && iframe) stage = iframe.closest('section');
     if (stage) stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Return true if we updated something (iframe/title/scroll)
+    return !!(iframe || titleEl || stage);
   }
 
   /* ----------------------------------------------------------
@@ -748,6 +786,48 @@ $js_data = [
     initCopyLink();
     initTabsKeyboard();
     initScheduleVod();
+    // ── Drawer → Stage bridge (vana:event:select) ──────────────
+    document.addEventListener('vana:event:select', function (e) {
+      try { console.debug('vana:event:select', e && e.detail); } catch (_) {}
+      var d = e.detail || {};
+      if (!d.videoId && !d.vod_id) return;
+      var idx   = getVodIndex();
+      var found = null;
+      if (d.vod_id && idx[String(d.vod_id)]) {
+        found = idx[String(d.vod_id)];
+      } else {
+        Object.keys(idx).forEach(function (k) {
+          if (idx[k].video_id === d.videoId) found = idx[k];
+        });
+      }
+      if (found) {
+        try { e.preventDefault(); } catch (_) {}
+        var swapped = false;
+        try {
+          swapped = swapStageYouTube(
+            found.video_id,
+            found['title_' + CFG.lang] || found.title_pt || found.title || '',
+            d.segStart || null
+          ) || false;
+        } catch (err) {
+          console.error('swapStageYouTube threw', err);
+          swapped = false;
+        }
+        if (!swapped) console.warn('Stage swap failed for', found && found.video_id);
+        return;
+      } else if (d.videoId) {
+        try { e.preventDefault(); } catch (_) {}
+        var swapped2 = false;
+        try {
+          swapped2 = swapStageYouTube(d.videoId, d.title || '', d.segStart || null) || false;
+        } catch (err) {
+          console.error('swapStageYouTube threw', err);
+          swapped2 = false;
+        }
+        if (!swapped2) console.warn('Stage swap failed for', d.videoId);
+        return;
+      }
+    });
     initNotify();
     initTitlePopover();
   }
@@ -758,10 +838,147 @@ $js_data = [
     init();
   }
 
+  // Expose helpers for debugging and programmatic tests
+  // Note: kept intentionally minimal to avoid global namespace pollution.
+  try {
+    window.swapStageYouTube = swapStageYouTube;
+    window.getVodIndex = getVodIndex;
+  } catch (e) {
+    // ignore when not allowed
+  }
 
 }(<?php echo wp_json_encode($js_data); ?>));
 </script>
 
+<?php
+// Include optional external JS assets if present (state-router, passage-nav)
+$state_router = VANA_MC_PATH . 'templates/visit/assets/state-router.js';
+$passage_nav  = VANA_MC_PATH . 'templates/visit/assets/passage-nav.js';
+if ( file_exists( $state_router ) ) {
+  echo "\n<script>\n";
+  include $state_router;
+  echo "\n</script>\n";
+}
+if ( file_exists( $passage_nav ) ) {
+  echo "\n<script>\n";
+  include $passage_nav;
+  echo "\n</script>\n";
+}
+
+
+// Include Hari-Katha Controller (Sprint 1 — Modo Foco)
+$hk_controller = VANA_MC_PATH . 'templates/visit/assets/VanaHariKathaController.js';
+if ( file_exists( $hk_controller ) ) {
+  echo "\n<script>\n";
+  include $hk_controller;
+  echo "\n</script>\n";
+}
+
+?>
+<!-- Fallback: ensure agenda open buttons work if VanaAgenda failed to initialize -->
+<script>
+ (function () {
+  'use strict';
+  if (typeof window.VanaAgenda === 'undefined') {
+    function _vanaAgendaFallbackInit() {
+      try {
+        var opens = document.querySelectorAll('[data-vana-agenda-open]');
+        if (!opens || !opens.length) return;
+
+        function openFallback() {
+          var d = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          var o = document.getElementById('vana-agenda-overlay') || document.querySelector('[data-vana-agenda-overlay]');
+          if (!d) return;
+          d.removeAttribute('hidden');
+          if (o) o.removeAttribute('hidden');
+          d.classList.add('is-open');
+          if (o) o.classList.add('is-open');
+          document.body.style.overflow = 'hidden';
+          document.body.classList.add('vana-drawer-open');
+          d.removeAttribute('aria-hidden');
+          var closeBtn = d.querySelector('[data-vana-agenda-close]');
+          if (closeBtn && typeof closeBtn.focus === 'function') closeBtn.focus(); else d.focus();
+        }
+
+        function closeFallback() {
+          var d = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          var o = document.getElementById('vana-agenda-overlay') || document.querySelector('[data-vana-agenda-overlay]');
+          if (!d) return;
+          d.classList.remove('is-open');
+          if (o) o.classList.remove('is-open');
+          var delay = 0;
+          setTimeout(function () {
+            d.setAttribute('hidden', '');
+            if (o) o.setAttribute('hidden', '');
+          }, delay);
+          document.body.style.overflow = '';
+          document.body.classList.remove('vana-drawer-open');
+          d.setAttribute('aria-hidden', 'true');
+        }
+
+        opens.forEach(function (btn) {
+          btn.addEventListener('click', function (e) { e.preventDefault(); openFallback(); });
+        });
+
+        var overlayEl = document.querySelector('[data-vana-agenda-overlay]');
+        if (overlayEl) overlayEl.addEventListener('click', closeFallback);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeFallback(); });
+
+        try {
+          var drawerEl = document.getElementById('vana-agenda-drawer') || document.querySelector('[data-vana-agenda-drawer]');
+          if (drawerEl) {
+            var tabSelector = '[data-vana-agenda-day]';
+            var panelSelector = '[data-vana-agenda-panel]';
+
+            function switchDayFallback(dayKey) {
+              if (!drawerEl) return;
+              drawerEl.querySelectorAll(tabSelector).forEach(function (tab) {
+                var active = tab.getAttribute('data-vana-agenda-day') === dayKey;
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+                tab.classList.toggle('is-active', active);
+              });
+              drawerEl.querySelectorAll(panelSelector).forEach(function (panel) {
+                var active = panel.getAttribute('data-vana-agenda-panel') === dayKey;
+                if (active) {
+                  panel.removeAttribute('hidden');
+                  panel.classList.add('is-active');
+                } else {
+                  panel.setAttribute('hidden', '');
+                  panel.classList.remove('is-active');
+                }
+              });
+            }
+
+            drawerEl.querySelectorAll(tabSelector).forEach(function (tab) {
+              tab.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                var dayKey = tab.getAttribute('data-vana-agenda-day');
+                if (dayKey) switchDayFallback(dayKey);
+              });
+            });
+
+            var firstActive = drawerEl.querySelector(tabSelector + '.is-active') || drawerEl.querySelector(tabSelector);
+            if (firstActive) {
+              var initialDay = firstActive.getAttribute('data-vana-agenda-day');
+              if (initialDay) switchDayFallback(initialDay);
+            }
+          }
+        } catch (err) {
+          console.warn('Agenda tabs fallback failed', err);
+        }
+      } catch (err) {
+        console.error('Agenda fallback init failed', err);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _vanaAgendaFallbackInit);
+    } else {
+      try { _vanaAgendaFallbackInit(); } catch (e) { console.error('Agenda fallback immediate init failed', e); }
+    }
+  }
+})();
+</script>
 
 <?php /* ── HARI-KATHĀ LOADER + TOUR DRAWER ───────────────────── */ ?>
 <script>
@@ -789,7 +1006,7 @@ $js_data = [
   var state = {
     visitId     : null,
     activeDay   : null,
-    lang        : 'pt',
+    lang: window.__vanaLang || 'pt',
     activeKatha : null,
     page        : 1,
     hasMore     : false,
@@ -1246,10 +1463,11 @@ $js_data = [
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          action: 'vana_get_tours',
-          visit_id: visitId,
-          _wpnonce: nonce
-        })
+            action: 'vana_get_tours',
+            visit_id: visitId,
+            lang: (window.vanaDrawer && window.vanaDrawer.lang) || window.__vanaLang || 'pt',
+            _wpnonce: nonce
+          })
       })
         .then(function (r) {
           console.log('[VANA-DRAWER] HTTP Response status:', r.status);
@@ -1343,11 +1561,11 @@ $js_data = [
       fetch(ajaxUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
+          body: new URLSearchParams({
           action: 'vana_get_tour_visits',
           tour_id: tourId,
           visit_id: visitId,
-          lang: window.vanaDrawer ? window.vanaDrawer.lang : 'pt',
+          lang: (window.vanaDrawer && window.vanaDrawer.lang) || window.__vanaLang || 'pt',
           _wpnonce: nonce
         })
       })

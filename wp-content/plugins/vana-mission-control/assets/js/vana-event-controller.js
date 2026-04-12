@@ -17,8 +17,29 @@
     'use strict';
 
     // ── Constantes ────────────────────────────────────────
-    const ENDPOINT_V2 = '/wp-json/vana/v1/stage';
-    const ENDPOINT_FALLBACK = '/wp-json/vana/v1/stage-fragment';
+    // Resolve a REST root in a subdirectory safely. Preference order:
+    // 1) window.vana_rest_root (injected by server)
+    // 2) wpApiSettings.root (WP global)
+    // 3) location.origin + '/wp-json' (best-effort fallback)
+    const REST_ROOT = ( function () {
+        try {
+            if ( typeof window.vana_rest_root === 'object' && window.vana_rest_root?.url ) {
+                return window.vana_rest_root.url.replace(/\/+$/, '');
+            }
+            if ( typeof window.vana_rest_root === 'string' && window.vana_rest_root.length ) {
+                return window.vana_rest_root.replace(/\/+$/, '');
+            }
+            if ( window.wpApiSettings && window.wpApiSettings.root ) {
+                return window.wpApiSettings.root.replace(/\/+$/, '');
+            }
+        } catch ( e ) {
+            // ignore and fallback
+        }
+        return location.origin.replace(/\/+$/, '') + '/wp-json';
+    } )();
+
+    const ENDPOINT_V2 = REST_ROOT + '/vana/v1/stage';
+    const ENDPOINT_FALLBACK = REST_ROOT + '/vana/v1/stage-fragment';
     const CLS_ACTIVE = 'vana-event-btn--active';
     const CLS_LOAD   = 'vana-event-btn--loading';
 

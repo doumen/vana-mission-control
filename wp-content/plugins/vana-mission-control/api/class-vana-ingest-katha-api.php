@@ -519,4 +519,360 @@ final class Vana_Ingest_Katha_API {
             wp_set_object_terms( $passage_id, $emotions, 'vana_emotion', false );
         }
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // ENTRY POINT SCHEMA 6.1
+    // Chamado pelo class-vana-ingest-visit.php após salvar o JSON.
+    // NÃO interfere com o REST handler process() existente (Schema 3.2).
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Processa kathas[] e passages[] a partir do visit.json completo.
+     * Ponto de entrada para o fluxo visit-centric (Schema 6.1 / Trator).
+     *
+     * @param array $visit        visit.json decodificado (com index{} do Trator)
+     * @param int   $visit_wp_id  WP post ID do vana_visit já salvo
+     *
+     * @return array{
+     *   kathas_upserted:   int,
+     *   passages_upserted: int,
+     *   errors:            string[]
+     * }
+     */
+    public static function process_visit_timeline( array $visit, int $visit_wp_id ): array {
+
+        $result = [
+            'kathas_upserted'   => 0,
+            'passages_upserted' => 0,
+            'errors'            => [],
+        ];
+
+        $visit_ref = (string) ( $visit['visit_ref'] ?? '' );
+        $days      = $visit['days'] ?? [];
+
+        if ( $visit_wp_id <= 0 ) {
+            $result['errors'][] = 'visit_wp_id inválido.';
+            return $result;
+        }
+
+        if ( ! is_array( $days ) || empty( $days ) ) {
+            // Visit sem days ainda — não é erro fatal
+            return $result;
+        }
+
+        foreach ( $days as $day ) {
+            $day_key = (string) ( $day['day_key'] ?? '' );
+            $events  = $day['events'] ?? [];
+
+            if ( ! is_array( $events ) ) {
+                continue;
+            }
+
+            foreach ( $events as $event ) {
+                $event_key = (string) ( $event['event_key'] ?? '' );
+                $kathas    = $event['kathas'] ?? [];
+
+                if ( ! is_array( $kathas ) || empty( $kathas ) ) {
+                    continue;
+                }
+
+                foreach ( $kathas as $katha ) {
+                    $katha_wp_id = self::_tl_upsert_katha(
+                        $katha,
+                        $visit_wp_id,
+                        $visit_ref,
+                        $day_key,
+                        $event_key,
+                    );
+
+                    if ( is_wp_error( $katha_wp_id ) ) {
+                        $result['errors'][] = sprintf(
+                            'katha[%s]: %s',
+                            $katha['katha_key'] ?? '?',
+                            $katha_wp_id->get_error_message()
+                        );
+                        continue;
+                    }
+
+                    $result['kathas_upserted']++;
+
+                    $passages = $katha['passages'] ?? [];
+                    if ( ! is_array( $passages ) ) {
+                        continue;
+                    }
+
+                    foreach ( $passages as $passage ) {
+                        $p_wp_id = self::_tl_upsert_passage(
+                            $passage,
+                            $katha,
+                            $katha_wp_id,
+                            $visit_wp_id,
+                            $visit_ref,
+                            $day_key,
+                        );
+
+                        if ( is_wp_error( $p_wp_id ) ) {
+                            $result['errors'][] = sprintf(
+                                'passage[%s]: %s',
+                                $passage['passage_id'] ?? $passage['passage_key'] ?? '?',
+                                $p_wp_id->get_error_message()
+                            );
+                            continue;
+                        }
+
+                        $result['passages_upserted']++;
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
+
+    // ── Upsert Katha (Schema 6.1) ─────────────────────────────────
+
+    /**
+     * @return int|WP_Error  WP post ID
+     */
+    private static function _tl_upsert_katha(
+        array  $katha,
+        int    $visit_wp_id,
+        string $visit_ref,
+        string $day_key,
+        string $event_key,
+    ): int|WP_Error {
+
+        $katha_key = (string) ( $katha['katha_key'] ?? '' );
+        $title_pt  = (string) ( $katha['title_pt']  ?? '' );
+        $title_en  = (string) ( $katha['title_en']  ?? '' );
+        $scripture = (string) ( $katha['scripture'] ?? '' );
+        $language  = (string) ( $katha['language']  ?? '' );
+        $sources   = $katha['sources'] ?? [];
+
+        if ( $katha_key === '' ) {
+            return new WP_Error( 'missing_katha_key', 'katha_key ausente.' );
+        }
+
+        // Lookup pelo katha_ref canônico
+        $existing_id = self::_tl_find_by_meta(
+            'vana_katha',
+            '_vana_katha_katha_ref',
+            $katha_key
+        );
+
+        $post_data = [
+            'post_type'   => 'vana_katha',
+            'post_status' => 'publish',
+            'post_title'  => $title_pt ?: $katha_key,
+            'post_parent' => $visit_wp_id,
+        ];
+
+        if ( $existing_id ) {
+            $post_data['ID'] = $existing_id;
+            $wp_id = wp_update_post( $post_data, true );
+        } else {
+            $wp_id = wp_insert_post( $post_data, true );
+        }
+
+        if ( is_wp_error( $wp_id ) ) {
+            return $wp_id;
+        }
+
+        // Metas — sempre sobrescritas (estruturais)
+        $metas = [
+            '_vana_katha_katha_ref'       => $katha_key,
+            '_vana_katha_visit_id'        => $visit_wp_id,
+            '_vana_katha_visit_ref'       => $visit_ref,
+            '_vana_katha_day_key'         => $day_key,
+            '_vana_katha_event_key'       => $event_key,
+            '_vana_katha_title_pt'        => sanitize_text_field( $title_pt ),
+            '_vana_katha_title_en'        => sanitize_text_field( $title_en ),
+            '_vana_katha_source_language' => sanitize_text_field( $language ),
+            '_vana_katha_schema_version'  => '6.1',
+            // ── Novos Schema 6.1 ──────────────────────────────────
+            '_vana_katha_scripture'       => sanitize_text_field( $scripture ),
+            '_vana_katha_sources_json'    => wp_json_encode( $sources, JSON_UNESCAPED_UNICODE ),
+        ];
+
+        foreach ( $metas as $key => $value ) {
+            update_post_meta( $wp_id, $key, $value );
+        }
+
+        return $wp_id;
+    }
+
+
+    // ── Upsert Passage (Schema 6.1) ───────────────────────────────────
+
+    /**
+     * Gate editorial:
+     *   _hk_review_status = 'approved' → campos de conteúdo protegidos.
+     *   Campos estruturais (source_ref, order, títulos) sempre atualizados.
+     *
+     * @return int|WP_Error  WP post ID
+     */
+    private static function _tl_upsert_passage(
+        array  $passage,
+        array  $katha,
+        int    $katha_wp_id,
+        int    $visit_wp_id,
+        string $visit_ref,
+        string $day_key,
+    ): int|WP_Error {
+
+        $passage_id  = (string) ( $passage['passage_id']
+                               ?? $passage['passage_key']
+                               ?? '' );
+        $title_pt    = (string) ( $passage['title_pt']    ?? '' );
+        $title_en    = (string) ( $passage['title_en']    ?? '' );
+        $teaching_pt = (string) ( $passage['teaching_pt'] ?? '' );
+        $teaching_en = (string) ( $passage['teaching_en'] ?? '' );
+        $key_quote   = (string) ( $passage['key_quote']   ?? '' );
+        $order       = (int)    ( $passage['order']       ?? 0  );
+
+        // source_ref
+        $ref        = $passage['source_ref'] ?? [];
+        $vod_key    = (string) ( $ref['vod_key']         ?? '' );
+        $segment_id = (string) ( $ref['segment_id']      ?? '' );
+        $ts_start   = (int)    ( $ref['timestamp_start'] ?? 0  );
+        $ts_end     = (int)    ( $ref['timestamp_end']   ?? 0  );
+
+        if ( $passage_id === '' ) {
+            return new WP_Error( 'missing_passage_id', 'passage_id ausente.' );
+        }
+
+        // Lookup
+        $existing_id = self::_tl_find_by_meta(
+            'hk_passage',
+            '_hk_passage_ref',
+            $passage_id
+        );
+
+        // Gate editorial
+        $is_approved = false;
+        if ( $existing_id ) {
+            $status      = (string) get_post_meta( $existing_id, '_hk_review_status', true );
+            $is_approved = ( $status === 'approved' );
+        }
+
+        $post_data = [
+            'post_type'    => 'hk_passage',
+            'post_status'  => 'publish',
+            'post_title'   => $title_pt ?: $passage_id,
+            'post_excerpt' => sanitize_text_field( $key_quote ),
+            'post_parent'  => $katha_wp_id,
+        ];
+
+        if ( $existing_id ) {
+            $post_data['ID'] = $existing_id;
+            $wp_id = wp_update_post( $post_data, true );
+        } else {
+            $wp_id = wp_insert_post( $post_data, true );
+        }
+
+        if ( is_wp_error( $wp_id ) ) {
+            return $wp_id;
+        }
+
+        // ── Metas estruturais — sempre sobrescritas ───────────────
+        $structural = [
+            // Identificação
+            '_hk_passage_ref'        => $passage_id,
+            '_hk_katha_ref'          => (string) ( $katha['katha_key'] ?? '' ),
+            '_hk_katha_id'           => $katha_wp_id,
+            '_hk_visit_id'           => $visit_wp_id,
+            '_hk_visit_ref'          => $visit_ref,
+            '_hk_day_key'            => $day_key,
+
+            // Ordem no HK (gerada pelo Trator, base 1)
+            '_hk_index'              => $order,
+
+            // Títulos (Schema 6.1)
+            '_hk_title_pt'           => sanitize_text_field( $title_pt ),
+            '_hk_title_en'           => sanitize_text_field( $title_en ),
+
+            // source_ref canônico (Schema 6.1)
+            '_hk_source_vod_key'     => sanitize_text_field( $vod_key ),
+            '_hk_source_segment_id'  => sanitize_text_field( $segment_id ),
+            '_hk_ts_start'           => $ts_start,
+            '_hk_ts_end'             => $ts_end,
+
+            // Display HH:MM:SS (derivado, para templates)
+            '_hk_t_start'            => self::_tl_to_hms( $ts_start ),
+            '_hk_t_end'              => self::_tl_to_hms( $ts_end ),
+            '_hk_timestamp'          => self::_tl_to_hms( $ts_start ),
+        ];
+
+        foreach ( $structural as $key => $value ) {
+            update_post_meta( $wp_id, $key, $value );
+        }
+
+        // ── Metas de conteúdo — protegidas se approved ────────────
+        if ( ! $is_approved ) {
+            $content = [
+                '_hk_key_quote_pt' => sanitize_text_field( $key_quote ),
+                '_hk_key_quote_en' => sanitize_text_field( $key_quote ),
+                '_hk_content_pt'   => wp_kses_post( $teaching_pt ),
+                '_hk_content_en'   => wp_kses_post( $teaching_en ),
+            ];
+
+            // Novo passage: inicia como draft
+            if ( ! $existing_id ) {
+                $content['_hk_review_status'] = 'draft';
+            }
+
+            foreach ( $content as $key => $value ) {
+                update_post_meta( $wp_id, $key, $value );
+            }
+        }
+
+        return $wp_id;
+    }
+
+    // ── Helpers privados (prefixo _tl_) ──────────────────────────────
+
+    /**
+     * Lookup de post WP por meta_key + meta_value.
+     * Retorna WP post ID ou null.
+     */
+    private static function _tl_find_by_meta(
+        string $post_type,
+        string $meta_key,
+        string $meta_value,
+    ): ?int {
+
+        if ( $meta_value === '' ) {
+            return null;
+        }
+
+        $ids = get_posts( [
+            'post_type'      => $post_type,
+            'post_status'    => 'any',
+            'posts_per_page' => 1,
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+            'meta_query'     => [ [
+                'key'     => $meta_key,
+                'value'   => $meta_value,
+                'compare' => '=',
+            ] ],
+        ] );
+
+        return ! empty( $ids ) ? (int) $ids[0] : null;
+    }
+
+    /**
+     * Converte segundos (int) para "HH:MM:SS" (display).
+     */
+    private static function _tl_to_hms( int $seconds ): string {
+        $seconds = max( 0, $seconds );
+        return sprintf(
+            '%02d:%02d:%02d',
+            intdiv( $seconds, 3600 ),
+            intdiv( $seconds % 3600, 60 ),
+            $seconds % 60
+        );
+    }
+
 }

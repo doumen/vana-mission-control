@@ -1,0 +1,698 @@
+/**
+ * VanaStageController.js
+ *
+ * Responsabilidades:
+ *  1. Detectar evento ativo no Stage (data-event-key, data-katha-id)
+ *  2. Carregar passages via REST /vana/v1/katha/{katha_ref}
+ *  3. Injetar passages na zona #vana-stage-katha
+ *  4. Sincronizar passage ativo com o tempo do iframe (postMessage YT API)
+ *  5. Seek no iframe ao clicar em timestamp de passage
+ *  6. Modo Acompanhar (opt-in)
+ *  7. Expor API pública: window.VanaStage
+ *
+ * Dependências: nenhuma (vanilla JS)
+ * Compatível com: VanaEventController.js, VanaVisitController.js
+ *
+ * @since 5.1.2 — Schema 6.1
+ */
+
+( function () {
+    'use strict';
+
+    const REST_BASE     = window.vanaStageConfig?.restBase  || '/wp-json/vana/v1';
+    const LANG           = window.vanaStageConfig?.lang      || 'pt';
+    const PASSAGES_PAGE  = 10;
+    const SYNC_THROTTLE  = 800;
+
+    const _$ = function ( sel, ctx ) { return ( ctx || document ).querySelector( sel ); };
+    const _$$ = function ( sel, ctx ) { return Array.from( ( ctx || document ).querySelectorAll( sel ) ); };
+
+    function timecodeToSeconds( tc ) {
+        if ( ! tc ) return 0;
+        var parts = String( tc ).split( ':' ).map( Number );
+        if ( parts.length === 3 ) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        if ( parts.length === 2 ) return parts[0] * 60 + parts[1];
+        return parseInt( tc, 10 ) || 0;
+    }
+
+    function secondsToTimecode( s ) {
+        var h   = Math.floor( s / 3600 );
+        var m   = Math.floor( ( s % 3600 ) / 60 );
+        var sec = Math.floor( s % 60 );
+        var result = [];
+        if ( h > 0 ) result.push( String( h ).padStart( 2, '0' ) );
+        result.push( String( m ).padStart( 2, '0' ) );
+        result.push( String( sec ).padStart( 2, '0' ) );
+        return result.join( ':' );
+    }
+
+    function throttle( fn, ms ) {
+        var last = 0;
+        return function () {
+ 0;          var args = arguments;
+            var now  = Date.now();
+            if ( now - last < ms ) return;
+            last = now;
+            return fn.apply( this, args );
+        };
+    }
+
+    function escHtml( str ) {
+        var d = document.createElement( 'div' );
+        d.textContent = String( str == null ? '' : str );
+        return d.innerHTML;
+    }
+
+    async function fetchKatha( kathaRef, page ) {
+        var url = new URL(
+            REST_BASE + '/katha/' + encodeURIComponent( kathaRef ),
+            window.location.origin
+        );
+        url.searchParams.set( 'lang',     LANG );
+        url.searchParams.set( 'page',     page || 1 );
+        url.searchParams.set( 'per_page', PASSAGES_PAGE );
+        var resp = await fetch( url.toString(), {
+            headers:     { 'Accept': 'application/json' },
+            credentials: 'same-origin',
+        } );
+        if ( ! resp.ok ) {
+            throw new Error( 'REST ' + resp.status + ' -- katha/' + kathaRef );
+        }
+        return resp.json();
+    }
+
+    var IframeCtrl = {
+        _iframe: null,
+        _ready:  false,
+        _queue:  [],
+        attach: function ( iframe ) {
+            this._iframe = iframe;
+            this._ready  = false;
+            this._queue  = [];
+            window.addEventListener( 'message', this._onMessage.bind( this ) );
+        },
+        detach: function () {
+            window.removeEventListener('message', this._onMessage.bind( this ) );
+            this._iframe = null;
+            this._ready  = false;
+            this._queue  = [];
+        },
+        _onMessage: function ( e ) {
+            if ( ! e.data ) return;
+            var data;
+            try {
+                data = typeof e.data === 'string' ? JSON.parse( e.data ) : e.data;
+            } catch ( ex ) {
+                return;
+            }
+            if ( data.event === 'onReady' ) {
+                this._ready = true;
+                this._flushQueue();
+            }
+            if ( data.event === 'onStateChange' || data.event === 'infoDelivery' ) {
+                VanaStageController._onIframeMessage( data );
+            }
+        },
+        _flushQueue: function () {
+            var self = this;
+            this._queue.forEach( function ( cmd ) { self._send( cmd ); } );
+            this._queue = [];
+        },
+        _send: function ( cmd ) {
+            if ( ! this._iframe || ! this._iframe.contentWindow ) return;
+            this._iframe.contentWindow.postMessage( JSON.stringify( cmd ), '*' );
+        },
+        seek: function ( seconds ) {
+            var cmd = {
+                event: 'command',
+                func:  'seekTo',
+                args:  [ Math.floor( seconds ), true ],
+            };
+            if ( this._ready ) {
+                this._send( cmd );
+            } else {
+                this._queue.push( cmd );
+            }
+        },
+        requestCurrentTime: function () {
+            this._send( { event: 'listening', id: 'vana-stage' } );
+            this._send( { event: 'command', func: 'getPlayerState', args: [] } );
+        },
+    };
+
+    var PassageRenderer = {
+        renderList: function ( passages, lang ) {
+            if ( ! passages || ! passages.length ) return '';
+            return passages.map( function ( p ) {
+                return PassageRenderer.renderItem( p, lang );
+            } ).join( '' );
+        },
+        renderItem: function ( p, lang ) {
+            var ts     = p.timestamp_start || 0;
+            var label  = secondsToTimecode( ts );
+            var quote  = escHtml( p.key_quote   || '' );
+            var text   = escHtml( p[ 'text_' + lang ] || p.text_pt || '' );
+            var pid    = escHtml( p.passage_id  || '' );
+            var order  = escHtml( p.order       || '' );
+            var vodKey = escHtml( p.vod_key     || '' );
+            return '<article class="vana-katha-passage"'
+                + ' data-passage-id="' + pid + '"'
+                + ' data-ts="' + ts + '"'
+                + ' data-vod-key="' + vodKey + '"'
+                + ' aria-label="Passage ' + order + '"'
+                + '>'
+                + '<button type="button" class="vana-katha-passage__seek"'
+                + ' data-ts="' + ts + '"'
+                + ' aria-label="' + ( LANG === 'en ' ? 'Jump to' : 'Ir para' ) + ' ' + label + '"'
+                + '>'
+                + '<span class="vana-katha-passage__time" aria-hidden="true">&#9654; ' + label + '</span>'
+                + '</button>'
+                + ( quote
+                    ? '<blockquote class="vana-katha-passage__quote">' + quote + '</blockquote>'
+                    : '' )
+                + ( text
+                    ? '<div class="vana-katha-passage__text">' + text + '</div>'
+                    : '' )
+                + '</article>';
+        },
+        renderLoadMore: function ( remaining ) {
+            return '<button type="button" class="vana-katha-load-more" id="vana-katha-load-more"'
+                + ' aria-label="' + ( LANG === 'en'
+                    ? 'Load ' + remaining + ' more passages'
+                    : 'Carregar mais ' + remaining + ' passages' ) + '"'
+                + '>'
+                + ( LANG === 'en'
+                    ? '&darr; Load ' + remaining + ' more'
+                    : '&darr; Carregar mais ' + remaining )
+                + '</button>';
+        },
+        renderHeader: function ( katha, lang ) {
+            var title     = escHtml( katha[ 'title_' + lang ] || katha.title_pt || '' );
+            var scripture = escHtml( katha.scripture || '' );
+            var total     = katha.passage_count || 0;
+            return '<header class="vana-katha-header">'
+                + '<div class="vana-katha-header__meta">'
+                + ( scripture
+                    ? '<span class="vana-katha-header__scripture">' + scripture + '</span>'
+                    : '' )
+                + '<span class="vana-katha-header__count">'
+                + total + ' passages'
+                + '</span>'
+                + '</div>'
+                + '<h3 class="vana-katha-header__title">' + title + '</h3>'
+                + '<button type="button" class="vana-katha-follow-toggle"'
+                + ' id="vana-katha-follow-toggle"'
+                + ' aria-pressed="false"'
+                + ' title="' + ( LANG === 'en' ? 'Follow video' : 'Acompanhar video' ) + '"'
+                + '>'
+                + '<span class="vana-katha-follow-toggle__icon" aria-hidden="true">&#9654;</span>'
+                + '<span class="vana-katha-follow-toggle__label">'
+                + ( LANG === 'en' ? 'Follow video' : 'Acompanhar video' )
+                + '</span>'
+                + '</button>'
+                + '</header>';
+        },
+        renderResumeBanner: function () {
+            return '<div class="vana-katha-resume-banner" id="vana-katha-resume-banner" hidden>'
+                + '<span>' + ( LANG === 'en' ? 'Following paused' : 'Acompanhamento pausado' ) + '</span>'
+                + '<button type="button" id="vana-katha-resume-btn">'
+                + ( LANG === 'en' ? 'Resume' : 'Retomar' )
+                + '</button>'
+                + '</div>';
+        },
+        renderError: function ( msg ) {
+            return '<div class="vana-katha-error" role="alert">'
+                + '<span>' + escHtml( msg ) + '</span>'
+                + '</div>';
+        },
+        renderSkeleton: function ( count ) {
+            count = count || 3;
+            var html = '';
+            for ( var i = 0; i < count; i++ ) {
+                html += '<div class="vana-katha-skeleton" aria-hidden="true">'
+                    + '<div class="vana-katha-skeleton__time"></div>'
+                    + '<div class="vana-katha-skeleton__text"></div>'
+                    + '<div class="vana-katha-skeleton__text vana-katha-skeleton__text--short"></div>'
+                    + '</div>';
+            }
+            return html;
+        },
+    };
+
+    var VanaStageController = {
+        _stageEl:         null,
+        _videoWrap:       null,
+        _kathaZone:       null,
+        _iframe:          null,
+        _currentEventKey: '',
+        _currentKathaRef: '',
+        _currentPage:     1,
+        _totalPages:      1,
+        _totalPassages:   0,
+        _isFollowing:     false,
+        _userScrolled:    false,
+        _syncTimer:       null,
+        _activePassageId: null,
+
+        init: function () {
+            this._stageEl   = _$( '#vana-stage' );
+            this._videoWrap = _$( '#vana-stage-video-wrap' ) || _$( '.vana-stage-video' );
+            this._kathaZone = _$( '#vana-stage-katha' );
+            if ( ! this._stageEl ) {
+                console.warn( '[VanaStage] Missing #vana-stage -- aborting init.' );
+                return;
+            }
+            if ( ! this._kathaZone ) {
+                console.warn( '[VanaStage] #vana-stage-katha not found — continuing without katha zone.' );
+                this._kathaZone = document.createElement( 'div' );
+            }
+            this._currentEventKey = this._stageEl.dataset.eventKey || '';
+            this._currentKathaRef = this._stageEl.dataset.kathaId  || '';
+            this._attachIframe( _$( '#vana-stage-iframe' ) || _$( 'iframe', this._stageEl ) );
+            if ( this._currentKathaRef ) {
+                this._loadKatha( this._currentKathaRef, 1 );
+            }
+            this._bindGlobalEvents();
+            window.VanaStage = this._publicApi();
+            console.info( '[VanaStage] Initialized. eventKey=%s kathaRef=%s',
+                this._currentEventKey, this._currentKathaRef );
+        },
+
+        _attachIframe: function ( iframe ) {
+            if ( ! iframe ) return;
+            this._iframe = iframe;
+            IframeCtrl.attach( iframe );
+        },
+
+        _swapIframe: function ( src, title ) {
+            if ( ! this._videoWrap ) return;
+            var old = _$( 'iframe', this._videoWrap );
+            if ( old ) {
+                IframeCtrl.detach();
+                old.remove();
+            }
+            if ( ! src ) return;
+            var iframe = document.createElement( 'iframe' );
+            iframe.id              = 'vana-stage-iframe';
+            iframe.src             = src;
+            iframe.title           = title || '';
+            iframe.allow           = 'autoplay';
+            iframe.allowFullscreen = true;
+            iframe.loading         = 'lazy';
+            iframe.style.cssText   = 'position:absolute;inset:0;width:100%;height:100%;border:0;';
+            this._videoWrap.appendChild( iframe );
+            this._attachIframe( iframe );
+        },
+
+        _loadKatha: function ( kathaRef, page ) {
+            var self = this;
+            self._showKathaLoading( page === 1 );
+
+            fetchKatha( kathaRef, page ).then( function ( raw ) {
+
+                // Normalizar: API retorna { data: { katha, passages, pagination } }
+                var body = raw && raw.data ? raw.data : raw;
+                var katha    = body.katha    || {};
+                var passages = body.passages || [];
+                var pag      = body.pagination || {};
+
+                // Promover campos aninhados de katha.content para raiz
+                if ( katha.content && typeof katha.content === 'object' ) {
+                    Object.keys( katha.content ).forEach( function ( k ) {
+                        if ( ! ( k in katha ) ) katha[ k ] = katha.content[ k ];
+                    } );
+                }
+                if ( katha.editorial && typeof katha.editorial === 'object' ) {
+                    Object.keys( katha.editorial ).forEach( function ( k ) {
+                        if ( ! ( k in katha ) ) katha[ k ] = katha.editorial[ k ];
+                    } );
+                }
+
+                self._totalPages    = pag.total_pages || pag.pages || 1;
+                self._totalPassages = pag.total || katha.passage_count || passages.length;
+                self._currentPage   = pag.page  || page;
+
+                // Flatten cada passage
+                passages = passages.map( function ( p ) {
+                    var flat = Object.assign( {}, p );
+                    [ 'content', 'temporal', 'editorial', 'thematic' ].forEach( function ( ns ) {
+                        if ( p[ ns ] && typeof p[ ns ] === 'object' ) {
+                            Object.keys( p[ ns ] ).forEach( function ( k ) {
+                                if ( ! ( k in flat ) || flat[ k ] == null ) flat[ k ] = p[ ns ][ k ];
+                            } );
+                        }
+                    } );
+                    // ── Alias mapping: API field → renderItem field ──
+                    flat.timestamp_start = flat.ts_start  || flat.timestamp_start || 0;
+                    flat.passage_id      = flat.id        || flat.passage_id      || '';
+                    flat.order           = flat.index      || flat.order           || '';
+                    // source_ref é objeto aninhado dentro de temporal
+                    var srcRef = flat.source_ref || {};
+                    if ( typeof srcRef === 'object' ) {
+                        flat.vod_key = flat.vod_key || srcRef.vod_key || '';
+                        if ( ! flat.timestamp_start && srcRef.ts_start ) {
+                            flat.timestamp_start = srcRef.ts_start;
+                        }
+                    }
+                    // content (resumo) → text_pt / text_en
+                    if ( ! flat.text_pt && flat.content && typeof flat.content === 'string' ) {
+                        flat.text_pt = flat.content;
+                        flat.text_en = flat.content;
+                    }
+
+                    return flat;
+                } );
+
+                if ( page === 1 ) {
+                    self._renderKathaFull( { katha: katha, passages: passages } );
+                } else {
+                    self._appendPassages( passages );
+                    self._updateLoadMore();
+                }
+
+            } ).catch( function ( err ) {
+                console.error( '[VanaStage] Katha load error:', err );
+                self._kathaZone.innerHTML = PassageRenderer.renderError(
+                    LANG === 'en'
+                        ? 'Could not load passages. Try again.'
+                        : 'Não foi possível carregar os passages.'
+                );
+                self._showKathaZone( true );
+            } );
+        },
+
+
+        _renderKathaFull: function ( data ) {
+            var katha    = data.katha;
+            var passages = data.passages;
+            var html     = PassageRenderer.renderResumeBanner()
+                + PassageRenderer.renderHeader( katha, LANG )
+                + '<div class="vana-katha-passages" id="vana-katha-passages">'
+                + PassageRenderer.renderList( passages, LANG )
+                + '</div>'
+                + ( this._currentPage < this._totalPages
+                    ? PassageRenderer.renderLoadMore( this._totalPassages - passages.length )
+                    : '' );
+            this._kathaZone.innerHTML = html;
+            this._showKathaZone( true );
+            this._bindKathaEvents();
+        },
+
+        _appendPassages: function ( passages ) {
+            var container = _$( '#vana-katha-passages' );
+            if ( ! container ) return;
+            var frag = document.createDocumentFragment();
+            var tmp  = document.createElement( 'div' );
+            tmp.innerHTML = PassageRenderer.renderList( passages, LANG );
+            while ( tmp.firstChild ) frag.appendChild( tmp.firstChild );
+            container.appendChild( frag );
+            this._bindSeekButtons( container );
+        },
+
+        _updateLoadMore: function () {
+            var btn = _$( '#vana-katha-load-more' );
+            if ( ! btn ) return;
+            var loaded    = _$$( '.vana-katha-passage' ).length;
+            var remaining = this._totalPassages - loaded;
+            if ( this._currentPage >= this._totalPages || remaining <= 0 ) {
+                btn.remove();
+                return;
+            }
+            btn.textContent = LANG === 'en'
+                ? '\u2193 Load ' + remaining + ' more'
+                : '\u2193 Carregar mais ' + remaining;
+        },
+
+        _showKathaLoading: function ( full ) {
+            if ( full ) {
+                this._kathaZone.innerHTML = PassageRenderer.renderSkeleton( 3 );
+                this._showKathaZone( true );
+            }
+        },
+
+        _showKathaZone: function ( show ) {
+            this._kathaZone.hidden = ! show;
+        },
+
+        _bindKathaEvents: function () {
+            var self = this;
+            this._bindSeekButtons( this._kathaZone );
+            var followBtn = _$( '#vana-katha-follow-toggle' );
+            if ( followBtn ) {
+                followBtn.addEventListener( 'click', function () {
+                    self._isFollowing ? self._stopFollowing() : self._startFollowing();
+                } );
+            }
+            this._kathaZone.addEventListener( 'click', function ( e ) {
+                if ( e.target.closest( '#vana-katha-resume-btn' ) ) {
+                    self._resumeFollowing();
+                }
+            } );
+            var loadMoreBtn = _$( '#vana-katha-load-more' );
+            if ( loadMoreBtn ) {
+                loadMoreBtn.addEventListener( 'click', function () {
+                    self._loadKatha( self._currentKathaRef, self._currentPage + 1 );
+                } );
+            }
+            this._kathaZone.addEventListener( 'scroll',
+                this._onManualScroll.bind( this ), { passive: true } );
+            document.addEventListener( 'scroll',
+                this._onManualScroll.bind( this ), { passive: true } );
+        },
+
+        _bindSeekButtons: function ( ctx ) {
+            var self = this;
+            _$$( '.vana-katha-passage__seek', ctx ).forEach( function ( btn ) {
+                btn.addEventListener( 'click', function ( e ) {
+                    var ts = parseFloat( e.currentTarget.dataset.ts );
+                    if ( ! isNaN( ts ) ) self._seekTo( ts, btn );
+                } );
+            } );
+        },
+
+        _seekTo: function ( seconds, triggerEl ) {
+            if ( ! this._isStageVisible() ) {
+                this._stageEl.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+                var s = seconds;
+                setTimeout( function () { IframeCtrl.seek( s ); }, 600 );
+            } else {
+                IframeCtrl.seek( seconds );
+            }
+            if ( triggerEl ) {
+                var article = triggerEl.closest( '.vana-katha-passage' );
+                if ( article ) {
+                    this._highlightPassage( article.dataset.passageId );
+                }
+            }
+            this._updateUrl( { t: Math.floor( seconds ) } );
+        },
+
+        _highlightPassage: function ( passageId ) {
+            if ( ! passageId ) return;
+            var prev = _$( '.vana-katha-passage.is-active' );
+            if ( prev ) prev.classList.remove( 'is-active' );
+            var el = _$( '.vana-katha-passage[data-passage-id="' + passageId + '"]' );
+            if ( el ) {
+                el.classList.add( 'is-active' );
+                this._activePassageId = passageId;
+            }
+        },
+
+        _startFollowing: function () {
+            this._isFollowing  = true;
+            this._userScrolled = false;
+            var btn = _$( '#vana-katha-follow-toggle' );
+            if ( btn ) {
+                btn.setAttribute( 'aria-pressed', 'true' );
+                var lbl = btn.querySelector( '.vana-katha-follow-toggle__label' );
+                if ( lbl ) {
+                    lbl.textContent = LANG === 'en'
+                        ? 'Following... Stop'
+                        : 'Acompanhando... Parar';
+                }
+            }
+            this._syncTimer = setInterval(
+                throttle( function () { IframeCtrl.requestCurrentTime(); }, SYNC_THROTTLE ),
+                SYNC_THROTTLE
+            );
+        },
+
+        _stopFollowing: function () {
+            this._isFollowing = false;
+            clearInterval( this._syncTimer );
+            var btn = _$( '#vana-katha-follow-toggle' );
+            if ( btn ) {
+                btn.setAttribute( 'aria-pressed', 'false' );
+                var lbl = btn.querySelector( '.vana-katha-follow-toggle__label' );
+                if ( lbl ) {
+                    lbl.textContent = LANG === 'en'
+                        ? 'Follow video'
+                        : 'Acompanhar video';
+                }
+            }
+            this._hideResumeBanner();
+        },
+
+        _resumeFollowing: function () {
+            this._userScrolled = false;
+            this._hideResumeBanner();
+        },
+
+        _onManualScroll: function () {
+            if ( ! this._isFollowing ) return;
+            if ( this._userScrolled ) return;
+            this._userScrolled = true;
+            this._showResumeBanner();
+        },
+
+        _showResumeBanner: function () {
+            var banner = _$( '#vana-katha-resume-banner' );
+            if ( banner ) banner.hidden = false;
+        },
+
+        _hideResumeBanner: function () {
+            var banner = _$( '#vana-katha-resume-banner' );
+            if ( banner ) banner.hidden = true;
+        },
+
+        _onIframeMessage: function ( data ) {
+            var currentTime = data && data.info ? data.info.currentTime : undefined;
+            if ( typeof currentTime !== 'number' ) return;
+            if ( this._isFollowing && ! this._userScrolled ) {
+                this._syncPassages( currentTime );
+            }
+        },
+
+        _syncPassages: throttle( function ( currentTime ) {
+            var passages = _$$( '.vana-katha-passage[data-ts]' );
+            if ( ! passages.length ) return;
+            var activeEl = null;
+            var activeId = null;
+            passages.forEach( function ( el ) {
+                var ts = parseFloat( el.dataset.ts );
+                if ( ! isNaN( ts ) && ts <= currentTime ) {
+                    activeEl = el;
+                    activeId = el.dataset.passageId;
+                }
+            } );
+            if ( activeId && activeId !== this._activePassageId ) {
+                this._highlightPassage( activeId );
+                if ( activeEl ) {
+                    activeEl.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+                }
+            }
+        }, SYNC_THROTTLE ),
+
+        _onEventChange: function ( eventData ) {
+            var event_key    = eventData.event_key    || '';
+            var katha_ref    = eventData.katha_ref    || '';
+            var iframe_src   = eventData.iframe_src   || '';
+            var iframe_title = eventData.iframe_title || '';
+            this._currentEventKey = event_key;
+            this._currentKathaRef = katha_ref;
+            this._currentPage     = 1;
+            this._activePassageId = null;
+            if ( this._isFollowing ) this._stopFollowing();
+            if ( this._stageEl ) {
+                this._stageEl.dataset.eventKey = this._currentEventKey;
+                this._stageEl.dataset.kathaId  = this._currentKathaRef;
+            }
+            if ( iframe_src ) {
+                this._swapIframe( iframe_src, iframe_title );
+                if ( this._videoWrap ) {
+                    this._videoWrap.dataset.iframeSrc   = iframe_src;
+                    this._videoWrap.dataset.iframeTitle = iframe_title;
+                }
+            }
+            this._kathaZone.innerHTML = '';
+            this._showKathaZone( false );
+            if ( this._currentKathaRef ) {
+                this._loadKatha( this._currentKathaRef, 1 );
+            }
+            this._updateUrl( { event_key: event_key } );
+        },
+
+        _isStageVisible: function () {
+            var rect = this._stageEl ? this._stageEl.getBoundingClientRect() : null;
+            if ( ! rect ) return false;
+            return rect.top >= 0 && rect.bottom <= window.innerHeight;
+        },
+
+        _updateUrl: function ( params ) {
+            try {
+                var url = new URL( window.location.href );
+                Object.keys( params ).forEach( function ( k ) {
+                    var v = params[ k ];
+                    if ( v !== undefined && v !== null && v !== '' ) {
+                        url.searchParams.set( k, v );
+                    }
+                } );
+                history.replaceState( {}, '', url.toString() );
+            } catch ( e ) {
+                // silencioso
+            }
+        },
+
+        _bindGlobalEvents: function () {
+            var self = this;
+            document.addEventListener( 'vana:event:change', function ( e ) {
+                if ( e.detail ) self._onEventChange( e.detail );
+            } );
+            document.addEventListener( 'vana:visit:controller:ready', function () {} );
+            document.addEventListener( 'keydown', function ( e ) {
+                if ( e.key === 'Escape' && self._isFollowing ) {
+                    self._stopFollowing();
+                }
+                if ( e.key === 'Escape' && self._stageEl
+                     && self._stageEl.classList.contains( 'is-open' ) ) {
+                    if ( typeof self._publicClose === 'function' ) self._publicClose();
+                }
+            } );
+            var closeBtn = document.querySelector( '#vana-stage .vana-stage__close' )
+                || document.querySelector( '.vana-stage__close' );
+            if ( closeBtn ) {
+                closeBtn.addEventListener( 'click', function () {
+                    if ( typeof self._publicClose === 'function' ) self._publicClose();
+                } );
+            }
+        },
+
+        _publicApi: function () {
+            var ctrl = this;
+            return {
+                seek: function ( seconds ) { ctrl._seekTo( seconds, null ); },
+                loadKatha: function ( ref ) {
+                    ctrl._currentKathaRef = ref;
+                    ctrl._currentPage     = 1;
+                    ctrl._loadKatha( ref, 1 );
+                },
+                highlightPassage: function ( id ) { ctrl._highlightPassage( id ); },
+                get currentEventKey() { return ctrl._currentEventKey; },
+                get currentKathaRef() { return ctrl._currentKathaRef; },
+                close: function () { ctrl._publicClose(); },
+            };
+        },
+
+        _publicClose: function () {
+            if ( this._stageEl ) this._stageEl.classList.remove( 'is-open' );
+            try { document.body.classList.remove( 'vana-stage-open' ); } catch ( e ) {}
+            try { window.VanaScrollLock && window.VanaScrollLock.release(); } catch ( e ) {}
+            try {
+                if ( this._iframe && this._iframe.contentWindow ) {
+                    this._iframe.contentWindow.postMessage(
+                        JSON.stringify( { event: 'command', func: 'pause' } ), '*'
+                    );
+                }
+            } catch ( e ) {}
+        },
+    };
+
+    if ( document.readyState === 'loading' ) {
+        document.addEventListener( 'DOMContentLoaded', function () {
+            VanaStageController.init();
+        } );
+    } else {
+        VanaStageController.init();
+    }
+
+} )();

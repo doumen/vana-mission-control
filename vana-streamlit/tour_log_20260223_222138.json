@@ -1,0 +1,213 @@
+{
+  "timestamp": "2026-02-23T22:21:37.999200",
+  "origin_key": "tour:india-2026",
+  "result": {
+    "id": 360,
+    "date": "2026-02-24T01:21:44",
+    "date_gmt": "2026-02-24T01:21:44",
+    "guid": {
+      "rendered": "https://beta.vanamadhuryamdaily.com/tour/india-2026/",
+      "raw": "https://beta.vanamadhuryamdaily.com/tour/india-2026/"
+    },
+    "modified": "2026-02-24T01:21:44",
+    "modified_gmt": "2026-02-24T01:21:44",
+    "password": "",
+    "slug": "india-2026",
+    "status": "publish",
+    "type": "vana_tour",
+    "link": "https://beta.vanamadhuryamdaily.com/tour/india-2026/",
+    "title": {
+      "raw": "Tour Espiritual Índia 2026",
+      "rendered": "Tour Espiritual Índia 2026"
+    },
+    "content": {
+      "raw": "",
+      "rendered": "",
+      "protected": false,
+      "block_version": 0
+    },
+    "excerpt": {
+      "raw": "",
+      "rendered": "",
+      "protected": false
+    },
+    "featured_media": 0,
+    "template": "",
+    "meta": {
+      "_acf_changed": false,
+      "_monsterinsights_skip_tracking": false,
+      "_monsterinsights_sitenote_active": false,
+      "_monsterinsights_sitenote_note": "",
+      "_monsterinsights_sitenote_category": 0,
+      "site-sidebar-layout": "default",
+      "site-content-layout": "",
+      "ast-site-content-layout": "default",
+      "site-content-style": "default",
+      "site-sidebar-style": "default",
+      "ast-global-header-display": "",
+      "ast-banner-title-visibility": "",
+      "ast-main-header-display": "",
+      "ast-hfb-above-header-display": "",
+      "ast-hfb-below-header-display": "",
+      "ast-hfb-mobile-header-display": "",
+      "site-post-title": "",
+      "ast-breadcrumbs-content": "",
+      "ast-featured-img": "",
+      "footer-sml-layout": "",
+      "theme-transparent-header-meta": "",
+      "adv-header-id-meta": "",
+      "stick-header-meta": "",
+      "header-above-stick-meta": "",
+      "header-main-stick-meta": "",
+      "header-below-stick-meta": "",
+      "astra-migrate-meta-layouts": "default",
+      "ast-page-background-enabled": "default",
+      "ast-page-background-meta": {
+        "desktop": {
+          "background-color": "var(--ast-global-color-5)",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        },
+        "tablet": {
+          "background-color": "",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        },
+        "mobile": {
+          "background-color": "",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        }
+      },
+      "ast-content-background-meta": {
+        "desktop": {
+          "background-color": "var(--ast-global-color-4)",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        },
+        "tablet": {
+          "background-color": "var(--ast-global-color-4)",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        },
+        "mobile": {
+          "background-color": "var(--ast-global-color-4)",
+          "background-image": "",
+          "background-repeat": "repeat",
+          "background-position": "center center",
+          "background-size": "auto",
+          "background-attachment": "scroll",
+          "background-type": "",
+          "background-media": "",
+          "overlay-type": "",
+          "overlay-color": "",
+          "overlay-opacity": "",
+          "overlay-gradient": ""
+        }
+      }
+    },
+    "permalink_template": "https://beta.vanamadhuryamdaily.com/tour/%pagename%/",
+    "generated_slug": "tour-espiritual-india-2026-2",
+    "class_list": [
+      "post-360",
+      "vana_tour",
+      "type-vana_tour",
+      "status-publish",
+      "hentry"
+    ],
+    "acf": [],
+    "_links": {
+      "self": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/vana_tour/360",
+          "targetHints": {
+            "allow": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ]
+          }
+        }
+      ],
+      "collection": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/vana_tour"
+        }
+      ],
+      "about": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/types/vana_tour"
+        }
+      ],
+      "wp:attachment": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/media?parent=360"
+        }
+      ],
+      "wp:action-publish": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/vana_tour/360"
+        }
+      ],
+      "wp:action-unfiltered-html": [
+        {
+          "href": "https://beta.vanamadhuryamdaily.com/wp-json/wp/v2/vana_tour/360"
+        }
+      ],
+      "curies": [
+        {
+          "name": "wp",
+          "href": "https://api.w.org/{rel}",
+          "templated": true
+        }
+      ]
+    }
+  }
+}

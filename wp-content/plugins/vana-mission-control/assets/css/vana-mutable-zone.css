@@ -1,0 +1,283 @@
+/* ═══════════════════════════════════════════════════════════
+   Vana — Zona Mutável (visita | passage | lente)
+   assets/css/vana-mutable-zone.css
+   @since 6.0.0
+
+   Implementação base para a zona mutável descrita em
+   IMPLEMENTACAO_NAVEGACAO_VISITA_20260410.md
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --vana-mz-min-height: 200px;
+  --vana-mz-transition: 240ms ease;
+}
+
+/* ── Container principal ─────────────────────────────────── */
+.vana-mutable-zone {
+  position: relative;
+  min-height: var(--vana-mz-min-height);
+  margin-top: 28px;
+}
+
+/* Estado-dependente: katha precisa de mais espaço */
+.vana-mutable-zone[data-state="katha"] {
+  min-height: 300px;
+}
+
+.vana-mutable-zone[data-state="neutral"] {
+  min-height: 0;
+}
+
+/* ── Painéis: só o ativo está visível; transições suaves ── */
+.vana-mz__panel {
+  display: none;
+  opacity: 0;
+  transition: opacity var(--vana-mz-transition),
+              transform var(--vana-mz-transition);
+}
+
+.vana-mz__panel.is-active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.vana-mz__panel.is-entering {
+  display: block;
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.vana-mz__panel.is-leaving {
+  display: block;
+  opacity: 0.35;
+  pointer-events: none;
+  transform: translateY(-4px);
+}
+
+/* ── Skeletons SSR (previne CLS) ─────────────────────────── */
+.vana-mz__skeleton {
+  padding: 24px 0;
+}
+
+.vana-mz__skeleton-line {
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--vana-line, #e5e7eb) 25%,
+    var(--vana-bg-soft, #f1f5f9) 50%,
+    var(--vana-line, #e5e7eb) 75%
+  );
+  background-size: 200% 100%;
+  animation: vanaMzShimmer 1.4s ease-in-out infinite;
+  margin-bottom: 12px;
+}
+
+.vana-mz__skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes vanaMzShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Skeleton desaparece quando JS assume */
+.vana-mutable-zone[data-state="katha"].is-hydrated .vana-mz__skeleton,
+.vana-mutable-zone .vana-mz__panel.is-active ~ .vana-mz__skeleton {
+  display: none;
+}
+
+/* ── Seções (estado visita) ──────────────────────────────── */
+.vana-mz__section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--vana-line, #e5e7eb);
+}
+
+.vana-mz__section:last-child {
+  border-bottom: none;
+}
+
+.vana-mz__section-header {
+  margin-bottom: 16px;
+}
+
+.vana-mz__section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--vana-text, #1e293b);
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vana-mz__empty {
+  color: var(--vana-muted, #94a3b8);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 32px 16px;
+}
+
+/* ── VOD grid ────────────────────────────────────────────── */
+.vana-vod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.vana-vod-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--vana-line, #e5e7eb);
+  background: var(--vana-bg-soft, #fafafa);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.vana-vod-card:hover,
+.vana-vod-card:focus-visible {
+  border-color: var(--vana-gold, #FFD906);
+  box-shadow: 0 2px 12px rgba(255, 217, 6, 0.12);
+}
+
+.vana-vod-card__thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0f172a;
+}
+
+.vana-vod-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.vana-vod-card__duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.vana-vod-card__meta {
+  padding: 12px;
+}
+
+.vana-vod-card__title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--vana-text, #1e293b);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Gallery grid ────────────────────────────────────────── */
+.vana-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.vana-gallery-link {
+  display: block;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.vana-gallery-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.18s ease;
+}
+
+.vana-gallery-link:hover .vana-gallery-img {
+  transform: scale(1.03);
+}
+
+/* ── Sangha wall ─────────────────────────────────────────── */
+.vana-sangha-wall {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.vana-moment {
+  border-radius: 12px;
+  border: 1px solid var(--vana-line, #e5e7eb);
+  background: var(--vana-bg-card, var(--vana-bg-soft, #fafafa));
+  overflow: hidden;
+}
+
+/* ── Passage & Lens containers ───────────────────────────── */
+.vana-passage-container {
+  min-height: 300px;
+}
+
+.vana-lens-container {
+  min-height: 200px;
+}
+
+/* ── Loading / Accessibility helpers ─────────────────────── */
+.vana-mz__loading {
+  color: var(--vana-muted, #94a3b8);
+  padding: 36px 16px;
+  text-align: center;
+}
+
+/* Spinner usado pelo Router durante fetch */
+.vana-mz__loading::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 12px;
+  border: 3px solid var(--vana-line, #e5e7eb);
+  border-top-color: var(--vana-gold, #FFD906);
+  border-radius: 50%;
+  animation: vanaMzSpin 0.7s linear infinite;
+}
+
+@keyframes vanaMzSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reduced motion: desabilita todas as animações */
+@media (prefers-reduced-motion: reduce) {
+  .vana-mz__panel {
+    transition: none;
+  }
+  .vana-mz__skeleton-line {
+    animation: none;
+  }
+  .vana-mz__loading::before {
+    animation-duration: 2s;
+  }
+}
+
+/* ── Mobile adjustments ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .vana-vod-grid {
+    grid-template-columns: 1fr;
+  }
+  .vana-gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .vana-mutable-zone {
+    padding: 0 8px;
+  }
+}
