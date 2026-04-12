@@ -107,6 +107,17 @@ try:
 except Exception:
     pass
 
+try:
+    from services.yt_discovery import (
+        search_videos_for_day,
+        build_event_from_video,
+        CHANNEL_ID as YT_DEFAULT_CHANNEL,
+    )
+except Exception:
+    search_videos_for_day = None
+    build_event_from_video = None
+    YT_DEFAULT_CHANNEL = None
+
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
 # ══════════════════════════════════════════════════════════════════════
@@ -1458,6 +1469,62 @@ with tab_meta:
             # ── Eventos do dia ───────────────────────────────────────
             st.markdown("**Eventos:**")
             events = day.setdefault("events", [])
+
+            # ── YouTube discovery (buscar vídeos do dia) ────────────
+            try:
+                _has_yt = bool(search_videos_for_day)
+            except Exception:
+                _has_yt = False
+
+            if _has_yt:
+                yt_key = st.secrets.get("youtube", {}).get("api_key", "")
+                yt_ch = st.secrets.get("youtube", {}).get("channel_id", YT_DEFAULT_CHANNEL)
+                if st.button("🔍 Buscar vídeos no YouTube", key=f"yt_search_{di}"):
+                    if not yt_key:
+                        st.warning("⚠️ Configure `youtube.api_key` em .streamlit/secrets.toml")
+                    else:
+                        try:
+                            _res = search_videos_for_day(
+                                yt_key, dk, channel_id=yt_ch or YT_DEFAULT_CHANNEL,
+                                timezone=meta.get("timezone", "Asia/Kolkata"),
+                            )
+                        except Exception as e:
+                            st.error(f"Erro ao buscar YouTube: {e}")
+                            _res = []
+                        st.session_state[f"yt_results_{dk}"] = _res
+                        st.experimental_rerun()
+
+                _yt_results = st.session_state.get(f"yt_results_{dk}", [])
+                if _yt_results:
+                    with st.expander(f"🔍 Resultados YouTube ({len(_yt_results)})", expanded=False):
+                        for vi, v in enumerate(_yt_results):
+                            c1, c2 = st.columns([6, 1])
+                            with c1:
+                                st.markdown(f"**{v.get('title','')}**  \n`{v.get('video_id','')}` · {v.get('inferred_time','')} · {v.get('inferred_type','')}")
+                                st.caption(f"{v.get('duration_s',0)}s · publicado {v.get('published_at')}")
+                            with c2:
+                                if st.button("Criar evento", key=f"yt_create_{dk}_{vi}"):
+                                    if not build_event_from_video:
+                                        st.error("Serviço de build de evento indisponível.")
+                                    else:
+                                        built = build_event_from_video(v, dk)
+                                        if built and isinstance(built, dict):
+                                            new_event = built.get('event')
+                                            # checar duplicidade do video_id
+                                            _can = True
+                                            if _has_constraints:
+                                                dup = validate_vod_unique(visit, v.get('video_id'))
+                                                if dup:
+                                                    st.error(dup)
+                                                    _can = False
+                                            if _can:
+                                                events.append(new_event)
+                                                day['events'] = events
+                                                _save(gh, visit_ref, visit, editor_name or "anon", f"event {new_event.get('event_key')}: criado do YouTube {v.get('video_id')}")
+                                                st.experimental_rerun()
+            else:
+                # service not available
+                pass
 
             # Adicionar evento (com campos inteligentes)
             with st.expander("➕ Adicionar evento", expanded=False):
