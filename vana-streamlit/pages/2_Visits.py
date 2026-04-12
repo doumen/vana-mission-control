@@ -1513,69 +1513,88 @@ with tab_meta:
                             _type_opts = C_EVENT_TYPES if _has_constraints else ["programa", "mangala", "arati", "darshan", "other"]
                             cols[2].selectbox("Tipo", [_type_opts[0]] + _type_opts if v.get('inferred_type') not in _type_opts else _type_opts, index=(_type_opts.index(v.get('inferred_type')) if v.get('inferred_type') in _type_opts else 0), key=f"yt_type_{dk}_{vi}")
 
-                        # Bulk actions
+                        # Bulk actions (with confirmation modal)
                         sel_idxs = [i for i in range(len(_yt_results)) if st.session_state.get(f"yt_sel_{dk}_{i}")]
                         if sel_idxs:
+                            # trigger modals via session_state flags
                             if st.button("Criar eventos selecionados", key=f"yt_bulk_create_ev_{dk}"):
-                                created = []
-                                for i in sel_idxs:
-                                    v = _yt_results[i]
-                                    override_type = st.session_state.get(f"yt_type_{dk}_{i}")
-                                    if not build_event_from_video:
-                                        st.error("Serviço de build de evento indisponível.")
-                                        break
-                                    built = build_event_from_video(v, dk)
-                                    if not built:
-                                        continue
-                                    new_event = built.get('event')
-                                    if override_type:
-                                        new_event['type'] = override_type
-                                    # check duplicate vod
-                                    if _has_constraints:
-                                        dup = validate_vod_unique(visit, v.get('video_id'))
-                                        if dup:
-                                            st.error(f"Pulando {v.get('video_id')}: {dup}")
-                                            continue
-                                    events.append(new_event)
-                                    created.append(new_event.get('event_key'))
-                                if created:
-                                    day['events'] = events
-                                    _save(gh, visit_ref, visit, editor_name or "anon", f"events created from YouTube: {', '.join(created)}")
-                                    st.experimental_rerun()
+                                st.session_state[f"yt_confirm_create_{dk}"] = True
+
+                            if st.session_state.get(f"yt_confirm_create_{dk}"):
+                                with st.modal(f"Confirmar criação de eventos — {dk}", key=f"modal_create_{dk}"):
+                                    st.markdown(f"Você está prestes a criar **{len(sel_idxs)}** evento(s) para o dia `{dk}`. Confirma?")
+                                    if st.button("Confirmar criação", key=f"confirm_create_{dk}"):
+                                        created = []
+                                        for i in sel_idxs:
+                                            v = _yt_results[i]
+                                            override_type = st.session_state.get(f"yt_type_{dk}_{i}")
+                                            if not build_event_from_video:
+                                                st.error("Serviço de build de evento indisponível.")
+                                                break
+                                            built = build_event_from_video(v, dk)
+                                            if not built:
+                                                continue
+                                            new_event = built.get('event')
+                                            if override_type:
+                                                new_event['type'] = override_type
+                                            # check duplicate vod
+                                            if _has_constraints:
+                                                dup = validate_vod_unique(visit, v.get('video_id'))
+                                                if dup:
+                                                    st.error(f"Pulando {v.get('video_id')}: {dup}")
+                                                    continue
+                                            events.append(new_event)
+                                            created.append(new_event.get('event_key'))
+                                        if created:
+                                            day['events'] = events
+                                            _save(gh, visit_ref, visit, editor_name or "anon", f"events created from YouTube: {', '.join(created)}")
+                                            st.experimental_rerun()
+                                    if st.button("Cancelar", key=f"cancel_create_{dk}"):
+                                        st.session_state.pop(f"yt_confirm_create_{dk}", None)
+                                        st.experimental_rerun()
 
                             if st.button("Adicionar órfãos selecionados", key=f"yt_bulk_orphans_{dk}"):
-                                added = []
-                                _orphans = visit.get('orphans', {})
-                                _o_vods = _orphans.get('vods', []) if isinstance(_orphans, dict) else []
-                                for i in sel_idxs:
-                                    v = _yt_results[i]
-                                    vid = v.get('video_id')
-                                    if _has_constraints:
-                                        dup = validate_vod_unique(visit, vid)
-                                        if dup:
-                                            st.error(f"Pulando órfão {vid}: {dup}")
-                                            continue
-                                    # suggest key
-                                    date_part = dk.replace('-', '')
-                                    n = len(_o_vods) + 1
-                                    vod_key = f"vod-{date_part}-orphan-{n:03d}"
-                                    _o_vods.append({
-                                        'vod_key': vod_key,
-                                        'provider': 'youtube',
-                                        'video_id': vid,
-                                        'url': None,
-                                        'thumb_url': v.get('thumbnail'),
-                                        'duration_s': v.get('duration_s'),
-                                        'title_pt': v.get('title'),
-                                        'title_en': v.get('title'),
-                                        'vod_part': 1,
-                                        'segments': [],
-                                    })
-                                    added.append(v.get('video_id'))
-                                if added:
-                                    visit['orphans'] = {'vods': _o_vods}
-                                    _save(gh, visit_ref, visit, editor_name or "anon", f"added orphan vods from YouTube: {', '.join(added)}")
-                                    st.experimental_rerun()
+                                st.session_state[f"yt_confirm_orphan_{dk}"] = True
+
+                            if st.session_state.get(f"yt_confirm_orphan_{dk}"):
+                                with st.modal(f"Confirmar adicionar órfãos — {dk}", key=f"modal_orphan_{dk}"):
+                                    st.markdown(f"Você está prestes a adicionar **{len(sel_idxs)}** VOD(s) como órfãos para o dia `{dk}`. Confirma?")
+                                    if st.button("Confirmar adicionar órfãos", key=f"confirm_orphan_{dk}"):
+                                        added = []
+                                        _orphans = visit.get('orphans', {})
+                                        _o_vods = _orphans.get('vods', []) if isinstance(_orphans, dict) else []
+                                        for i in sel_idxs:
+                                            v = _yt_results[i]
+                                            vid = v.get('video_id')
+                                            if _has_constraints:
+                                                dup = validate_vod_unique(visit, vid)
+                                                if dup:
+                                                    st.error(f"Pulando órfão {vid}: {dup}")
+                                                    continue
+                                            # suggest key
+                                            date_part = dk.replace('-', '')
+                                            n = len(_o_vods) + 1
+                                            vod_key = f"vod-{date_part}-orphan-{n:03d}"
+                                            _o_vods.append({
+                                                'vod_key': vod_key,
+                                                'provider': 'youtube',
+                                                'video_id': vid,
+                                                'url': None,
+                                                'thumb_url': v.get('thumbnail'),
+                                                'duration_s': v.get('duration_s'),
+                                                'title_pt': v.get('title'),
+                                                'title_en': v.get('title'),
+                                                'vod_part': 1,
+                                                'segments': [],
+                                            })
+                                            added.append(v.get('video_id'))
+                                        if added:
+                                            visit['orphans'] = {'vods': _o_vods}
+                                            _save(gh, visit_ref, visit, editor_name or "anon", f"added orphan vods from YouTube: {', '.join(added)}")
+                                            st.experimental_rerun()
+                                    if st.button("Cancelar", key=f"cancel_orphan_{dk}"):
+                                        st.session_state.pop(f"yt_confirm_orphan_{dk}", None)
+                                        st.experimental_rerun()
             else:
                 # service not available
                 pass
@@ -1908,6 +1927,86 @@ with tab_vods:
                 f"**Evento:** `{sel_ev.get('event_key')}` · "
                 f"{len(vods)} VOD(s)"
             )
+
+            # ── YouTube discovery directly from VODs tab (search by day)
+            try:
+                _has_yt_v = bool(search_videos_for_day)
+            except Exception:
+                _has_yt_v = False
+
+            if _has_yt_v:
+                yt_key = st.secrets.get("youtube", {}).get("api_key", "")
+                yt_ch = st.secrets.get("youtube", {}).get("channel_id", YT_DEFAULT_CHANNEL)
+                dk = sel_day.get("day_key", "")
+                if st.button("🔍 Buscar vídeos no YouTube (dia)", key=f"vod_yt_search_{day_index}"):
+                    if not yt_key:
+                        st.warning("⚠️ Configure `youtube.api_key` em .streamlit/secrets.toml")
+                    else:
+                        try:
+                            _vres = search_videos_for_day(
+                                yt_key, dk, channel_id=yt_ch or YT_DEFAULT_CHANNEL,
+                                timezone=meta.get("timezone", "Asia/Kolkata"),
+                            )
+                        except Exception as e:
+                            st.error(f"Erro ao buscar YouTube: {e}")
+                            _vres = []
+                        st.session_state[f"vod_yt_results_{dk}"] = _vres
+                        st.experimental_rerun()
+
+                _yt_v_results = st.session_state.get(f"vod_yt_results_{dk}", [])
+                if _yt_v_results:
+                    with st.expander(f"🔍 Resultados YouTube (dia) ({len(_yt_v_results)})", expanded=False):
+                        for vi, v in enumerate(_yt_v_results):
+                            cols = st.columns([1, 6, 2])
+                            sel = cols[0].checkbox("", key=f"vod_yt_sel_{dk}_{vi}")
+                            with cols[1]:
+                                st.markdown(f"**{v.get('title','')}**  \n`{v.get('video_id','')}` · {v.get('inferred_time','')} · {v.get('inferred_type','')}")
+                                st.caption(f"{v.get('duration_s',0)}s · publicado {v.get('published_at')}")
+                            _type_opts = C_EVENT_TYPES if _has_constraints else ["programa", "mangala", "arati", "darshan", "other"]
+                            cols[2].selectbox("Tipo", _type_opts, index=0, key=f"vod_yt_type_{dk}_{vi}")
+
+                        sel_idxs_v = [i for i in range(len(_yt_v_results)) if st.session_state.get(f"vod_yt_sel_{dk}_{i}")]
+                        if sel_idxs_v:
+                            if st.button("Adicionar VODs selecionados ao evento", key=f"vod_add_selected_{day_index}_{sel_ev_idx}"):
+                                st.session_state[f"vod_confirm_add_{day_index}_{sel_ev_idx}"] = True
+
+                            if st.session_state.get(f"vod_confirm_add_{day_index}_{sel_ev_idx}"):
+                                with st.modal(f"Confirmar adicionar VODs ao evento `{sel_ev.get('event_key')}`", key=f"modal_vod_add_{day_index}_{sel_ev_idx}"):
+                                    st.markdown(f"Você está prestes a adicionar **{len(sel_idxs_v)}** VOD(s) ao evento `{sel_ev.get('event_key')}`. Confirma?")
+                                    if st.button("Confirmar adicionar VODs", key=f"confirm_vod_add_{day_index}_{sel_ev_idx}"):
+                                        all_vod_keys = _count_all_vods(visit)
+                                        added = []
+                                        for i in sel_idxs_v:
+                                            v = _yt_v_results[i]
+                                            vid = v.get('video_id')
+                                            if _has_constraints:
+                                                dup = validate_vod_unique(visit, vid)
+                                                if dup:
+                                                    st.error(f"Pulando {vid}: {dup}")
+                                                    continue
+                                            # suggest a new vod_key
+                                            vk = _suggest_vod_key(dk, all_vod_keys)
+                                            all_vod_keys.append(vk)
+                                            vods.append({
+                                                "vod_key": vk,
+                                                "provider": "youtube",
+                                                "video_id": vid,
+                                                "url": None,
+                                                "thumb_url": v.get('thumbnail'),
+                                                "duration_s": v.get('duration_s'),
+                                                "title_pt": v.get('title'),
+                                                "title_en": v.get('title'),
+                                                "vod_part": 1,
+                                                "segments": [],
+                                            })
+                                            added.append(vid)
+                                        if added:
+                                            sel_ev['vods'] = vods
+                                            _save(gh, visit_ref, visit, editor_name or "anon", f"added VODs to event {sel_ev.get('event_key')}: {', '.join(added)}")
+                                            st.experimental_rerun()
+                                    if st.button("Cancelar", key=f"cancel_vod_add_{day_index}_{sel_ev_idx}"):
+                                        st.session_state.pop(f"vod_confirm_add_{day_index}_{sel_ev_idx}", None)
+                                        st.experimental_rerun()
 
             # ── Adicionar VOD ─────────────────────────────────────────
             with st.expander("➕ Adicionar VOD", expanded=len(vods) == 0):
