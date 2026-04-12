@@ -67,10 +67,45 @@ except Exception:
     fetch_tithis = None
     TZ_TO_DIR = {}
 
+# ── Constraints (smart fields + validação estrutural) ────────────────
+_has_constraints = False
 try:
-    from services.constraints import compute_event_status
+    from services.constraints import (
+        # Derive
+        derive_visit_ref,
+        derive_visit_title,
+        derive_metadata_from_city,
+        derive_event_key,
+        derive_vod_key,
+        derive_segment_id,
+        derive_vod_title,
+        compute_event_status,
+        compute_visit_status,
+        compute_stats,
+        # Suggest
+        suggest_event_title,
+        suggest_event_time,
+        suggest_thumb_url,
+        collect_known_locations,
+        collect_all_vod_keys,
+        collect_all_segment_ids,
+        # Validate
+        validate_date,
+        validate_time,
+        validate_date_range,
+        validate_vod_unique,
+        validate_event_key_unique,
+        validate_day_key_unique,
+        validate_segment,
+        validate_harikatha_per_event,
+        # Constants
+        EVENT_TYPES as C_EVENT_TYPES,
+        SEGMENT_TYPES as C_SEGMENT_TYPES,
+        CITY_COUNTRY_MAP,
+    )
+    _has_constraints = True
 except Exception:
-    compute_event_status = None
+    pass
 
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
@@ -1012,22 +1047,70 @@ with tab_meta:
 
     m1, m2, m3 = st.columns(3)
     with m1:
-        meta["city_pt"]    = st.text_input("Cidade PT", value=meta.get("city_pt", ""), key="m_city_pt")
+        meta["city_pt"] = st.text_input("Cidade PT", value=meta.get("city_pt", ""), key="m_city_pt")
+
+        # ── Auto-derive de cidade ────────────────────────────────────
+        if _has_constraints and meta["city_pt"]:
+            _city_info = derive_metadata_from_city(meta["city_pt"])
+            if _city_info:
+                st.caption(
+                    f"💡 {_city_info.get('city_en', '')} · "
+                    f"{_city_info.get('country', '')} · "
+                    f"{_city_info.get('timezone', '')}"
+                )
+                if st.button("Aplicar", key="btn_apply_city"):
+                    meta["city_en"]  = _city_info.get("city_en", meta.get("city_en", ""))
+                    meta["city_pt"]  = _city_info.get("city_pt", meta["city_pt"])
+                    meta["country"]  = _city_info.get("country", meta.get("country", ""))
+                    meta["timezone"] = _city_info.get("timezone", meta.get("timezone", ""))
+                    st.rerun()
+
         meta["date_start"] = st.text_input("Data início (YYYY-MM-DD)", value=meta.get("date_start", ""), key="m_ds")
-        meta["timezone"]   = st.text_input("Timezone", value=meta.get("timezone", "Asia/Kolkata"), key="m_tz")
+        if _has_constraints and meta["date_start"]:
+            _err = validate_date(meta["date_start"], "Data início")
+            if _err:
+                st.error(f"❌ {_err}")
+
+        meta["timezone"] = st.text_input("Timezone", value=meta.get("timezone", "Asia/Kolkata"), key="m_tz")
     with m2:
-        meta["city_en"]  = st.text_input("Cidade EN", value=meta.get("city_en", ""), key="m_city_en")
+        meta["city_en"] = st.text_input("Cidade EN", value=meta.get("city_en", ""), key="m_city_en")
         meta["date_end"] = st.text_input("Data fim (YYYY-MM-DD)", value=meta.get("date_end", ""), key="m_de")
-        meta["country"]  = st.text_input("País (ISO)", value=meta.get("country", "IN"), key="m_country")
+        if _has_constraints and meta["date_end"]:
+            _err = validate_date(meta["date_end"], "Data fim")
+            if _err:
+                st.error(f"❌ {_err}")
+        if _has_constraints and meta.get("date_start") and meta.get("date_end"):
+            _err = validate_date_range(meta["date_start"], meta["date_end"])
+            if _err:
+                st.warning(f"⚠️ {_err}")
+
+        meta["country"] = st.text_input("País (ISO)", value=meta.get("country", "IN"), key="m_country")
     with m3:
-        meta["status"] = st.selectbox(
-            "Status", ["upcoming", "active", "completed"],
-            index=["upcoming", "active", "completed"].index(meta.get("status", "upcoming")),
-            key="m_status",
-        )
+        # ── Status calculado ─────────────────────────────────────────
+        if _has_constraints and meta.get("date_start") and meta.get("date_end"):
+            _auto_status = compute_visit_status(
+                meta["date_start"], meta["date_end"],
+                meta.get("timezone", "Asia/Kolkata"),
+            )
+            st.markdown(f"**Status:** `{_auto_status}` (calculado)")
+            meta["status"] = _auto_status
+        else:
+            meta["status"] = st.selectbox(
+                "Status", ["upcoming", "active", "completed"],
+                index=["upcoming", "active", "completed"].index(meta.get("status", "upcoming")),
+                key="m_status",
+            )
+
+        # ── Sugestão de título ────────────────────────────────────────
+        if _has_constraints and meta.get("city_pt") and meta.get("date_start"):
+            _sug_title = derive_visit_title(meta["city_pt"], meta["date_start"], "pt")
+            if _sug_title and not visit.get("title_pt"):
+                st.caption(f"💡 Título: *{_sug_title}*")
 
     if st.button("💾 Salvar Metadata", key="save_meta"):
         visit["metadata"] = meta
+        if _has_constraints:
+            visit["stats"] = compute_stats(visit)
         _save(gh, visit_ref, visit, editor_name or "anon", "metadata: atualizada")
 
     # ── DIAS ─────────────────────────────────────────────────────────
@@ -1380,198 +1463,186 @@ with tab_meta:
             with st.expander("➕ Adicionar evento", expanded=False):
                 ne1, ne2, ne3 = st.columns(3)
 
-                EVENT_TYPES = [
-                    "programa", "mangala", "arati",
-                    "darshan", "parikrama", "other",
+                # ── Type (enum) ──────────────────────────────────────
+                _ev_types = C_EVENT_TYPES if _has_constraints else [
+                    "programa", "mangala", "arati", "darshan", "other",
                 ]
+                net = ne1.selectbox("type", _ev_types, key=f"net_{di}")
 
-                net = ne1.selectbox(
-                    "type", EVENT_TYPES, key=f"net_{di}",
+                # ── Time (com sugestão + validação) ──────────────────
+                _default_time = ""
+                if _has_constraints:
+                    _default_time = suggest_event_time(net)
+                netm = ne2.text_input(
+                    "time (HH:MM)", value=_default_time, key=f"netm_{di}",
                 )
-                netm = ne2.text_input("time (HH:MM)", key=f"netm_{di}")
+                if _has_constraints and netm:
+                    _terr = validate_time(netm)
+                    if _terr:
+                        ne2.error(f"❌ {_terr}")
 
-                # event_key AUTO-DERIVADO
-                auto_ek = ""
-                if dk and net:
-                    date_part = dk.replace("-", "")
-                    time_part = (netm or "00:00").replace(":", "").ljust(4, "0")[:4]
-                    auto_ek = f"{date_part}-{time_part}-{net}"
-
-                # Sugestão do autofill (se disponível)
-                if af:
-                    try:
-                        sug_ev = af.suggest_event(day, event_type=net, time_str=netm)
-                    except Exception:
-                        sug_ev = {
-                            "event_key": auto_ek,
-                            "title_pt": "", "title_en": "",
-                            "status": "future", "location": {},
-                        }
+                # ── event_key (derivado) ─────────────────────────────
+                dk = day.get("day_key", "")
+                if _has_constraints and dk:
+                    _auto_ek = derive_event_key(dk, netm, net)
+                    ne1.text_input(
+                        "event_key (auto)", value=_auto_ek,
+                        key=f"nek_{di}", disabled=True,
+                    )
                 else:
-                    sug_ev = {
-                        "event_key": auto_ek,
-                        "title_pt": "", "title_en": "",
-                        "status": "future", "location": {},
-                    }
-
-                # event_key mostrado mas não editável (derivado)
-                nek = ne1.text_input(
-                    "event_key (auto)",
-                    value=sug_ev.get("event_key", auto_ek),
-                    key=f"nek_{di}",
-                    disabled=True,
-                )
-                # Campo oculto editável para override (raro)
-                nek_override = ""
-                if st.checkbox("✏️ Editar event_key manualmente", key=f"nek_override_check_{di}", value=False):
-                    nek_override = st.text_input(
-                        "event_key (manual)",
-                        value=sug_ev.get("event_key", auto_ek),
-                        key=f"nek_manual_{di}",
+                    _auto_ek = ""
+                    if af:
+                        try:
+                            sug_ev = af.suggest_event(day, event_type=net, time_str=netm)
+                            _auto_ek = sug_ev.get("event_key", "")
+                        except Exception:
+                            pass
+                    _auto_ek = ne1.text_input(
+                        "event_key", value=_auto_ek, key=f"nek_{di}",
                     )
 
-                final_ek = nek_override if nek_override else (sug_ev.get("event_key", "") or auto_ek)
+                # ── Títulos (sugeridos) ──────────────────────────────
+                _day_lbl = day.get("label_pt", "")
+                if _has_constraints:
+                    _sug_t = suggest_event_title(net, _day_lbl)
+                    _def_tp = _sug_t["title_pt"]
+                    _def_te = _sug_t["title_en"]
+                else:
+                    _def_tp = _def_te = ""
 
-                netp = ne2.text_input(
-                    "title_pt", value=sug_ev.get("title_pt", ""), key=f"netp_{di}",
-                )
-                nete = ne3.text_input(
-                    "title_en", value=sug_ev.get("title_en", ""), key=f"nete_{di}",
-                )
+                netp = ne2.text_input("title_pt", value=_def_tp, key=f"netp_{di}")
+                nete = ne3.text_input("title_en", value=_def_te, key=f"nete_{di}")
 
-                # Status CALCULADO (não selecionado)
-                event_tz = meta.get("timezone", "Asia/Kolkata")
-                try:
-                    from services.constraints import compute_event_status
-                    auto_status = compute_event_status(dk, netm, event_tz)
-                except Exception:
-                    auto_status = "past"
+                # ── Status (calculado) ───────────────────────────────
+                if _has_constraints:
+                    _auto_st = compute_event_status(
+                        dk, netm, meta.get("timezone", "Asia/Kolkata"),
+                    )
+                    ne3.markdown(f"**Status:** `{_auto_st}`")
+                else:
+                    _auto_st = ne3.selectbox(
+                        "status",
+                        ["past", "active", "future", "live", "soon"],
+                        index=2,
+                        key=f"nest_{di}",
+                    )
 
-                ne3.markdown(f"**Status:** `{auto_status}` (calculado)")
-
-                neloc = ne3.text_input(
-                    "local",
-                    value=sug_ev.get("location", {}).get("name", ""),
-                    key=f"neloc_{di}",
-                )
-
-                # Validação: event_key já existe neste dia?
-                existing_event_keys = {e.get("event_key") for e in events}
-                ek_conflict = final_ek in existing_event_keys if final_ek else False
-                if ek_conflict:
-                    st.error(f"❌ Evento `{final_ek}` já existe neste dia.")
-
-                if st.button("Adicionar evento", key=f"btn_aev_{di}"):
-                    if not final_ek:
-                        st.warning("Preencha o tipo e horário para gerar o event_key.")
-                    elif ek_conflict:
-                        st.error("❌ Corrija o conflito de event_key antes de adicionar.")
+                # ── Location (quick-pick) ────────────────────────────
+                if _has_constraints:
+                    _known = collect_known_locations(visit)
+                    _loc_names = [""] + [l["name"] for l in _known]
+                    _loc_pick = ne3.selectbox(
+                        "Local", _loc_names, key=f"neloc_pick_{di}",
+                        format_func=lambda x: x if x else "(digitar novo)",
+                    )
+                    if _loc_pick:
+                        neloc = _loc_pick
                     else:
-                        events.append({
-                            "event_key": final_ek,
-                            "type": net,
-                            "title_pt": netp,
-                            "title_en": nete,
-                            "time": netm,
-                            "status": auto_status,
-                            "location": {"name": neloc} if neloc else {},
-                            "vods": [],
-                            "kathas": [] if visit.get("schema_version") == "6.1" else None,
-                            "photos": [],
-                            "sangha": [],
-                        })
-                        # Remove None (schema 6.2 não tem kathas[])
-                        events[-1] = {k: v for k, v in events[-1].items() if v is not None}
+                        neloc = ne3.text_input("local (novo)", key=f"neloc_{di}")
+                else:
+                    neloc = ne3.text_input("local", key=f"neloc_{di}")
 
+                # ── Salvar ───────────────────────────────────────────
+                if st.button("Adicionar evento", key=f"btn_aev_{di}"):
+                    _can_save_ev = True
+
+                    if not _auto_ek:
+                        st.warning("Preencha tipo e horário para gerar o event_key.")
+                        _can_save_ev = False
+
+                    if _has_constraints and _can_save_ev:
+                        _dup_ev = validate_event_key_unique(day, _auto_ek)
+                        if _dup_ev:
+                            st.error(f"❌ {_dup_ev}")
+                            _can_save_ev = False
+
+                    if _can_save_ev:
+                        events.append({
+                            "event_key": _auto_ek,
+                            "type":      net,
+                            "title_pt":  netp,
+                            "title_en":  nete,
+                            "time":      netm,
+                            "status":    _auto_st,
+                            "location":  {"name": neloc} if neloc else {},
+                            "vods":      [],
+                            "photos":    [],
+                            "sangha":    [],
+                        })
                         day["events"] = events
 
-                        # Auto-set primary_event_key se é o primeiro evento
+                        # Auto-set primary se primeiro evento
                         if len(events) == 1:
-                            day["primary_event_key"] = final_ek
-                            day["primary_event"] = final_ek
+                            day["primary_event_key"] = _auto_ek
+                            day["primary_event"]     = _auto_ek
 
-                        _save(
-                            gh, visit_ref, visit,
-                            editor_name or "anon",
-                            f"event {final_ek}: adicionado ao dia {dk}",
-                        )
+                        _save(gh, visit_ref, visit, editor_name or "anon",
+                              f"event {_auto_ek}: adicionado ao dia {dk}")
                         st.rerun()
 
             # ── Lista de eventos existentes ───────────────────────────
             for ei, ev in enumerate(events):
-                is_primary = ev.get("event_key") == day.get("primary_event_key")
-                primary_icon = " ⭐" if is_primary else ""
-
                 with st.container(border=True):
                     ec1, ec2, ec3 = st.columns([3, 2, 1])
                     with ec1:
-                        st.markdown(
-                            f"**`{ev.get('event_key', '?')}`**{primary_icon}"
+                        st.text_input(
+                            "event_key", value=ev.get("event_key", ""),
+                            key=f"evk_{di}_{ei}", disabled=True,
                         )
-                        ev["title_pt"] = st.text_input(
-                            "title_pt", value=ev.get("title_pt", ""),
-                            key=f"evtp_{di}_{ei}",
-                        )
-                        ev["title_en"] = st.text_input(
-                            "title_en", value=ev.get("title_en", ""),
-                            key=f"evte_{di}_{ei}",
-                        )
+                        ev["title_pt"]  = st.text_input("title_pt",  value=ev.get("title_pt", ""),  key=f"evtp_{di}_{ei}")
+                        ev["title_en"]  = st.text_input("title_en",  value=ev.get("title_en", ""),  key=f"evte_{di}_{ei}")
                     with ec2:
+                        # type como selectbox
+                        _ev_types_edit = C_EVENT_TYPES if _has_constraints else [
+                            "programa", "mangala", "arati", "darshan", "other",
+                        ]
+                        _cur_type = ev.get("type", "programa")
+                        if _cur_type not in _ev_types_edit:
+                            _ev_types_edit = _ev_types_edit + [_cur_type]
                         ev["type"] = st.selectbox(
-                            "type",
-                            EVENT_TYPES + (
-                                [ev["type"]] if ev.get("type") and ev["type"] not in EVENT_TYPES else []
-                            ),
-                            index=(
-                                EVENT_TYPES.index(ev.get("type", "programa"))
-                                if ev.get("type", "programa") in EVENT_TYPES
-                                else 0
-                            ),
+                            "type", _ev_types_edit,
+                            index=_ev_types_edit.index(_cur_type),
                             key=f"evt_{di}_{ei}",
                         )
-                        ev["time"] = st.text_input(
-                            "time (HH:MM)", value=ev.get("time", ""),
-                            key=f"evtm_{di}_{ei}",
-                        )
-
-                        # Status recalculado automaticamente
-                        try:
-                            from services.constraints import compute_event_status as _ces
-                            recalc_status = _ces(dk, ev.get("time", ""), event_tz)
-                        except ImportError:
-                            recalc_status = ev.get("status", "past")
-
-                        ev["status"] = recalc_status
-                        st.markdown(f"**Status:** `{recalc_status}`")
-
+                        ev["time"]   = st.text_input("time",   value=ev.get("time", ""),   key=f"evtm_{di}_{ei}")
+                        if _has_constraints and ev.get("time"):
+                            _terr = validate_time(ev["time"])
+                            if _terr:
+                                st.caption(f"❌ {_terr}")
+                        # Status recalculado
+                        if _has_constraints:
+                            _recalc = compute_event_status(
+                                day.get("day_key", ""),
+                                ev.get("time", ""),
+                                meta.get("timezone", "Asia/Kolkata"),
+                            )
+                            ev["status"] = _recalc
+                            st.markdown(f"**Status:** `{_recalc}`")
+                        else:
+                            ev["status"] = st.selectbox(
+                                "status",
+                                ["past", "active", "future", "live", "soon"],
+                                index=["past", "active", "future", "live", "soon"].index(
+                                    ev.get("status", "past")
+                                ),
+                                key=f"evst_{di}_{ei}",
+                            )
                     with ec3:
                         loc = ev.setdefault("location", {})
-                        loc["name"] = st.text_input(
-                            "local", value=loc.get("name", ""),
-                            key=f"evloc_{di}_{ei}",
-                        )
+                        loc["name"] = st.text_input("local", value=loc.get("name", ""), key=f"evloc_{di}_{ei}")
 
-                        # Contadores de conteúdo
-                        vod_count = len(ev.get("vods", []))
-                        photo_count = len(ev.get("photos", []))
-                        sangha_count = len(ev.get("sangha", []))
-                        if vod_count or photo_count or sangha_count:
-                            st.caption(
-                                f"🎬 {vod_count} · 📸 {photo_count} · 💬 {sangha_count}"
-                            )
+                        # ── Contadores de conteúdo ────────────────────
+                        _vod_c = len(ev.get("vods", []))
+                        _ph_c  = len(ev.get("photos", []))
+                        _sg_c  = len(ev.get("sangha", []))
+                        if _vod_c or _ph_c or _sg_c:
+                            st.caption(f"🎬 {_vod_c} · 📸 {_ph_c} · 💬 {_sg_c}")
 
                         st.write("")
-                        if st.button(
-                            "🗑️", key=f"del_ev_{di}_{ei}",
-                            help="Remover evento",
-                        ):
+                        if st.button("🗑️", key=f"del_ev_{di}_{ei}", help="Remover evento"):
                             events.pop(ei)
                             day["events"] = events
-                            _save(
-                                gh, visit_ref, visit,
-                                editor_name or "anon",
-                                f"event: removido do dia {dk}",
-                            )
+                            _save(gh, visit_ref, visit, editor_name or "anon", f"event: removido do dia {dk}")
                             st.rerun()
 
             # ── Ações do dia ─────────────────────────────────────────
@@ -1581,6 +1652,8 @@ with tab_meta:
                 if st.button(
                     f"💾 Salvar dia {dk}", key=f"save_day_{di}",
                 ):
+                    if _has_constraints:
+                        visit["stats"] = compute_stats(visit)
                     _save(
                         gh, visit_ref, visit,
                         editor_name or "anon",
@@ -1685,24 +1758,36 @@ with tab_vods:
 
                 if st.button("Adicionar VOD", key="btn_add_vod"):
                     if nvk and nvid:
-                        nvk_clean = _normalize_vod_key(nvk)
-                        if nvk_clean != nvk:
-                            st.info(f"🔧 vod_key normalizado: `{nvk}` → `{nvk_clean}`")
-                        vods.append({
-                            "vod_key":    nvk_clean,
-                            "provider":   nvp,
-                            "video_id":   nvid,
-                            "url":        None,
-                            "thumb_url":  f"https://img.youtube.com/vi/{nvid}/maxresdefault.jpg" if nvp == "youtube" else "",
-                            "duration_s": None,
-                            "title_pt":   nvtp,
-                            "title_en":   nvte,
-                            "vod_part":   int(nvpart),
-                            "segments":   [],
-                        })
-                        sel_ev["vods"] = vods
-                        _save(gh, visit_ref, visit, editor_name or "anon", f"vod {nvk_clean}: adicionado")
-                        st.rerun()
+                        # ── Guard: unicidade do video_id ──────
+                        _can_save_vod = True
+                        if _has_constraints:
+                            dup = validate_vod_unique(visit, nvid)
+                            if dup:
+                                st.error(f"❌ {dup}")
+                                st.warning("Corrija o duplicado antes de adicionar o VOD.")
+                                _can_save_vod = False
+
+                        if not _can_save_vod:
+                            pass
+                        else:
+                            nvk_clean = _normalize_vod_key(nvk)
+                            if nvk_clean != nvk:
+                                st.info(f"🔧 vod_key normalizado: `{nvk}` → `{nvk_clean}`")
+                            vods.append({
+                                "vod_key":    nvk_clean,
+                                "provider":   nvp,
+                                "video_id":   nvid,
+                                "url":        None,
+                                "thumb_url":  f"https://img.youtube.com/vi/{nvid}/maxresdefault.jpg" if nvp == "youtube" else "",
+                                "duration_s": None,
+                                "title_pt":   nvtp,
+                                "title_en":   nvte,
+                                "vod_part":   int(nvpart),
+                                "segments":   [],
+                            })
+                            sel_ev["vods"] = vods
+                            _save(gh, visit_ref, visit, editor_name or "anon", f"vod {nvk_clean}: adicionado")
+                            st.rerun()
                     else:
                         st.warning("vod_key e video_id são obrigatórios.")
 
@@ -2513,26 +2598,37 @@ with tab_orfaos:
 
         if st.button("Adicionar VOD órfão", key="btn_add_ov"):
             if _new_ov_vid_add and _new_ov_key_add:
-                _o_vods.append({
-                    "vod_key":     _new_ov_key_add,
-                    "provider":    _new_ov_prov_add,
-                    "video_id":    _new_ov_vid_add,
-                    "url":         None,
-                    "thumb_url":   (
-                        f"https://img.youtube.com/vi/{_new_ov_vid_add}/maxresdefault.jpg"
-                        if _new_ov_prov_add == "youtube" else ""
-                    ),
-                    "duration_s":  _new_ov_dur_add or None,
-                    "title_pt":    _new_ov_title_add,
-                    "title_en":    "",
-                    "orphan_type": _new_ov_type_add,
-                    "segments":    [],
-                })
-                _orphans["vods"] = _o_vods
-                visit["orphans"] = _orphans
-                _save(gh, visit_ref, visit, editor_name or "anon",
-                      f"orphan vod {_new_ov_key_add}: added")
-                st.rerun()
+                _can_save_ov = True
+                if _has_constraints:
+                    dup = validate_vod_unique(visit, _new_ov_vid_add)
+                    if dup:
+                        st.error(f"❌ {dup}")
+                        st.warning("Corrija o duplicado antes de adicionar o VOD órfão.")
+                        _can_save_ov = False
+
+                if not _can_save_ov:
+                    pass
+                else:
+                    _o_vods.append({
+                        "vod_key":     _new_ov_key_add,
+                        "provider":    _new_ov_prov_add,
+                        "video_id":    _new_ov_vid_add,
+                        "url":         None,
+                        "thumb_url":   (
+                            f"https://img.youtube.com/vi/{_new_ov_vid_add}/maxresdefault.jpg"
+                            if _new_ov_prov_add == "youtube" else ""
+                        ),
+                        "duration_s":  _new_ov_dur_add or None,
+                        "title_pt":    _new_ov_title_add,
+                        "title_en":    "",
+                        "orphan_type": _new_ov_type_add,
+                        "segments":    [],
+                    })
+                    _orphans["vods"] = _o_vods
+                    visit["orphans"] = _orphans
+                    _save(gh, visit_ref, visit, editor_name or "anon",
+                          f"orphan vod {_new_ov_key_add}: added")
+                    st.rerun()
             else:
                 st.warning("video_id e vod_key são obrigatórios.")
 
