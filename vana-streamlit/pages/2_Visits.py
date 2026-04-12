@@ -16,11 +16,17 @@ import copy
 
 import streamlit as st
 
-from api.github_client import GitHubClient
-# Ensure repository root is on sys.path so we can import the `trator` package
+# Ensure both the local `vana-streamlit` package and the repository root
+# are on sys.path so `from api...` and `from trator...` imports work.
+VANA_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+for _p in (str(VANA_ROOT), str(REPO_ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+from api.github_client import GitHubClient
+from components.conflict_resolver import render_conflict_resolver
+from services.conflict_guard import check_conflict, stamp_revision
 
 from trator.vana_trator import run_trator, TratorResult
 
@@ -69,8 +75,35 @@ def get_gh() -> GitHubClient:
 # ══════════════════════════════════════════════════════════════════════
 # HELPERS
 # ══════════════════════════════════════════════════════════════════════
-def _save(gh: GitHubClient, visit_ref: str, visit: dict, author: str, action: str):
-    """Salva no GitHub e limpa cache."""
+def _save(gh: GitHubClient, visit_ref: str, visit: dict, author: str, action: str) -> bool:
+    """Guarded save: verifica conflitos remotos antes de sobrescrever.
+
+    Retorna True se o save foi bem-sucedido, False se há conflito e requer resolução.
+    """
+    # tenta ler a versão remota para detectar concorrência
+    try:
+        remote = gh.get_visit(visit_ref)
+    except Exception:
+        remote = None
+
+    conflicted, details = check_conflict(local_visit=visit, remote_visit=remote)
+    if conflicted:
+        st.session_state["_conflict"] = {
+            "conflict": True,
+            "remote_visit": remote,
+            "local_visit": visit,
+            "remote_rev": details.get("remote_rev"),
+            "local_rev": details.get("local_rev"),
+            "remote_by": details.get("remote_by"),
+            "remote_source": details.get("remote_source"),
+            "remote_at": details.get("remote_at"),
+        }
+        # renderiza o resolvedor imediatamente para que usuário tome ação
+        render_conflict_resolver(gh, visit_ref, visit, author)
+        return False
+
+    # sem conflito: aplica carimbo de revisão e salva
+    visit = stamp_revision(visit, source="streamlit", editor=author)
     ok = gh.save_visit(visit_ref, visit, author, action)
     if ok:
         st.cache_data.clear()
