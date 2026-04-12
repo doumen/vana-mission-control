@@ -118,6 +118,11 @@ except Exception:
     build_event_from_video = None
     YT_DEFAULT_CHANNEL = None
 
+try:
+    from services.places_lookup import lookup_place
+except Exception:
+    lookup_place = None
+
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
 # ══════════════════════════════════════════════════════════════════════
@@ -1606,6 +1611,31 @@ with tab_meta:
                         neloc = _loc_pick
                     else:
                         neloc = ne3.text_input("local (novo)", key=f"neloc_{di}")
+
+                    # Buscar coordenadas via Google Places (opcional)
+                    try:
+                        _has_places = bool(lookup_place)
+                    except Exception:
+                        _has_places = False
+
+                    if _has_places:
+                        places_key = st.secrets.get("google", {}).get("places_api_key", "")
+                        if st.button("📍 Buscar coordenadas", key=f"loc_search_{di}"):
+                            if not places_key:
+                                st.caption("⚠️ Configure `google.places_api_key` no .streamlit/secrets.toml")
+                            else:
+                                _res = lookup_place(
+                                    neloc or "", places_key,
+                                    bias_lat=float(visit.get("metadata", {}).get("lat", 27.5815)),
+                                    bias_lng=float(visit.get("metadata", {}).get("lng", 77.6997)),
+                                )
+                                if _res:
+                                    st.success(f"📍 {_res.get('formatted')}")
+                                    # store for use at save
+                                    st.session_state[f"lookup_{di}_{dk}"] = _res
+                                    neloc = _res.get("name", neloc)
+                                else:
+                                    st.warning("Local não encontrado.")
                 else:
                     neloc = ne3.text_input("local", key=f"neloc_{di}")
 
@@ -1624,6 +1654,18 @@ with tab_meta:
                             _can_save_ev = False
 
                     if _can_save_ev:
+                        # Prefer place lookup result if present
+                        _loc_res = st.session_state.get(f"lookup_{di}_{dk}")
+                        if _loc_res:
+                            _loc_dict = {
+                                "name": _loc_res.get("name"),
+                                "lat": _loc_res.get("lat"),
+                                "lng": _loc_res.get("lng"),
+                                "place_id": _loc_res.get("place_id"),
+                            }
+                        else:
+                            _loc_dict = {"name": neloc} if neloc else {}
+
                         events.append({
                             "event_key": _auto_ek,
                             "type":      net,
@@ -1631,7 +1673,7 @@ with tab_meta:
                             "title_en":  nete,
                             "time":      netm,
                             "status":    _auto_st,
-                            "location":  {"name": neloc} if neloc else {},
+                            "location":  _loc_dict,
                             "vods":      [],
                             "photos":    [],
                             "sangha":    [],
@@ -1697,6 +1739,34 @@ with tab_meta:
                     with ec3:
                         loc = ev.setdefault("location", {})
                         loc["name"] = st.text_input("local", value=loc.get("name", ""), key=f"evloc_{di}_{ei}")
+
+                        # Buscar coordenadas para evento existente
+                        try:
+                            _has_places2 = bool(lookup_place)
+                        except Exception:
+                            _has_places2 = False
+
+                        if _has_places2:
+                            places_key = st.secrets.get("google", {}).get("places_api_key", "")
+                            if st.button("📍 Buscar coordenadas", key=f"loc_search_exist_{di}_{ei}"):
+                                if not places_key:
+                                    st.caption("⚠️ Configure `google.places_api_key` no .streamlit/secrets.toml")
+                                else:
+                                    _res = lookup_place(
+                                        loc.get("name", ""), places_key,
+                                        bias_lat=float(visit.get("metadata", {}).get("lat", 27.5815)),
+                                        bias_lng=float(visit.get("metadata", {}).get("lng", 77.6997)),
+                                    )
+                                    if _res:
+                                        ev["location"] = {
+                                            "name": _res.get("name"),
+                                            "lat": _res.get("lat"),
+                                            "lng": _res.get("lng"),
+                                            "place_id": _res.get("place_id"),
+                                        }
+                                        st.success(f"📍 {_res.get('formatted')}")
+                                    else:
+                                        st.warning("Local não encontrado.")
 
                         # ── Contadores de conteúdo ────────────────────
                         _vod_c = len(ev.get("vods", []))
