@@ -30,6 +30,22 @@ try:
 except Exception:
     Autofill = None
 
+# ── R2 Service (CDN de fotos) — global helper
+_r2 = None
+try:
+    from services.r2_service import R2Service
+    _r2_cfg = st.secrets.get("r2", {})
+    if isinstance(_r2_cfg, dict) and _r2_cfg.get("endpoint"):
+        _r2 = R2Service(
+            endpoint    = _r2_cfg.get("endpoint", ""),
+            access_key  = _r2_cfg.get("access_key", ""),
+            secret_key  = _r2_cfg.get("secret_key", ""),
+            bucket      = _r2_cfg.get("bucket", ""),
+            public_base = _r2_cfg.get("public_base", ""),
+        )
+except Exception:
+    _r2 = None
+
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
 # ══════════════════════════════════════════════════════════════════════
@@ -1582,22 +1598,8 @@ with tab_kathas:
 with tab_galeria:
     st.markdown("### 🖼️ Fotos e Sangha")
 
-    @st.cache_resource
-    def _get_r2():
-        try:
-            r2_cfg = st.secrets.get("r2", {})
-            from services.r2_service import R2Service
-            return R2Service(
-                endpoint    = r2_cfg.get("endpoint", ""),
-                access_key  = r2_cfg.get("access_key", ""),
-                secret_key  = r2_cfg.get("secret_key", ""),
-                bucket      = r2_cfg.get("bucket", ""),
-                public_base = r2_cfg.get("public_base", ""),
-            )
-        except Exception:
-            return None
-
-    r2 = _get_r2()
+    # Use global `_r2` initialized at module top
+    r2 = _r2
 
     days = visit.get("days", [])
     if not days:
@@ -1654,9 +1656,10 @@ with tab_galeria:
                                         img_bytes = uploaded_file.getvalue()
                                         ct = uploaded_file.type or "image/jpeg"
                                         if convert_webp and ct != "image/webp":
-                                            img_bytes, ct = r2._convert_to_webp(img_bytes)
+                                            from services.r2_service import R2Service
+                                            img_bytes, ct = R2Service._convert_to_webp(img_bytes)
 
-                                        result = r2.upload_photo(
+                                        result = _r2.upload_photo(
                                             visit_ref=visit_ref,
                                             day_key=gsel_day.get("day_key", ""),
                                             img_bytes=img_bytes,
@@ -1680,7 +1683,7 @@ with tab_galeria:
                                         gsel_ev["photos"] = photos
                                         _save(gh, visit_ref, visit, editor_name or "anon", f"photo: uploaded to CDN ({result['hash']})")
                                         st.success(f"✅ Foto enviada! ({result['size'] / 1024:.0f} KB)")
-                                        st.experimental_rerun()
+                                        st.rerun()
 
                                     except Exception as e:
                                         st.error(f"❌ Erro no upload: {e}")
@@ -1700,12 +1703,12 @@ with tab_galeria:
                         max_mb = import_c2.number_input("Tamanho máx (MB)", value=10.0, min_value=1.0, max_value=50.0, key=f"max_mb_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}")
 
                         if st.button("☁️ Importar para CDN", key=f"btn_import_{gday_opts[gsel_day_label]}_{gev_opts[gsel_ev_label]}"):
-                            if not r2:
+                            if not _r2:
                                 st.error("❌ R2 não configurado.")
                             else:
                                 with st.spinner("Baixando e enviando para CDN..."):
                                     try:
-                                        result = r2.upload_photo_from_url(
+                                        result = _r2.upload_photo_from_url(
                                             source_url=source_url,
                                             visit_ref=visit_ref,
                                             day_key=gsel_day.get("day_key", ""),
@@ -1730,7 +1733,7 @@ with tab_galeria:
                                         gsel_ev["photos"] = photos
                                         _save(gh, visit_ref, visit, editor_name or "anon", f"photo: imported from URL to CDN")
                                         st.success("✅ Importada para CDN")
-                                        st.experimental_rerun()
+                                        st.rerun()
 
                                     except ValueError as e:
                                         st.error(f"❌ {e}")
@@ -1755,7 +1758,7 @@ with tab_galeria:
                             })
                             gsel_ev["photos"] = photos
                             _save(gh, visit_ref, visit, editor_name or "anon", "photo: added external URL")
-                            st.experimental_rerun()
+                            st.rerun()
                         else:
                             st.warning("URL é obrigatória.")
 
@@ -1778,16 +1781,16 @@ with tab_galeria:
                                 removed = photos.pop(phi)
                                 # If photo was stored in R2, try to delete from bucket
                                 r2_key = removed.get("r2_key", "")
-                                if r2_key and r2:
+                                if r2_key and _r2:
                                     try:
-                                        r2.delete_photo(r2_key)
+                                        _r2.delete_photo(r2_key)
                                         st.toast(f"🗑️ Deletada do CDN: `{r2_key}`")
                                     except Exception as e:
                                         st.warning(f"⚠️ Foto removida do visit.json mas erro ao deletar do CDN: {e}")
 
                                 gsel_ev["photos"] = photos
                                 _save(gh, visit_ref, visit, editor_name or "anon", "photo: removida")
-                                st.experimental_rerun()
+                                st.rerun()
 
             if st.button("💾 Salvar Photos", key="save_photos"):
                 _save(gh, visit_ref, visit, editor_name or "anon", "photos: atualizadas")
@@ -1846,169 +1849,891 @@ with tab_galeria:
 # TAB 5 — ÓRFÃOS
 # ══════════════════════════════════════════════════════════════════════
 with tab_orfaos:
-    st.markdown("### 👻 Mídia Órfã (sem event_key)")
-    st.caption("Conteúdo sem evento definido. Visível via Modal para qualquer devoto.")
-
-    orphans = visit.setdefault("orphans", {"vods": [], "photos": [], "sangha": [], "kathas": []})
-
-    # VODs Órfãos
-    st.markdown("**VODs:**")
-    with st.expander("➕ Adicionar VOD órfão"):
-        ov1, ov2 = st.columns(2)
-        with ov1:
-            novk  = st.text_input("vod_key", key="novk")
-            novid = st.text_input("video_id", key="novid")
-            novp  = st.selectbox("provider", ["youtube", "facebook", "drive"], key="novp")
-        with ov2:
-            novtp = st.text_input("title_pt", key="novtp")
-            novte = st.text_input("title_en", key="novte")
-
-        if st.button("Adicionar VOD órfão", key="btn_add_ov"):
-            if novk:
-                novk_clean = _normalize_vod_key(novk)
-                if novk_clean != novk:
-                    st.info(f"🔧 vod_key normalizado: `{novk}` → `{novk_clean}`")
-                orphans["vods"].append({
-                    "vod_key":    novk_clean,
-                    "provider":   novp,
-                    "video_id":   novid,
-                    "url":        None,
-                    "thumb_url":  f"https://img.youtube.com/vi/{novid}/maxresdefault.jpg" if novp == "youtube" else "",
-                    "duration_s": None,
-                    "title_pt":   novtp,
-                    "title_en":   novte,
-                    "segments":   [],
-                })
-                visit["orphans"] = orphans
-                _save(gh, visit_ref, visit, editor_name or "anon", f"orphan vod {novk_clean}: adicionado")
-                st.rerun()
-
-    for ovi, ov in enumerate(orphans.get("vods", [])):
-        with st.container(border=True):
-            oc1, oc2 = st.columns([5, 1])
-            oc1.markdown(
-                f"**`{ov.get('vod_key', '?')}`** · "
-                f"{ov.get('provider', '')} · `{ov.get('video_id', '')}`"
-            )
-            if oc2.button("🗑️", key=f"del_ov_{ovi}"):
-                orphans["vods"].pop(ovi)
-                visit["orphans"] = orphans
-                _save(gh, visit_ref, visit, editor_name or "anon", "orphan vod: removido")
-                st.rerun()
-
-    # Fotos Órfãs
-    st.divider()
-    st.markdown("**Photos:**")
-    for opi, op in enumerate(orphans.get("photos", [])):
-        with st.container(border=True):
-            opo1, opo2 = st.columns([5, 1])
-            if op.get("thumb_url"):
-                opo1.image(op["thumb_url"], width=100)
-            opo1.caption(op.get("caption_pt", op.get("photo_key", "")))
-            if opo2.button("🗑️", key=f"del_op_{opi}"):
-                orphans["photos"].pop(opi)
-                visit["orphans"] = orphans
-                _save(gh, visit_ref, visit, editor_name or "anon", "orphan photo: removida")
-                st.rerun()
-
-    if st.button("💾 Salvar Órfãos", key="save_orphans"):
-        _save(gh, visit_ref, visit, editor_name or "anon", "orphans: atualizados")
-
-
-# ══════════════════════════════════════════════════════════════════════
-# TAB 6 — PUBLICAR (Trator)
-# ══════════════════════════════════════════════════════════════════════
-with tab_publicar:
-    st.markdown("### 🚀 Validar e Publicar")
-
-    col_wp, col_sc = st.columns(2)
-    with col_wp:
-        wp_url = st.text_input(
-            "WP URL",
-            value=st.secrets.get("vana", {}).get("api_base", ""),
-            key="pub_wp_url",
-        )
-    with col_sc:
-        wp_secret = st.text_input(
-            "WP Secret",
-            value=st.secrets.get("vana", {}).get("ingest_secret", ""),
-            type="password",
-            key="pub_secret",
-        )
-
-    tour_k = st.text_input(
-        "tour_key",
-        value=tour_key or "tour:india-2026",
-        key="pub_tour_key",
+    st.markdown("### 📦 Itens Órfãos")
+    st.caption(
+        "VODs e fotos que não estão vinculados a nenhum evento. "
+        "Mova para um evento existente ou remova."
     )
 
-    dry_run = st.toggle("🧪 Dry Run (valida sem publicar)", value=True, key="pub_dry")
+    _orphans = visit.get("orphans", {})
+    if not isinstance(_orphans, dict):
+        _orphans = {}
+        visit["orphans"] = _orphans
 
-    st.divider()
-    col_val, col_pub = st.columns(2)
+    _o_vods   = _orphans.get("vods", [])
+    _o_photos = _orphans.get("photos", [])
 
-    with col_val:
-        btn_validar = st.button("🔍 Validar Schema", type="secondary", use_container_width=True, key="btn_validar")
+    # ── Métricas ──────────────────────────────────────────────────
+    _om1, _om2, _om3 = st.columns(3)
+    _om1.metric("📹 VODs órfãos", len(_o_vods))
+    _om2.metric("📸 Fotos órfãs", len(_o_photos))
+    _o_health = "✅ Limpo" if (len(_o_vods) + len(_o_photos) == 0) else "⚠️ Pendente"
+    _om3.metric("Status", _o_health)
 
-    with col_pub:
-        btn_publicar = st.button(
-            "🧪 Dry Run" if dry_run else "🚀 Publicar no WordPress",
-            type="primary",
-            use_container_width=True,
-            key="btn_publicar",
-            disabled=not editor_name,
+    # ── Helper: montar lista de eventos destino ───────────────────
+    def _build_event_targets() -> dict:
+        """Retorna dict {'day_label · event_title': (day_dict, event_dict)}"""
+        targets = {}
+        for _td in visit.get("days", []):
+            _tdk = _td.get("day_key", "")
+            _tdl = _td.get("label_pt", _tdk)
+            for _te in _td.get("events", []):
+                _tek = _te.get("event_key", "")
+                _tet = _te.get("title_pt", _tek)
+                label = f"{_tdl} · {_tet}"
+                targets[label] = (_td, _te)
+        return targets
+
+    # ══════════════════════════════════════════════════════════════
+    # VODs ÓRFÃOS
+    # ══════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("#### 📹 VODs Órfãos")
+
+    if not _o_vods:
+        st.success("Nenhum VOD órfão. 🎉")
+    else:
+        for _ovi, _ovod in enumerate(_o_vods):
+            _ov_key   = _ovod.get("vod_key", f"orphan-vod-{_ovi}")
+            _ov_vid   = _ovod.get("video_id", "")
+            _ov_prov  = _ovod.get("provider", "youtube")
+            _ov_title = _ovod.get("title_pt", "")
+            _ov_dur   = _ovod.get("duration_s")
+            _ov_type  = _ovod.get("orphan_type", "documental")
+
+            _type_opts = ["documental", "behind_scenes", "extra", "test", "unknown"]
+
+            with st.expander(
+                f"📹 `{_ov_key}` · {_ov_title[:40] or _ov_vid or '(sem título)'}",
+                expanded=True,
+            ):
+                _ovc1, _ovc2 = st.columns(2)
+
+                with _ovc1:
+                    _new_ov_title = st.text_input(
+                        "title_pt", value=_ov_title,
+                        key=f"ov_title_{_ovi}")
+                    _new_ov_vid = st.text_input(
+                        "video_id", value=_ov_vid,
+                        key=f"ov_vid_{_ovi}")
+                    _new_ov_type = st.selectbox(
+                        "orphan_type", _type_opts,
+                        index=_type_opts.index(_ov_type) if _ov_type in _type_opts else 4,
+                        key=f"ov_type_{_ovi}",
+                    )
+
+                with _ovc2:
+                    _prov_opts = ["youtube", "facebook", "drive"]
+                    _new_ov_prov = st.selectbox(
+                        "provider", _prov_opts,
+                        index=_prov_opts.index(_ov_prov) if _ov_prov in _prov_opts else 0,
+                        key=f"ov_prov_{_ovi}",
+                    )
+                    if _ov_dur:
+                        _dur_h = _ov_dur // 3600
+                        _dur_m = (_ov_dur % 3600) // 60
+                        _dur_s = _ov_dur % 60
+                        st.metric("Duração", f"{_dur_h}:{_dur_m:02d}:{_dur_s:02d}")
+                    if _ov_vid and _ov_prov == "youtube":
+                        try:
+                            st.image(
+                                f"https://img.youtube.com/vi/{_ov_vid}/mqdefault.jpg",
+                                width=200,
+                            )
+                        except Exception:
+                            pass
+
+                # ── Ações ─────────────────────────────────────────
+                _oac1, _oac2, _oac3 = st.columns(3)
+
+                # Salvar edições
+                _ov_changed = (
+                    _new_ov_title != _ov_title
+                    or _new_ov_vid != _ov_vid
+                    or _new_ov_type != _ov_type
+                    or _new_ov_prov != _ov_prov
+                )
+                if _ov_changed:
+                    if _oac1.button("💾 Salvar", key=f"ov_save_{_ovi}"):
+                        _ovod["title_pt"]    = _new_ov_title
+                        _ovod["video_id"]    = _new_ov_vid
+                        _ovod["orphan_type"] = _new_ov_type
+                        _ovod["provider"]    = _new_ov_prov
+                        _save(gh, visit_ref, visit, editor_name or "anon",
+                              f"orphan vod {_ov_key}: edited")
+                        st.rerun()
+
+                # Mover para evento
+                if _oac2.button("📤 Mover para evento", key=f"ov_move_{_ovi}"):
+                    st.session_state[f"_mv_ov_{_ovi}"] = True
+
+                if st.session_state.get(f"_mv_ov_{_ovi}"):
+                    _ev_targets = _build_event_targets()
+                    if not _ev_targets:
+                        st.warning("Nenhum evento disponível. Crie um evento primeiro na aba 📋 Visita.")
+                    else:
+                        _sel_tgt = st.selectbox(
+                            "Evento destino",
+                            list(_ev_targets.keys()),
+                            key=f"ov_target_{_ovi}",
+                        )
+                        if st.button("✅ Confirmar movimentação",
+                                      key=f"ov_confirm_{_ovi}"):
+                            _tgt_day, _tgt_ev = _ev_targets[_sel_tgt]
+                            # Copiar VOD sem orphan_type
+                            _vod_to_move = {
+                                k: v for k, v in _ovod.items()
+                                if k != "orphan_type"
+                            }
+                            _tgt_ev.setdefault("vods", []).append(_vod_to_move)
+                            _o_vods.pop(_ovi)
+                            _orphans["vods"] = _o_vods
+                            st.session_state.pop(f"_mv_ov_{_ovi}", None)
+                            _save(gh, visit_ref, visit, editor_name or "anon",
+                                  f"orphan vod {_ov_key}: moved to {_sel_tgt}")
+                            st.rerun()
+
+                        if st.button("❌ Cancelar", key=f"ov_cancel_{_ovi}"):
+                            st.session_state.pop(f"_mv_ov_{_ovi}", None)
+                            st.rerun()
+
+                # Remover
+                if _oac3.button("🗑️ Remover", key=f"ov_del_{_ovi}"):
+                    _o_vods.pop(_ovi)
+                    _orphans["vods"] = _o_vods
+                    _save(gh, visit_ref, visit, editor_name or "anon",
+                          f"orphan vod {_ov_key}: removed")
+                    st.rerun()
+
+    # ── Adicionar VOD órfão ───────────────────────────────────────
+    with st.expander("➕ Adicionar VOD órfão", expanded=False):
+        _nav1, _nav2 = st.columns(2)
+        with _nav1:
+            _new_ov_vid_add  = st.text_input(
+                "video_id", key="new_ov_vid_add",
+                placeholder="YouTube ID ou outro")
+            _prov_opts_add = ["youtube", "facebook", "drive"]
+            _new_ov_prov_add = st.selectbox(
+                "provider", _prov_opts_add, key="new_ov_prov_add")
+            _type_opts_add = ["documental", "behind_scenes", "extra", "test", "unknown"]
+            _new_ov_type_add = st.selectbox(
+                "orphan_type", _type_opts_add, key="new_ov_type_add")
+        with _nav2:
+            _new_ov_title_add = st.text_input("title_pt", key="new_ov_title_add")
+            _new_ov_dur_add   = st.number_input(
+                "duration_s", min_value=0, value=0, key="new_ov_dur_add")
+
+        # Sugerir vod_key
+        _date_start = (
+            visit.get("metadata", {}).get("date_start", "").replace("-", "")
+            or "00000000"
         )
+        _orphan_n = len(_o_vods) + 1
+        _sug_ov_key = f"vod-{_date_start}-orphan-{_orphan_n:03d}"
+        _new_ov_key_add = st.text_input(
+            "vod_key", value=_sug_ov_key, key="new_ov_key_add")
 
-    if not editor_name:
-        st.caption("⚠️ Digite seu nome na sidebar para publicar.")
+        if st.button("Adicionar VOD órfão", key="btn_add_ov"):
+            if _new_ov_vid_add and _new_ov_key_add:
+                _o_vods.append({
+                    "vod_key":     _new_ov_key_add,
+                    "provider":    _new_ov_prov_add,
+                    "video_id":    _new_ov_vid_add,
+                    "url":         None,
+                    "thumb_url":   (
+                        f"https://img.youtube.com/vi/{_new_ov_vid_add}/maxresdefault.jpg"
+                        if _new_ov_prov_add == "youtube" else ""
+                    ),
+                    "duration_s":  _new_ov_dur_add or None,
+                    "title_pt":    _new_ov_title_add,
+                    "title_en":    "",
+                    "orphan_type": _new_ov_type_add,
+                    "segments":    [],
+                })
+                _orphans["vods"] = _o_vods
+                visit["orphans"] = _orphans
+                _save(gh, visit_ref, visit, editor_name or "anon",
+                      f"orphan vod {_new_ov_key_add}: added")
+                st.rerun()
+            else:
+                st.warning("video_id e vod_key são obrigatórios.")
 
-    if btn_validar or btn_publicar:
-        is_dry = bool(dry_run) or bool(btn_validar)
+    # ══════════════════════════════════════════════════════════════
+    # FOTOS ÓRFÃS
+    # ══════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("#### 📸 Fotos Órfãs")
 
-        # Prepare a copy for publishing. The WordPress endpoint accepts only
-        # schema_version 3.1 or 6.1, so when doing a real publish (not dry run)
-        # ensure we send schema_version '6.1'. Do not alter the in-memory visit
-        # object used in the editor unless the publish succeeds and Trator
-        # returns processed content to save back.
-        with st.spinner("⚙️ Processando..."):
-            publish_visit = copy.deepcopy(visit)
-            if btn_publicar and not dry_run:
-                # Force 6.1 for publish, but warn the user so they understand
-                # we are downgrading the root schema for compatibility.
-                if publish_visit.get("schema_version") != "6.1":
-                    publish_visit["schema_version"] = "6.1"
-                    publish_visit["$schema"] = "https://vanamadhuryam.com/schemas/timeline-6.1.json"
-                    st.warning("⚠️ Schema forçado para 6.1 ao publicar (WP aceita 3.1 ou 6.1).")
+    if not _o_photos:
+        st.success("Nenhuma foto órfã. 🎉")
+    else:
+        for _opi, _ophoto in enumerate(_o_photos):
+            _op_url  = _ophoto.get("url", _ophoto.get("ref", ""))
+            _op_cap  = _ophoto.get("caption_pt", "")
+            _op_prov = _ophoto.get("provider", "external")
 
-            result = run_trator(
-                visit     = publish_visit,
-                wp_url    = wp_url    if (btn_publicar and not dry_run) else None,
-                wp_secret = wp_secret if (btn_publicar and not dry_run) else None,
-                tour_key  = tour_k,
-                dry_run   = is_dry,
+            _opp1, _opp2 = st.columns([1, 3])
+
+            with _opp1:
+                if _op_url and _op_url.startswith("http"):
+                    try:
+                        st.image(_op_url, width=150)
+                    except Exception:
+                        st.caption("❌ Preview indisponível")
+                else:
+                    st.caption(f"🔗 `{_op_url[:60]}`")
+
+                # Badge
+                if _op_prov == "r2":
+                    st.caption("☁️ CDN")
+                else:
+                    st.caption("🔗 Externa")
+
+            with _opp2:
+                _oppc1, _oppc2, _oppc3 = st.columns([3, 1, 1])
+                _oppc1.text_input(
+                    "url", value=_op_url,
+                    key=f"op_url_{_opi}",
+                    label_visibility="collapsed",
+                    disabled=True,
+                )
+                _oppc2.caption(
+                    f"📝 {_op_cap[:30]}" if _op_cap else "📝 (sem legenda)"
+                )
+
+                # Mover
+                if _oppc2.button("📤", key=f"op_move_{_opi}",
+                                  help="Mover para evento"):
+                    st.session_state[f"_mv_op_{_opi}"] = True
+
+                # Remover
+                if _oppc3.button("🗑️", key=f"op_del_{_opi}",
+                                  help="Remover"):
+                    _op_r2key = _ophoto.get("r2_key", "")
+                    if _op_r2key and _r2:
+                        try:
+                            _r2.delete_photo(_op_r2key)
+                        except Exception:
+                            pass
+                    _o_photos.pop(_opi)
+                    _orphans["photos"] = _o_photos
+                    _save(gh, visit_ref, visit, editor_name or "anon",
+                          "orphan photo: removed")
+                    st.rerun()
+
+            # Panel de movimentação
+            if st.session_state.get(f"_mv_op_{_opi}"):
+                _ev_targets_p = _build_event_targets()
+                if _ev_targets_p:
+                    _sel_p = st.selectbox(
+                        "Evento destino",
+                        list(_ev_targets_p.keys()),
+                        key=f"op_target_{_opi}",
+                    )
+                    _mvc1, _mvc2 = st.columns(2)
+                    if _mvc1.button("✅ Confirmar", key=f"op_confirm_{_opi}"):
+                        _, _tgt_ev_p = _ev_targets_p[_sel_p]
+                        _tgt_ev_p.setdefault("photos", []).append(_ophoto)
+                        _o_photos.pop(_opi)
+                        _orphans["photos"] = _o_photos
+                        st.session_state.pop(f"_mv_op_{_opi}", None)
+                        _save(gh, visit_ref, visit, editor_name or "anon",
+                              f"orphan photo: moved to {_sel_p}")
+                        st.rerun()
+                    if _mvc2.button("❌ Cancelar", key=f"op_cancel_{_opi}"):
+                        st.session_state.pop(f"_mv_op_{_opi}", None)
+                        st.rerun()
+                else:
+                    st.warning("Nenhum evento disponível.")
+
+            st.divider()
+
+    # ── Adicionar foto órfã ───────────────────────────────────────
+    with st.expander("➕ Adicionar foto órfã", expanded=False):
+        _oph_modes = ["📎 Upload CDN", "🔗 URL manual"]
+        if not _r2:
+            _oph_modes = ["🔗 URL manual"]
+
+        _oph_mode = st.radio(
+            "Origem", _oph_modes, key="oph_mode", horizontal=True)
+
+        _oph_cap = st.text_input("Legenda", key="oph_cap")
+
+        if _oph_mode == "📎 Upload CDN" and _r2:
+            _oph_file = st.file_uploader(
+                "Foto", type=["jpg", "jpeg", "png", "webp"],
+                key="oph_file",
+            )
+            if _oph_file and st.button("☁️ Enviar", key="btn_oph_upload",
+                                        type="primary"):
+                with st.spinner("Enviando..."):
+                    try:
+                        _oph_bytes = _oph_file.getvalue()
+                        _oph_ct = _oph_file.type or "image/jpeg"
+                        if _oph_ct != "image/webp":
+                            from services.r2_service import R2Service
+                            _oph_bytes, _oph_ct = R2Service._convert_to_webp(
+                                _oph_bytes)
+
+                        _oph_dk = (
+                            visit.get("days", [{}])[0].get("day_key", "")
+                            if visit.get("days") else "orphans"
+                        )
+                        _oph_result = _r2.upload_photo(
+                            visit_ref=visit_ref,
+                            day_key=_oph_dk,
+                            img_bytes=_oph_bytes,
+                            content_type=_oph_ct,
+                        )
+                        _o_photos.append({
+                            "url":         _oph_result["url"],
+                            "r2_key":      _oph_result["r2_key"],
+                            "caption_pt":  _oph_cap,
+                            "caption_en":  "",
+                            "provider":    "r2",
+                            "size_bytes":  _oph_result["size"],
+                            "uploaded_at": _oph_result["uploaded_at"],
+                            "source":      "upload",
+                        })
+                        _orphans["photos"] = _o_photos
+                        visit["orphans"] = _orphans
+                        _save(gh, visit_ref, visit, editor_name or "anon",
+                              "orphan photo: uploaded to CDN")
+                        st.rerun()
+                    except Exception as _ophe:
+                        st.error(f"❌ {_ophe}")
+
+        else:  # URL manual
+            _oph_url = st.text_input("URL", key="oph_url")
+            if st.button("Adicionar", key="btn_oph_manual"):
+                if _oph_url:
+                    _o_photos.append({
+                        "url":        _oph_url,
+                        "caption_pt": _oph_cap,
+                        "caption_en": "",
+                        "provider":   "external",
+                        "source":     "manual_url",
+                    })
+                    _orphans["photos"] = _o_photos
+                    visit["orphans"] = _orphans
+                    _save(gh, visit_ref, visit, editor_name or "anon",
+                          "orphan photo: external URL added")
+                    st.rerun()
+                else:
+                    st.warning("URL é obrigatória.")
+
+with tab_publicar:
+    st.markdown("### 🚀 Publicar Visita")
+    st.caption(
+        "Checklist de validação + publicação via Trator ou direta ao WordPress. "
+        "Todos os ❌ devem ser resolvidos para habilitar."
+    )
+
+    # ══════════════════════════════════════════════════════════════
+    # VALIDAÇÕES (13 checks)
+    # ══════════════════════════════════════════════════════════════
+    _checks: list[dict] = []
+
+    _pub_schema = visit.get("schema_version", "")
+    _pub_meta   = visit.get("metadata", {})
+    if not isinstance(_pub_meta, dict):
+        _pub_meta = {}
+    _pub_days   = visit.get("days", [])
+    _pub_orph   = visit.get("orphans", {})
+    if not isinstance(_pub_orph, dict):
+        _pub_orph = {}
+
+    # 1. Schema
+    if _pub_schema in SUPPORTED_SCHEMAS:
+        _checks.append({
+            "ok": True,
+            "label": f"Schema `{_pub_schema}` suportado",
+            "sev": "info",
+        })
+    elif _pub_schema in MIGRATABLE_OLDER:
+        _checks.append({
+            "ok": False,
+            "label": f"Schema `{_pub_schema}` precisa migração → aba 📋 Visita",
+            "sev": "error",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": f"Schema `{_pub_schema or '(vazio)'}` desconhecido",
+            "sev": "warning",
+        })
+
+    # 2. Metadata obrigatórios
+    for _mfield in ["date_start", "date_end", "title_pt", "title_en"]:
+        _mval = _pub_meta.get(_mfield)
+        if _mval:
+            _checks.append({
+                "ok": True,
+                "label": f"`metadata.{_mfield}` = `{str(_mval)[:40]}`",
+                "sev": "info",
+            })
+        else:
+            _checks.append({
+                "ok": False,
+                "label": f"`metadata.{_mfield}` vazio",
+                "sev": "error",
+            })
+
+    # 3. Tour ref
+    _pub_tour = visit.get("tour_ref", "")
+    if _pub_tour:
+        _checks.append({
+            "ok": True,
+            "label": f"`tour_ref` = `{_pub_tour}`",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "`tour_ref` ausente",
+            "sev": "warning",
+        })
+
+    # 4. Dias
+    if _pub_days:
+        _checks.append({
+            "ok": True,
+            "label": f"{len(_pub_days)} dia(s) cadastrado(s)",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhum dia cadastrado",
+            "sev": "error",
+        })
+
+    # 5. Eventos
+    _pub_ev_total = sum(len(d.get("events", [])) for d in _pub_days)
+    if _pub_ev_total > 0:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_ev_total} evento(s)",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhum evento",
+            "sev": "error",
+        })
+
+    # 6. VODs
+    _pub_vod_total = 0
+    _pub_vod_novid = []
+    for _pd in _pub_days:
+        for _pe in _pd.get("events", []):
+            for _pv in _pe.get("vods", []):
+                _pub_vod_total += 1
+                if not _pv.get("video_id"):
+                    _pub_vod_novid.append(_pv.get("vod_key", "?"))
+
+    if _pub_vod_total > 0:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_vod_total} VOD(s)",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhum VOD cadastrado",
+            "sev": "warning",
+        })
+
+    if _pub_vod_novid:
+        _checks.append({
+            "ok": False,
+            "label": {
+                "ok": False,
+                "label": (
+                    f"{len(_pub_vod_novid)} VOD(s) sem `video_id`: "
+                    f"`{'`, `'.join(_pub_vod_novid[:5])}`"
+                ),
+                "sev": "error",
+            },
+        })
+
+    # 7. Segments
+    _pub_seg_total = 0
+    _pub_seg_noend = []
+    for _pd in _pub_days:
+        for _pe in _pd.get("events", []):
+            for _pv in _pe.get("vods", []):
+                for _ps in _pv.get("segments", []):
+                    _pub_seg_total += 1
+                    if not _ps.get("timestamp_end"):
+                        _pub_seg_noend.append(
+                            _ps.get("segment_id", "?"))
+
+    if _pub_seg_total > 0:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_seg_total} segment(s)",
+            "sev": "info",
+        })
+        if _pub_seg_noend:
+            _checks.append({
+                "ok": False,
+                "label": (
+                    f"{len(_pub_seg_noend)} segment(s) sem "
+                    f"`timestamp_end`"
+                ),
+                "sev": "warning",
+            })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhum segment",
+            "sev": "warning",
+        })
+
+    # 8. Harikatha sem katha_id
+    _pub_hk_total = 0
+    _pub_hk_missing = []
+    for _pd in _pub_days:
+        for _pe in _pd.get("events", []):
+            for _pv in _pe.get("vods", []):
+                for _ps in _pv.get("segments", []):
+                    if _ps.get("type") == "harikatha":
+                        _pub_hk_total += 1
+                        if not _ps.get("katha_id"):
+                            _pub_hk_missing.append(
+                                _ps.get("segment_id", "?"))
+
+    if _pub_hk_total > 0 and not _pub_hk_missing:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_hk_total} harikatha(s) com `katha_id` ✓",
+            "sev": "info",
+        })
+    elif _pub_hk_missing:
+        _checks.append({
+            "ok": False,
+            "label": (
+                f"{len(_pub_hk_missing)} harikatha(s) sem `katha_id`: "
+                f"`{'`, `'.join(_pub_hk_missing[:5])}`"
+            ),
+            "sev": "error",
+        })
+
+    # 9. Schema 6.2 — legacy kathas[]
+    if _pub_schema == "6.2":
+        _has_legacy = any(
+            ev.get("kathas")
+            for d in _pub_days
+            for ev in d.get("events", [])
+        )
+        if _has_legacy:
+            _checks.append({
+                "ok": False,
+                "label": "Schema 6.2 mas `kathas[]` residual em eventos (R-HK-4)",
+                "sev": "error",
+            })
+        else:
+            _checks.append({
+                "ok": True,
+                "label": "`kathas[]` removido (R-HK-4 ✓)",
+                "sev": "info",
+            })
+
+    # 10. Órfãos
+    _n_o_v = len(_pub_orph.get("vods", []))
+    _n_o_p = len(_pub_orph.get("photos", []))
+    if _n_o_v + _n_o_p == 0:
+        _checks.append({
+            "ok": True,
+            "label": "Nenhum item órfão",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": f"{_n_o_v} VOD(s) + {_n_o_p} foto(s) órfã(s) → aba 📦 Órfãos",
+            "sev": "warning",
+        })
+
+    # 11. primary_event_key
+    _no_primary = []
+    for _pd in _pub_days:
+        if not _pd.get("primary_event_key") and _pd.get("events"):
+            _no_primary.append(_pd.get("day_key", "?"))
+    if _no_primary:
+        _checks.append({
+            "ok": False,
+            "label": f"{len(_no_primary)} dia(s) sem `primary_event_key`",
+            "sev": "warning",
+        })
+    elif _pub_days:
+        _checks.append({
+            "ok": True,
+            "label": "Todos os dias têm `primary_event_key`",
+            "sev": "info",
+        })
+
+    # 12. Fotos
+    _pub_photo_total = sum(
+        len(e.get("photos", []))
+        for d in _pub_days
+        for e in d.get("events", [])
+    )
+    if _pub_photo_total > 0:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_photo_total} foto(s)",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhuma foto cadastrada",
+            "sev": "warning",
+        })
+
+    # 13. Fotos com Gurudeva
+    _pub_gurudeva = sum(
+        1 for d in _pub_days
+        for e in d.get("events", [])
+        for p in e.get("photos", [])
+        if p.get("with_gurudeva")
+    )
+    if _pub_gurudeva > 0:
+        _checks.append({
+            "ok": True,
+            "label": f"{_pub_gurudeva} foto(s) marcada(s) `com Gurudeva`",
+            "sev": "info",
+        })
+    else:
+        _checks.append({
+            "ok": False,
+            "label": "Nenhuma foto marcada `com Gurudeva`",
+            "sev": "warning",
+        })
+
+    # ══════════════════════════════════════════════════════════════
+    # RENDER CHECKLIST
+    # ══════════════════════════════════════════════════════════════
+    _errors   = [c for c in _checks if not c["ok"] and c["sev"] == "error"]
+    _warnings = [c for c in _checks if not c["ok"] and c["sev"] == "warning"]
+    _passed   = [c for c in _checks if c["ok"]]
+
+    _total_ck = len(_checks)
+    _passed_n = len(_passed)
+    _score    = int((_passed_n / _total_ck) * 100) if _total_ck else 0
+
+    _sc1, _sc2, _sc3, _sc4 = st.columns(4)
+    _sc1.metric("Score", f"{_score}%")
+    _sc2.metric("✅ OK", _passed_n)
+    _sc3.metric("❌ Erros", len(_errors))
+    _sc4.metric("⚠️ Avisos", len(_warnings))
+
+    st.progress(_score / 100, text=f"Validação: {_passed_n}/{_total_ck}")
+
+    if _errors:
+        st.markdown("#### ❌ Erros (bloqueantes)")
+        for _c in _errors:
+            st.error(_c["label"])
+
+    if _warnings:
+        st.markdown("#### ⚠️ Avisos")
+        for _c in _warnings:
+            st.warning(_c["label"])
+
+    if _passed:
+        with st.expander(f"✅ {len(_passed)} item(s) OK", expanded=False):
+            for _c in _passed:
+                st.success(_c["label"])
+
+    # ══════════════════════════════════════════════════════════════
+    # AÇÕES
+    # ══════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("### 🎯 Ações")
+
+    _can_publish = len(_errors) == 0
+    _wp_id = visit.get("wp_id") or _pub_meta.get("wp_id")
+
+    _pa1, _pa2, _pa3 = st.columns(3)
+
+    # ── 1. GitHub ─────────────────────────────────────────────────
+    with _pa1:
+        st.markdown("**💾 GitHub**")
+        if st.button("Salvar no GitHub", key="btn_save_gh_pub",
+                      use_container_width=True):
+            try:
+                _save(gh, visit_ref, visit, editor_name or "anon",
+                      f"publicar: save manual (score={_score}%)")
+                st.success("✅ Salvo no GitHub!")
+            except Exception as _ghe:
+                st.error(f"❌ {_ghe}")
+
+    # ── 2. Trator (mantido) ───────────────────────────────────────
+    with _pa2:
+        st.markdown("**🚜 Trator**")
+
+        _trator_mode = st.radio(
+            "Modo",
+            ["Dry-run (preview)", "Publicar (real)"],
+            key="trator_mode_pub",
+            horizontal=True,
+        )
+        _is_dry = _trator_mode.startswith("Dry")
+
+        if st.button(
+            "🚜 Dry-run" if _is_dry else "🚜 Publicar via Trator",
+            key="btn_trator_pub",
+            disabled=not _can_publish and not _is_dry,
+            type="primary" if _can_publish and not _is_dry else "secondary",
+            use_container_width=True,
+        ):
+            if not _can_publish and not _is_dry:
+                st.error("Resolva os erros bloqueantes antes de publicar.")
+            else:
+                with st.spinner(
+                    "Executando Trator (dry-run)..." if _is_dry
+                    else "Publicando via Trator..."
+                ):
+                    try:
+                        result: TratorResult = run_trator(
+                            visit,
+                            dry_run=_is_dry,
+                        )
+
+                        if result.success:
+                            st.success(
+                                f"✅ {'Dry-run OK' if _is_dry else 'Publicado!'} "
+                                f"— {result.summary}"
+                            )
+                            if not _is_dry:
+                                # Log de publicação
+                                from datetime import datetime, timezone
+                                _pub_meta.setdefault("publish_log", []).append({
+                                    "at":     datetime.now(timezone.utc).isoformat(),
+                                    "action": "trator_publish",
+                                    "by":     editor_name or "anon",
+                                    "score":  _score,
+                                    "mode":   "trator",
+                                })
+                                visit["metadata"] = _pub_meta
+                                _save(gh, visit_ref, visit,
+                                      editor_name or "anon",
+                                      f"publicar: trator publish "
+                                      f"(score={_score}%)")
+                        else:
+                            st.error(f"❌ Trator falhou: {result.error}")
+
+                        # Detalhes
+                        if hasattr(result, 'details') and result.details:
+                            with st.expander("📋 Detalhes do Trator"):
+                                st.json(result.details)
+
+                    except Exception as _te:
+                        st.error(f"❌ Erro no Trator: {_te}")
+
+    # ── 3. Exportar ───────────────────────────────────────────────
+    with _pa3:
+        st.markdown("**📥 Exportar**")
+        _json_str = json.dumps(visit, ensure_ascii=False, indent=2)
+        st.download_button(
+            "Baixar visit.json",
+            data=_json_str,
+            file_name=f"{visit_ref}_visit.json",
+            mime="application/json",
+            key="btn_export_json",
+            use_container_width=True,
+        )
+        st.caption(f"{len(_json_str):,} bytes · schema {_pub_schema}")
+
+    # ── 4. WP direto (opcional) ───────────────────────────────────
+    st.markdown("---")
+    with st.expander("🌐 Publicar diretamente no WordPress (avançado)", expanded=False):
+        if _wp_id:
+            st.caption(f"WP ID: `{_wp_id}`")
+            st.warning(
+                "⚠️ Isso envia o timeline diretamente ao WordPress, "
+                "**sem** passar pelo Trator (sem indexação/estatísticas). "
+                "Use apenas se souber o que está fazendo."
+            )
+            if st.button(
+                "🌐 Patch WP Timeline",
+                key="btn_pub_wp_direct",
+                disabled=not _can_publish,
+                type="secondary",
+            ):
+                try:
+                    from api.wp_client import patch_visit_timeline
+                    patch_visit_timeline(int(_wp_id), visit)
+                    st.success("✅ Timeline atualizado no WordPress!")
+
+                    from datetime import datetime, timezone
+                    _pub_meta.setdefault("publish_log", []).append({
+                        "at":     datetime.now(timezone.utc).isoformat(),
+                        "action": "wp_patch_direct",
+                        "by":     editor_name or "anon",
+                        "wp_id":  int(_wp_id),
+                        "score":  _score,
+                    })
+                    visit["metadata"] = _pub_meta
+                    _save(gh, visit_ref, visit, editor_name or "anon",
+                          f"publicar: WP patch direct "
+                          f"(wp_id={_wp_id}, score={_score}%)")
+
+                except ImportError:
+                    st.error(
+                        "❌ `wp_client.patch_visit_timeline` não disponível. "
+                        "Implemente em `api/wp_client.py`."
+                    )
+                except Exception as _wpe:
+                    st.error(f"❌ Erro WP: {_wpe}")
+        else:
+            st.info(
+                "ℹ️ `wp_id` não configurado. Preencha na aba 📋 Visita → metadata "
+                "para habilitar publicação direta."
             )
 
-        _render_trator_result(result, dry=is_dry)
-
-        # Se publicou com sucesso e havia migração pendente, informar
-        if result.success and not is_dry and migrated_from:
-            st.info("💾 Schema 6.1 persistido no WordPress via publicação.")
-
-        # Se o Trator produziu processed, salva de volta ao GitHub
-        if result.success and not is_dry and result.processed:
-            _save(
-                gh, visit_ref, result.processed,
-                editor_name, "trator: index + stats atualizados"
-            )
-
-    # ── Preview JSON ──────────────────────────────────────────────────
-    st.divider()
-    with st.expander("🔍 Preview JSON atual (sem index)"):
-        preview = {
-            k: v for k, v in visit.items()
-            if k not in ("index", "stats")
+    # ── Resumo ────────────────────────────────────────────────────
+    st.markdown("---")
+    with st.expander("📝 Resumo da visita", expanded=False):
+        _summary = {
+            "visit_ref":     visit_ref,
+            "schema":        _pub_schema,
+            "tour_ref":      visit.get("tour_ref", ""),
+            "title_pt":      _pub_meta.get("title_pt", ""),
+            "title_en":      _pub_meta.get("title_en", ""),
+            "date_start":    _pub_meta.get("date_start", ""),
+            "date_end":      _pub_meta.get("date_end", ""),
+            "days":          len(_pub_days),
+            "events":        _pub_ev_total,
+            "vods":          _pub_vod_total,
+            "segments":      _pub_seg_total,
+            "harikatha":     _pub_hk_total,
+            "photos":        _pub_photo_total,
+            "orphan_vods":   _n_o_v,
+            "orphan_photos": _n_o_p,
+            "score":         f"{_score}%",
+            "errors":        len(_errors),
+            "warnings":      len(_warnings),
         }
-        st.json(preview, expanded=False)
+        st.json(_summary)
 
-    with st.expander("📊 Stats (último index gerado)"):
-        st.json(visit.get("stats", {}))
+    # ── Histórico de publicação ─────────────────────────────────
+    _pub_log = _pub_meta.get("publish_log", [])
+    if _pub_log:
+        with st.expander(
+            f"📋 Histórico de publicação ({len(_pub_log)} entries)",
+            expanded=False,
+        ):
+            for _entry in reversed(_pub_log[-20:]):
+                _icon = "🚜" if "trator" in _entry.get("action", "") else "🌐"
+                st.caption(
+                    f"{_icon} **{_entry.get('at', '?')[:19]}** — "
+                    f"`{_entry.get('action', '?')}` "
+                    f"por **{_entry.get('by', '?')}** "
+                    f"(score: {_entry.get('score', '?')}%)"
+                )
+
