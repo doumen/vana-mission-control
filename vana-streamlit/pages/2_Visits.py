@@ -52,6 +52,26 @@ try:
 except Exception:
     _r2 = None
 
+
+# ── Day Generator + Tithi Fetcher (opcionais)
+try:
+    from services.day_generator import generate_days, merge_days, MONTHS_PT, MONTHS_EN, WEEKDAYS_PT, WEEKDAYS_EN
+except Exception:
+    generate_days = None
+    merge_days = None
+    MONTHS_PT = MONTHS_EN = WEEKDAYS_PT = WEEKDAYS_EN = {}
+
+try:
+    from services.tithi_fetcher import fetch_tithis, TZ_TO_DIR
+except Exception:
+    fetch_tithis = None
+    TZ_TO_DIR = {}
+
+try:
+    from services.constraints import compute_event_status
+except Exception:
+    compute_event_status = None
+
 # ══════════════════════════════════════════════════════════════════════
 # GUARD
 # ══════════════════════════════════════════════════════════════════════
@@ -1015,9 +1035,194 @@ with tab_meta:
     st.markdown("### Dias")
 
     days = visit.setdefault("days", [])
+    meta = visit.get("metadata", {})
 
-    # Adicionar dia
-    with st.expander("➕ Adicionar dia"):
+    # ── Gerador de dias em massa ─────────────────────────────────────
+    with st.expander("🗓️ Gerar dias automaticamente", expanded=len(days) == 0):
+
+        st.caption(
+            "Gera todos os dias entre data início e data fim do metadata. "
+            "Preenche labels, dia da semana e tithis (Ekādaśīs, festivais) automaticamente."
+        )
+
+        # Pré-popula com metadata da visita
+        gen_c1, gen_c2 = st.columns(2)
+        with gen_c1:
+            gen_start = st.text_input(
+                "Data início (YYYY-MM-DD)",
+                value=meta.get("date_start", ""),
+                key="gen_day_start",
+                placeholder="2026-02-18",
+            )
+        with gen_c2:
+            gen_end = st.text_input(
+                "Data fim (YYYY-MM-DD)",
+                value=meta.get("date_end", ""),
+                key="gen_day_end",
+                placeholder="2026-02-27",
+            )
+
+        # Opções
+        gen_opt_c1, gen_opt_c2 = st.columns(2)
+        with gen_opt_c1:
+            gen_fetch_tithi = st.checkbox(
+                "🪷 Buscar tithis (Ekādaśī, festivais)",
+                value=True,
+                key="gen_fetch_tithi",
+            )
+        with gen_opt_c2:
+            gen_tz = st.selectbox(
+                "Timezone do calendário",
+                options=list(TZ_TO_DIR.keys()) if 'TZ_TO_DIR' in dir() else [
+                    "Asia/Kolkata", "America/Sao_Paulo",
+                    "America/New_York", "Europe/London",
+                ],
+                index=0,
+                key="gen_tz",
+            )
+
+        # Preview antes de criar
+        gen_preview = st.button(
+            "👁️ Visualizar dias",
+            key="gen_preview_btn",
+            disabled=not gen_start or not gen_end,
+        )
+
+        if gen_preview and gen_start and gen_end:
+            try:
+                # Buscar tithis se habilitado
+                tithis = {}
+                if gen_fetch_tithi and fetch_tithis:
+                    try:
+                        tithis = fetch_tithis(gen_start, gen_end, gen_tz)
+                        if tithis:
+                            st.success(f"🪷 {len(tithis)} dia(s) com tithi/festival encontrados")
+                        else:
+                            st.info("ℹ️ Nenhum tithi/festival encontrado (API pode estar offline)")
+                    except Exception as e:
+                        st.warning(f"⚠️ Erro ao buscar tithis: {e}")
+
+                # Gerar dias
+                if not generate_days:
+                    raise RuntimeError("Gerador de dias não disponível")
+                preview_days = generate_days(gen_start, gen_end, tithis)
+
+                # Mostrar preview
+                st.markdown(f"**{len(preview_days)} dia(s) serão gerados:**")
+
+                # Tabela de preview com checkboxes
+                existing_keys = {d.get("day_key") for d in days}
+
+                preview_data = []
+                for pd in preview_days:
+                    dk = pd["day_key"]
+                    exists = dk in existing_keys
+                    tithi_display = ""
+
+                    # Montar display do tithi
+                    if pd.get("tithi"):
+                        t_info = tithis.get(dk, {})
+                        tithi_display = t_info.get("display", pd.get("tithi_name_pt", pd["tithi"]))
+
+                    preview_data.append({
+                        "": "✅" if not exists else "🔵",
+                        "day_key": dk,
+                        "label_pt": pd["label_pt"],
+                        "label_en": pd["label_en"],
+                        "tithi": tithi_display or "—",
+                        "status": "já existe" if exists else "novo",
+                    })
+
+                st.dataframe(
+                    preview_data,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "": st.column_config.TextColumn("", width="small"),
+                        "day_key": st.column_config.TextColumn("Data", width="medium"),
+                        "label_pt": st.column_config.TextColumn("Label PT", width="medium"),
+                        "label_en": st.column_config.TextColumn("Label EN", width="medium"),
+                        "tithi": st.column_config.TextColumn("Tithi / Festival", width="large"),
+                        "status": st.column_config.TextColumn("Status", width="small"),
+                    },
+                )
+
+                new_count = sum(1 for p in preview_data if p["status"] == "novo")
+                existing_count = sum(1 for p in preview_data if p["status"] == "já existe")
+
+                if existing_count:
+                    st.info(
+                        f"🔵 {existing_count} dia(s) já existem e serão **preservados** "
+                        f"(eventos intactos, tithis preenchidos se vazios)"
+                    )
+
+                # Salvar no session_state para o botão de confirmar
+                st.session_state["_gen_preview_days"] = preview_days
+                st.session_state["_gen_tithis"] = tithis
+
+            except ValueError as e:
+                st.error(f"❌ {e}")
+            except Exception as e:
+                st.error(f"❌ Erro inesperado: {e}")
+
+        # Botão de confirmar (só aparece se há preview)
+        if st.session_state.get("_gen_preview_days"):
+            preview_days = st.session_state["_gen_preview_days"]
+            new_count = sum(
+                1 for pd in preview_days
+                if pd["day_key"] not in {d.get("day_key") for d in days}
+            )
+
+            st.divider()
+
+            confirm_c1, confirm_c2 = st.columns([3, 1])
+            with confirm_c1:
+                btn_label = (
+                    f"💾 Criar {new_count} dia(s) novo(s)"
+                    if new_count
+                    else "💾 Atualizar tithis dos dias existentes"
+                )
+                gen_confirm = st.button(
+                    btn_label,
+                    key="gen_confirm_btn",
+                    type="primary",
+                    disabled=not editor_name,
+                )
+            with confirm_c2:
+                gen_cancel = st.button("✖ Limpar", key="gen_cancel_btn")
+
+            if not editor_name:
+                st.caption("⚠️ Digite seu nome na sidebar para salvar.")
+
+            if gen_cancel:
+                st.session_state.pop("_gen_preview_days", None)
+                st.session_state.pop("_gen_tithis", None)
+                st.rerun()
+
+            if gen_confirm:
+                merged = merge_days(days, preview_days) if merge_days else preview_days
+                visit["days"] = merged
+
+                # Sincronizar metadata se datas estavam vazias
+                if not meta.get("date_start") and preview_days:
+                    meta["date_start"] = preview_days[0]["day_key"]
+                if not meta.get("date_end") and preview_days:
+                    meta["date_end"] = preview_days[-1]["day_key"]
+                visit["metadata"] = meta
+
+                action_msg = f"dias: gerados {len(preview_days)}, novos {new_count}"
+                ok = _save(gh, visit_ref, visit, editor_name, action_msg)
+                if ok:
+                    st.session_state.pop("_gen_preview_days", None)
+                    st.session_state.pop("_gen_tithis", None)
+                    st.cache_data.clear()
+                    st.rerun()
+
+    # ── Adicionar dia único (fallback manual) ────────────────────────
+    with st.expander("➕ Adicionar dia manualmente", expanded=False):
+
+        st.caption("Para adicionar um dia fora do range, ou com dados personalizados.")
+
         if af:
             try:
                 sug_day = af.suggest_next_day()
@@ -1026,141 +1231,381 @@ with tab_meta:
         else:
             sug_day = {"day_key": "", "label_pt": "", "label_en": ""}
 
-        ndk = st.text_input("day_key (YYYY-MM-DD)", value=sug_day.get("day_key", ""), key="new_day_key")
+        ndk = st.text_input(
+            "day_key (YYYY-MM-DD)",
+            value=sug_day.get("day_key", ""),
+            key="new_day_key",
+        )
 
-        # Recalcular labels quando day_key muda
+        # Validação: dia já existe?
+        existing_day_keys = {d.get("day_key") for d in days}
+        if ndk and ndk in existing_day_keys:
+            st.warning(f"⚠️ Dia `{ndk}` já existe nesta visita.")
+
+        # Auto-derivar labels quando day_key muda
         if af:
             derived = af.derive_day_labels(ndk)
+        elif ndk:
+            try:
+                d = __import__('datetime').date.fromisoformat(ndk)
+                derived = {
+                    "label_pt": f"{d.day} {MONTHS_PT[d.month]} · {WEEKDAYS_PT[d.weekday()]}",
+                    "label_en": f"{WEEKDAYS_EN[d.weekday()]}, {MONTHS_EN[d.month]} {d.day}",
+                }
+            except Exception:
+                derived = {"label_pt": "", "label_en": ""}
         else:
             derived = {"label_pt": "", "label_en": ""}
 
-        nlp = st.text_input("label_pt (ex: 21 fev)", value=derived.get("label_pt", ""), key="new_day_lp")
-        nle = st.text_input("label_en (ex: Feb 21)", value=derived.get("label_en", ""), key="new_day_le")
+        man_c1, man_c2 = st.columns(2)
+        with man_c1:
+            nlp = st.text_input(
+                "label_pt",
+                value=derived.get("label_pt", ""),
+                key="new_day_lp",
+            )
+        with man_c2:
+            nle = st.text_input(
+                "label_en",
+                value=derived.get("label_en", ""),
+                key="new_day_le",
+            )
+
+        # Buscar tithi para este dia específico
+        man_tithi_data: dict = {}
+        if ndk and len(ndk) == 10 and fetch_tithis:
+            try:
+                single_tithi = fetch_tithis(ndk, ndk, meta.get("timezone", "Asia/Kolkata"))
+                if ndk in single_tithi:
+                    man_tithi_data = single_tithi[ndk]
+                    st.info(f"🪷 {man_tithi_data.get('display', man_tithi_data.get('name_pt', ''))}")
+            except Exception:
+                pass
+
+        man_t1, man_t2 = st.columns(2)
+        with man_t1:
+            n_tithi = st.text_input(
+                "tithi",
+                value=man_tithi_data.get("tithi", ""),
+                key="new_day_tithi",
+            )
+        with man_t2:
+            n_tithi_pt = st.text_input(
+                "tithi_name_pt",
+                value=man_tithi_data.get("name_pt", ""),
+                key="new_day_tithi_pt",
+            )
 
         if st.button("Adicionar dia", key="btn_add_day"):
-            if ndk:
+            if not ndk:
+                st.warning("day_key é obrigatório.")
+            elif ndk in existing_day_keys:
+                st.error(f"❌ Dia `{ndk}` já existe. Use o gerador para atualizar tithis.")
+            else:
                 days.append({
-                    "day_key":       ndk,
-                    "label_pt":      nlp,
-                    "label_en":      nle,
-                            "primary_event_key": "",
-                    "events":        [],
+                    "day_key": ndk,
+                    "label_pt": nlp,
+                    "label_en": nle,
+                    "tithi": n_tithi,
+                    "tithi_name_pt": n_tithi_pt,
+                    "tithi_name_en": man_tithi_data.get("name_en", ""),
+                    "primary_event_key": "",
+                    "events": [],
                 })
+                # Manter ordenação cronológica
+                days.sort(key=lambda d: d.get("day_key", ""))
                 visit["days"] = days
                 _save(gh, visit_ref, visit, editor_name or "anon", f"day {ndk}: adicionado")
                 st.rerun()
-            else:
-                st.warning("day_key é obrigatório.")
+
+    # ── Listagem de dias existentes ──────────────────────────────────
+    if days:
+        st.markdown(f"**{len(days)} dia(s) cadastrados:**")
 
     for di, day in enumerate(days):
-        with st.expander(f"📅 {_day_label(day)}", expanded=False):
+        dk = day.get("day_key", f"dia-{di}")
+        tithi_badge = ""
+        if day.get("tithi"):
+            tithi_badge = f" 🪷 {day.get('tithi_name_pt') or day.get('tithi', '')}"
 
+        ev_count = len(day.get("events", []))
+        ev_badge = f" · {ev_count} evento(s)" if ev_count else ""
+
+        with st.expander(
+            f"📅 {_day_label(day)}{tithi_badge}{ev_badge}",
+            expanded=False,
+        ):
+            # ── Campos do dia ────────────────────────────────────────
             dc1, dc2, dc3 = st.columns(3)
             with dc1:
-                day["day_key"]  = st.text_input("day_key", value=day.get("day_key", ""), key=f"dk_{di}")
-                day["label_pt"] = st.text_input("label_pt", value=day.get("label_pt", ""), key=f"dlp_{di}")
+                day["day_key"] = st.text_input(
+                    "day_key", value=day.get("day_key", ""), key=f"dk_{di}", disabled=True
+                )
+                day["label_pt"] = st.text_input(
+                    "label_pt", value=day.get("label_pt", ""), key=f"dlp_{di}",
+                )
             with dc2:
-                day["label_en"]          = st.text_input("label_en", value=day.get("label_en", ""), key=f"dle_{di}")
-                # primary_event_key is the canonical field in v6.2; keep primary_event for compatibility
+                day["label_en"] = st.text_input(
+                    "label_en", value=day.get("label_en", ""), key=f"dle_{di}",
+                )
+                # primary_event_key como selectbox dos eventos existentes
+                event_keys = [e.get("event_key", "") for e in day.get("events", [])]
+                pek_options = [""] + event_keys
                 pv = day.get("primary_event_key", day.get("primary_event", ""))
-                pv_new = st.text_input("primary_event_key", value=pv, key=f"dpe_{di}")
+                pv_idx = pek_options.index(pv) if pv in pek_options else 0
+                pv_new = st.selectbox(
+                    "primary_event_key",
+                    options=pek_options,
+                    index=pv_idx,
+                    key=f"dpe_{di}",
+                    format_func=lambda x: x if x else "(nenhum)",
+                )
                 day["primary_event_key"] = pv_new
-                day["primary_event"]     = pv_new
+                day["primary_event"] = pv_new  # compat
             with dc3:
-                day["tithi"]         = st.text_input("tithi", value=day.get("tithi", ""), key=f"dt_{di}")
-                day["tithi_name_pt"] = st.text_input("tithi_name_pt", value=day.get("tithi_name_pt", ""), key=f"dtnp_{di}")
+                day["tithi"] = st.text_input(
+                    "tithi", value=day.get("tithi", ""), key=f"dt_{di}",
+                )
+                day["tithi_name_pt"] = st.text_input(
+                    "tithi_name_pt",
+                    value=day.get("tithi_name_pt", ""),
+                    key=f"dtnp_{di}",
+                )
 
-            # ── Eventos do dia ──────────────────────────────────────
+            # ── Eventos do dia ───────────────────────────────────────
             st.markdown("**Eventos:**")
             events = day.setdefault("events", [])
 
+            # Adicionar evento (com campos inteligentes)
             with st.expander("➕ Adicionar evento", expanded=False):
                 ne1, ne2, ne3 = st.columns(3)
 
+                EVENT_TYPES = [
+                    "programa", "mangala", "arati",
+                    "darshan", "parikrama", "other",
+                ]
+
                 net = ne1.selectbox(
-                    "type", ["programa", "mangala", "arati", "darshan", "other"],
-                    key=f"net_{di}")
+                    "type", EVENT_TYPES, key=f"net_{di}",
+                )
                 netm = ne2.text_input("time (HH:MM)", key=f"netm_{di}")
 
-                # Sugestão reativa do autofill
+                # event_key AUTO-DERIVADO
+                auto_ek = ""
+                if dk and net:
+                    date_part = dk.replace("-", "")
+                    time_part = (netm or "00:00").replace(":", "").ljust(4, "0")[:4]
+                    auto_ek = f"{date_part}-{time_part}-{net}"
+
+                # Sugestão do autofill (se disponível)
                 if af:
                     try:
                         sug_ev = af.suggest_event(day, event_type=net, time_str=netm)
                     except Exception:
-                        sug_ev = {"event_key": "", "title_pt": "", "title_en": "", "status": "future", "location": {}}
+                        sug_ev = {
+                            "event_key": auto_ek,
+                            "title_pt": "", "title_en": "",
+                            "status": "future", "location": {},
+                        }
                 else:
-                    sug_ev = {"event_key": "", "title_pt": "", "title_en": "", "status": "future", "location": {}}
+                    sug_ev = {
+                        "event_key": auto_ek,
+                        "title_pt": "", "title_en": "",
+                        "status": "future", "location": {},
+                    }
 
-                nek  = ne1.text_input("event_key", value=sug_ev["event_key"], key=f"nek_{di}")
-                netp = ne2.text_input("title_pt", value=sug_ev["title_pt"], key=f"netp_{di}")
-                nete = ne3.text_input("title_en", value=sug_ev["title_en"], key=f"nete_{di}")
-
-                nest = ne3.selectbox(
-                    "status",
-                    ["past", "active", "future", "live", "soon"],
-                    index=["past", "active", "future", "live", "soon"].index(sug_ev.get("status", "future")),
-                    key=f"nest_{di}",
+                # event_key mostrado mas não editável (derivado)
+                nek = ne1.text_input(
+                    "event_key (auto)",
+                    value=sug_ev.get("event_key", auto_ek),
+                    key=f"nek_{di}",
+                    disabled=True,
                 )
-                neloc = ne3.text_input("local", value=sug_ev.get("location", {}).get("name", ""), key=f"neloc_{di}")
+                # Campo oculto editável para override (raro)
+                nek_override = ""
+                if st.checkbox("✏️ Editar event_key manualmente", key=f"nek_override_check_{di}", value=False):
+                    nek_override = st.text_input(
+                        "event_key (manual)",
+                        value=sug_ev.get("event_key", auto_ek),
+                        key=f"nek_manual_{di}",
+                    )
+
+                final_ek = nek_override if nek_override else (sug_ev.get("event_key", "") or auto_ek)
+
+                netp = ne2.text_input(
+                    "title_pt", value=sug_ev.get("title_pt", ""), key=f"netp_{di}",
+                )
+                nete = ne3.text_input(
+                    "title_en", value=sug_ev.get("title_en", ""), key=f"nete_{di}",
+                )
+
+                # Status CALCULADO (não selecionado)
+                event_tz = meta.get("timezone", "Asia/Kolkata")
+                try:
+                    from services.constraints import compute_event_status
+                    auto_status = compute_event_status(dk, netm, event_tz)
+                except Exception:
+                    auto_status = "past"
+
+                ne3.markdown(f"**Status:** `{auto_status}` (calculado)")
+
+                neloc = ne3.text_input(
+                    "local",
+                    value=sug_ev.get("location", {}).get("name", ""),
+                    key=f"neloc_{di}",
+                )
+
+                # Validação: event_key já existe neste dia?
+                existing_event_keys = {e.get("event_key") for e in events}
+                ek_conflict = final_ek in existing_event_keys if final_ek else False
+                if ek_conflict:
+                    st.error(f"❌ Evento `{final_ek}` já existe neste dia.")
 
                 if st.button("Adicionar evento", key=f"btn_aev_{di}"):
-                    if nek:
-                        events.append({
-                            "event_key": nek,
-                            "type":      net,
-                            "title_pt":  netp,
-                            "title_en":  nete,
-                            "time":      netm,
-                            "status":    nest,
-                            "location":  {"name": neloc} if neloc else {},
-                            "vods":      [],
-                            "kathas":    [],
-                            "photos":    [],
-                            "sangha":    [],
-                        })
-                        day["events"] = events
-                        _save(gh, visit_ref, visit, editor_name or "anon", f"event {nek}: adicionado")
-                        st.rerun()
+                    if not final_ek:
+                        st.warning("Preencha o tipo e horário para gerar o event_key.")
+                    elif ek_conflict:
+                        st.error("❌ Corrija o conflito de event_key antes de adicionar.")
                     else:
-                        st.warning("event_key é obrigatório.")
+                        events.append({
+                            "event_key": final_ek,
+                            "type": net,
+                            "title_pt": netp,
+                            "title_en": nete,
+                            "time": netm,
+                            "status": auto_status,
+                            "location": {"name": neloc} if neloc else {},
+                            "vods": [],
+                            "kathas": [] if visit.get("schema_version") == "6.1" else None,
+                            "photos": [],
+                            "sangha": [],
+                        })
+                        # Remove None (schema 6.2 não tem kathas[])
+                        events[-1] = {k: v for k, v in events[-1].items() if v is not None}
 
+                        day["events"] = events
+
+                        # Auto-set primary_event_key se é o primeiro evento
+                        if len(events) == 1:
+                            day["primary_event_key"] = final_ek
+                            day["primary_event"] = final_ek
+
+                        _save(
+                            gh, visit_ref, visit,
+                            editor_name or "anon",
+                            f"event {final_ek}: adicionado ao dia {dk}",
+                        )
+                        st.rerun()
+
+            # ── Lista de eventos existentes ───────────────────────────
             for ei, ev in enumerate(events):
+                is_primary = ev.get("event_key") == day.get("primary_event_key")
+                primary_icon = " ⭐" if is_primary else ""
+
                 with st.container(border=True):
                     ec1, ec2, ec3 = st.columns([3, 2, 1])
                     with ec1:
-                        ev["event_key"] = st.text_input("event_key", value=ev.get("event_key", ""), key=f"evk_{di}_{ei}")
-                        ev["title_pt"]  = st.text_input("title_pt",  value=ev.get("title_pt", ""),  key=f"evtp_{di}_{ei}")
-                        ev["title_en"]  = st.text_input("title_en",  value=ev.get("title_en", ""),  key=f"evte_{di}_{ei}")
+                        st.markdown(
+                            f"**`{ev.get('event_key', '?')}`**{primary_icon}"
+                        )
+                        ev["title_pt"] = st.text_input(
+                            "title_pt", value=ev.get("title_pt", ""),
+                            key=f"evtp_{di}_{ei}",
+                        )
+                        ev["title_en"] = st.text_input(
+                            "title_en", value=ev.get("title_en", ""),
+                            key=f"evte_{di}_{ei}",
+                        )
                     with ec2:
-                        ev["type"]   = st.text_input("type",   value=ev.get("type", ""),   key=f"evt_{di}_{ei}")
-                        ev["time"]   = st.text_input("time",   value=ev.get("time", ""),   key=f"evtm_{di}_{ei}")
-                        ev["status"] = st.selectbox(
-                                    "status",
-                                    ["past", "active", "future", "live", "soon"],
-                                    index=["past", "active", "future", "live", "soon"].index(ev.get("status", "past")),
-                                    key=f"evst_{di}_{ei}",
-                                )
+                        ev["type"] = st.selectbox(
+                            "type",
+                            EVENT_TYPES + (
+                                [ev["type"]] if ev.get("type") and ev["type"] not in EVENT_TYPES else []
+                            ),
+                            index=(
+                                EVENT_TYPES.index(ev.get("type", "programa"))
+                                if ev.get("type", "programa") in EVENT_TYPES
+                                else 0
+                            ),
+                            key=f"evt_{di}_{ei}",
+                        )
+                        ev["time"] = st.text_input(
+                            "time (HH:MM)", value=ev.get("time", ""),
+                            key=f"evtm_{di}_{ei}",
+                        )
+
+                        # Status recalculado automaticamente
+                        try:
+                            from services.constraints import compute_event_status as _ces
+                            recalc_status = _ces(dk, ev.get("time", ""), event_tz)
+                        except ImportError:
+                            recalc_status = ev.get("status", "past")
+
+                        ev["status"] = recalc_status
+                        st.markdown(f"**Status:** `{recalc_status}`")
+
                     with ec3:
-                        # Localização rápida
                         loc = ev.setdefault("location", {})
-                        loc["name"] = st.text_input("local", value=loc.get("name", ""), key=f"evloc_{di}_{ei}")
+                        loc["name"] = st.text_input(
+                            "local", value=loc.get("name", ""),
+                            key=f"evloc_{di}_{ei}",
+                        )
+
+                        # Contadores de conteúdo
+                        vod_count = len(ev.get("vods", []))
+                        photo_count = len(ev.get("photos", []))
+                        sangha_count = len(ev.get("sangha", []))
+                        if vod_count or photo_count or sangha_count:
+                            st.caption(
+                                f"🎬 {vod_count} · 📸 {photo_count} · 💬 {sangha_count}"
+                            )
+
                         st.write("")
-                        if st.button("🗑️", key=f"del_ev_{di}_{ei}", help="Remover evento"):
+                        if st.button(
+                            "🗑️", key=f"del_ev_{di}_{ei}",
+                            help="Remover evento",
+                        ):
                             events.pop(ei)
                             day["events"] = events
-                            _save(gh, visit_ref, visit, editor_name or "anon", f"event: removido")
+                            _save(
+                                gh, visit_ref, visit,
+                                editor_name or "anon",
+                                f"event: removido do dia {dk}",
+                            )
                             st.rerun()
 
+            # ── Ações do dia ─────────────────────────────────────────
             st.write("")
             col_save, col_del = st.columns([4, 1])
             with col_save:
-                if st.button(f"💾 Salvar dia {day.get('day_key', di)}", key=f"save_day_{di}"):
-                    _save(gh, visit_ref, visit, editor_name or "anon", f"day {day.get('day_key')}: atualizado")
+                if st.button(
+                    f"💾 Salvar dia {dk}", key=f"save_day_{di}",
+                ):
+                    _save(
+                        gh, visit_ref, visit,
+                        editor_name or "anon",
+                        f"day {dk}: atualizado",
+                    )
             with col_del:
-                if st.button("🗑️ Remover dia", key=f"del_day_{di}", type="secondary"):
+                ev_count_check = len(day.get("events", []))
+                del_disabled = ev_count_check > 0
+                if st.button(
+                    "🗑️ Remover dia", key=f"del_day_{di}",
+                    type="secondary",
+                    disabled=del_disabled,
+                    help=(
+                        "Remova os eventos primeiro"
+                        if del_disabled
+                        else "Remover este dia da visita"
+                    ),
+                ):
                     days.pop(di)
                     visit["days"] = days
-                    _save(gh, visit_ref, visit, editor_name or "anon", f"day {day.get('day_key')}: removido")
+                    _save(
+                        gh, visit_ref, visit,
+                        editor_name or "anon",
+                        f"day {dk}: removido",
+                    )
                     st.rerun()
 
 
