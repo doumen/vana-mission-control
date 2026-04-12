@@ -1502,31 +1502,80 @@ with tab_meta:
                 _yt_results = st.session_state.get(f"yt_results_{dk}", [])
                 if _yt_results:
                     with st.expander(f"🔍 Resultados YouTube ({len(_yt_results)})", expanded=False):
+                        # render list with selection and optional type override
                         for vi, v in enumerate(_yt_results):
-                            c1, c2 = st.columns([6, 1])
-                            with c1:
+                            cols = st.columns([1, 6, 2])
+                            sel = cols[0].checkbox("", key=f"yt_sel_{dk}_{vi}")
+                            with cols[1]:
                                 st.markdown(f"**{v.get('title','')}**  \n`{v.get('video_id','')}` · {v.get('inferred_time','')} · {v.get('inferred_type','')}")
                                 st.caption(f"{v.get('duration_s',0)}s · publicado {v.get('published_at')}")
-                            with c2:
-                                if st.button("Criar evento", key=f"yt_create_{dk}_{vi}"):
+                            # allow type override
+                            _type_opts = C_EVENT_TYPES if _has_constraints else ["programa", "mangala", "arati", "darshan", "other"]
+                            cols[2].selectbox("Tipo", [_type_opts[0]] + _type_opts if v.get('inferred_type') not in _type_opts else _type_opts, index=(_type_opts.index(v.get('inferred_type')) if v.get('inferred_type') in _type_opts else 0), key=f"yt_type_{dk}_{vi}")
+
+                        # Bulk actions
+                        sel_idxs = [i for i in range(len(_yt_results)) if st.session_state.get(f"yt_sel_{dk}_{i}")]
+                        if sel_idxs:
+                            if st.button("Criar eventos selecionados", key=f"yt_bulk_create_ev_{dk}"):
+                                created = []
+                                for i in sel_idxs:
+                                    v = _yt_results[i]
+                                    override_type = st.session_state.get(f"yt_type_{dk}_{i}")
                                     if not build_event_from_video:
                                         st.error("Serviço de build de evento indisponível.")
-                                    else:
-                                        built = build_event_from_video(v, dk)
-                                        if built and isinstance(built, dict):
-                                            new_event = built.get('event')
-                                            # checar duplicidade do video_id
-                                            _can = True
-                                            if _has_constraints:
-                                                dup = validate_vod_unique(visit, v.get('video_id'))
-                                                if dup:
-                                                    st.error(dup)
-                                                    _can = False
-                                            if _can:
-                                                events.append(new_event)
-                                                day['events'] = events
-                                                _save(gh, visit_ref, visit, editor_name or "anon", f"event {new_event.get('event_key')}: criado do YouTube {v.get('video_id')}")
-                                                st.experimental_rerun()
+                                        break
+                                    built = build_event_from_video(v, dk)
+                                    if not built:
+                                        continue
+                                    new_event = built.get('event')
+                                    if override_type:
+                                        new_event['type'] = override_type
+                                    # check duplicate vod
+                                    if _has_constraints:
+                                        dup = validate_vod_unique(visit, v.get('video_id'))
+                                        if dup:
+                                            st.error(f"Pulando {v.get('video_id')}: {dup}")
+                                            continue
+                                    events.append(new_event)
+                                    created.append(new_event.get('event_key'))
+                                if created:
+                                    day['events'] = events
+                                    _save(gh, visit_ref, visit, editor_name or "anon", f"events created from YouTube: {', '.join(created)}")
+                                    st.experimental_rerun()
+
+                            if st.button("Adicionar órfãos selecionados", key=f"yt_bulk_orphans_{dk}"):
+                                added = []
+                                _orphans = visit.get('orphans', {})
+                                _o_vods = _orphans.get('vods', []) if isinstance(_orphans, dict) else []
+                                for i in sel_idxs:
+                                    v = _yt_results[i]
+                                    vid = v.get('video_id')
+                                    if _has_constraints:
+                                        dup = validate_vod_unique(visit, vid)
+                                        if dup:
+                                            st.error(f"Pulando órfão {vid}: {dup}")
+                                            continue
+                                    # suggest key
+                                    date_part = dk.replace('-', '')
+                                    n = len(_o_vods) + 1
+                                    vod_key = f"vod-{date_part}-orphan-{n:03d}"
+                                    _o_vods.append({
+                                        'vod_key': vod_key,
+                                        'provider': 'youtube',
+                                        'video_id': vid,
+                                        'url': None,
+                                        'thumb_url': v.get('thumbnail'),
+                                        'duration_s': v.get('duration_s'),
+                                        'title_pt': v.get('title'),
+                                        'title_en': v.get('title'),
+                                        'vod_part': 1,
+                                        'segments': [],
+                                    })
+                                    added.append(v.get('video_id'))
+                                if added:
+                                    visit['orphans'] = {'vods': _o_vods}
+                                    _save(gh, visit_ref, visit, editor_name or "anon", f"added orphan vods from YouTube: {', '.join(added)}")
+                                    st.experimental_rerun()
             else:
                 # service not available
                 pass
